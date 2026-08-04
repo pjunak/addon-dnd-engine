@@ -1,0 +1,27 @@
+# Dependencies and generated test output
+node_modules/
+coverage/
+
+# Secrets and private keys
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
+*.keystore
+id_rsa
+id_ed25519
+
+# Local agent-tool compatibility files
+.claude/
+CLAUDE.md
+
+# OS and editor noise
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/

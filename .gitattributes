@@ -1,0 +1,2 @@
+# Normalize text in the repository; working-tree line endings remain platform-native.
+* text=auto

@@ -1,0 +1,36 @@
+{
+  "id": "dnd-engine",
+  "name": "D&D Rules Engine",
+  "version": "1.0.0",
+  "apiVersion": 2,
+  "hostVersion": ">=1.2.0",
+  "capabilities": {
+    "required": ["lifecycle.dispose"]
+  },
+  "entry": "entry.js",
+  "permissions": [],
+  "services": {
+    "provides": [
+      {
+        "contract": "dnd5e.rules-engine",
+        "version": "1.0.0"
+      }
+    ],
+    "consumes": [
+      {
+        "contract": "dnd5e.rules-data",
+        "range": "^1.0.0",
+        "cardinality": "one",
+        "required": false
+      }
+    ]
+  },
+  "tests": {
+    "client": [
+      "tests/contract.mjs",
+      "tests/engine.mjs",
+      "tests/smoke.mjs"
+    ]
+  },
+  "summary": "A headless, replaceable D&D rules engine. It discovers any compatible rules-data provider and exposes deterministic computation to character-sheet addons without owning UI or character storage."
+}

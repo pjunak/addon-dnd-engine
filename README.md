@@ -3,14 +3,12 @@
 Headless, reusable D&D rules computation for
 [ttrpg-codex](https://github.com/pjunak/ttrpg-codex).
 
-> **Status:** repository scaffold. The engine still lives in
-> `dnd-character-sheets/rules/`; this repository is not an installable addon
-> until the versioned service contract, implementation, manifest, and tests are
-> extracted together.
+Addon id: `dnd-engine`. It is an independently installable API-v2 addon with no
+UI permissions and no character storage.
 
 ## Purpose
 
-This addon will turn structured rules data and a detached character decision
+This addon turns structured rules data and a detached character decision
 model into deterministic computed results. It exists separately from the
 official sheets so multiple sheet implementations can share the engine and a
 compatible replacement engine can be selected without changing those sheets.
@@ -27,9 +25,16 @@ rules-data provider (official or third-party)
  official character sheet   custom sheet
 ```
 
-The current `dnd55e-compendium` will be one rules-data provider. Provider
-selection will use a generic, versioned CodexHost service contract rather than
-a list of recognized addon IDs.
+The current `dnd55e-compendium` is one rules-data provider. Provider and engine
+selection use generic versioned CodexHost services rather than recognized addon
+IDs:
+
+- consumes zero or one `dnd5e.rules-data` `^1.0.0` service;
+- provides `dnd5e.rules-engine` `1.0.0`.
+
+With no provider, universal arithmetic remains available and provider-dependent
+hydration reports its unavailable state. Multiple compatible providers are
+resolved explicitly by the host Add-on Manager.
 
 ## Boundaries
 
@@ -56,8 +61,7 @@ Compact will be the default for characters without a saved per-browser choice.
 Node.js 26 is required. This project uses browser-native ES modules and has no
 build step or runtime package dependencies.
 
-Once the extraction introduces executable source, run all tests from this
-repository with relative paths:
+Run all tests from this repository with relative paths:
 
 ```text
 node --test tests/*.mjs
@@ -69,9 +73,9 @@ Install the working tree from a sibling `ttrpg-codex` checkout:
 node scripts/dev-install-addon.cjs ../addon-dnd-engine
 ```
 
-See [`AGENTS.md`](AGENTS.md) for the repository contract. The detailed
-cross-repository implementation plan is intentionally kept under the host's
-gitignored `docs/plans/` directory rather than duplicated here.
+See [`contract/README.md`](contract/README.md) for the public service contracts,
+[`rules/README.md`](rules/README.md) for computation semantics, and
+[`AGENTS.md`](AGENTS.md) for repository policy.
 
 ## License
 

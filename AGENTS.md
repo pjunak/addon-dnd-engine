@@ -1,15 +1,9 @@
 # AGENTS.md — addon-dnd-engine
 
-This repository is the future headless D&D rules-engine addon for the sibling
-`ttrpg-codex` host. It is being extracted from
-`../dnd-character-sheets/rules/` so independently developed character sheets
-can reuse or replace the engine without installing the official sheet UI.
-
-The repository is currently a scaffold and is not installable until an
-`addon.json`, entry module, contract, implementation, and conformance tests
-land together. Do not publish a placeholder addon manifest. Confirm the final
-manifest ID before the first release; after publication it becomes a permanent
-integration identity.
+This repository contains the headless `dnd-engine` addon for the sibling
+`ttrpg-codex` host. Independently developed character sheets can discover its
+`dnd5e.rules-engine` service without installing the official sheet UI. The
+manifest ID and service identities are permanent compatibility contracts.
 
 ## Read before editing
 
@@ -17,13 +11,10 @@ integration identity.
 2. `../ttrpg-codex/examples/addons/AGENTS.md` for the host addon contract.
 3. `../ttrpg-codex/docs/reference/addons.md` before changing manifests,
    service discovery, lifecycle, permissions, or installation behavior.
-4. `../dnd-character-sheets/rules/README.md` and
-   `../dnd-character-sheets/docs/RULES_EDGE_CASES.md` while extraction is in
-   progress.
-5. `../dnd55e-compendium/data/SCHEMA.md` while migrating the rules-data
-   provider contract. Once the public provider contract is established here,
-   this repository becomes its consumer-side authority and provider repos link
-   to it instead of defining competing contracts.
+4. [`contract/README.md`](contract/README.md) before changing public services,
+   ruleset validation, provider metadata, or reference resolution.
+5. [`rules/README.md`](rules/README.md) before changing computation semantics.
+6. `../dnd55e-compendium/data/SCHEMA.md` when a provider record field changes.
 
 Do not duplicate the host authoring guide or compendium record catalog here.
 Link to their authoritative documents.
@@ -38,8 +29,7 @@ rules/              deterministic host-free computation modules
 tests/              unit, contract, provider, lifecycle, and smoke tests
 ```
 
-The exact file tree may evolve during extraction, but these ownership rules do
-not:
+These ownership rules are mandatory:
 
 - The engine computes. It owns no pages, fragments, CSS, catalogs, or sheet
   presentation.
@@ -67,12 +57,8 @@ not:
 - The existing `dnd-sheets` manifest ID and
   `character.addonData["dnd-sheets"]` remain owned by the sheets addon. This
   repository must not migrate or write that namespace.
-- Preserve current engine behavior with shared golden vectors before moving
-  implementation files. Change semantics only in explicit, separately tested
-  commits.
-- During migration, temporary dual registration may keep old consumers
-  working. Remove duplicated engine code once every supported consumer uses
-  the service contract.
+- Preserve engine behavior with repository-owned regression vectors. Change
+  semantics only in explicit, separately tested commits.
 - Installing, disabling, updating, or replacing a provider must participate in
   host lifecycle ordering. A stale provider instance must never survive a
   content-revision change.

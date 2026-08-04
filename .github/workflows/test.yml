@@ -1,0 +1,25 @@
+name: Test
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: addon-dnd-engine
+      - uses: actions/checkout@v7
+        with:
+          repository: pjunak/ttrpg-codex
+          path: ttrpg-codex
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+      - run: node --test tests/*.mjs
+        working-directory: addon-dnd-engine

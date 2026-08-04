@@ -1,0 +1,38 @@
+# D&D service contracts
+
+This repository is the consumer-side compatibility authority for two CodexHost
+services:
+
+- `dnd5e.rules-data` `1.0.0`: structured rule records and one explicit,
+  validated ruleset from a replaceable provider.
+- `dnd5e.rules-engine` `1.0.0`: headless deterministic computation and the
+  provider-neutral list/get/reference surface used by sheet builders.
+
+Provider selection is handled by CodexHost. Consumers never probe addon IDs.
+The selected handle supplies provider package and content revision metadata;
+`getContextIdentity()` combines that metadata with the ruleset identity.
+
+## Rules-data v1
+
+The provider API has `apiVersion: 1` and implements the list/get functions in
+[`rules-data.js`](rules-data.js), plus `getRuleset()`. A ruleset has stable
+`rulesetId`, positive `rulesetVersion`, and `edition`. It must either contain
+all required constants and capability flags or explicitly declare
+`extends: "dnd-2024"`. Missing fields never imply cross-edition inheritance.
+
+`resolveReference(kind, id, mode)` is optional. When present it returns a
+provider-owned navigation descriptor; consumers otherwise show an unlinked
+label. List projections should be fresh. Full-record identity behavior remains
+provider-documented, while the engine's public surface returns detached data.
+
+[`synthetic-provider.mjs`](synthetic-provider.mjs) is the redistributable
+conformance fixture. Provider repositories should run equivalent validation
+against their real API without copying production content here.
+
+## Engine v1
+
+The engine API exposes availability and context identity, `hydrate`, granular
+`derive` helpers, and delegated list/get/reference methods. It owns no Store,
+character namespace, UI, routes, or persistence. Without rules data it exposes
+provider-neutral arithmetic and reports rules-data-dependent hydration as
+unavailable instead of selecting a hidden addon or edition.

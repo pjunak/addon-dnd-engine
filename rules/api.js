@@ -89,6 +89,12 @@ export function makeRulesApi(getRulesDataHandle, { isDisposed = () => false } = 
     derive: Object.freeze({
       abilityMod: Engine.abilityMod,
       proficiencyBonus: Engine.proficiencyBonus,
+      hitDieAverage: Engine.hitDieAvg,
+      scrollCopyCost: level => Engine.scrollCopyCost(level, ruleset()),
+      pointBuyCost: score => Engine.pointCost(score, ruleset()),
+      pointsSpent: scores => Engine.pointsSpent(scores, ruleset()),
+      featAbilityCap: feat => Engine.featAbilityCap(feat, ruleset()),
+      featAsiFrom: Engine.featAsiFrom,
       multiclassSlots: casterLevel => Engine.multiclassSlots(casterLevel, ruleset()),
       initiative: decisions => hydrate(decisions).sheet.derived.initiative,
       maxHp: decisions => hydrate(decisions).sheet.derived.maxHp,

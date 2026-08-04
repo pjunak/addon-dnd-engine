@@ -28,6 +28,16 @@ test('provider-neutral arithmetic remains available without rules data', () => {
   assert.ok(result.warnings.some(warning => warning.includes('Rules data unavailable')));
 });
 
+test('public derive surface owns the sheet builder rule calculations', () => {
+  const api = makeRulesApi(() => handle());
+  assert.equal(api.derive.hitDieAverage('d10'), 6);
+  assert.equal(api.derive.scrollCopyCost(3), 150);
+  assert.equal(api.derive.pointBuyCost(15), 9);
+  assert.equal(api.derive.pointsSpent({ STR: 15, DEX: 8, CON: 8, INT: 8, WIS: 8, CHA: 8 }), 9);
+  assert.deepEqual(api.derive.featAsiFrom({ from: ['INT', 'WIS'], amount: 1 }), ['INT', 'WIS']);
+  assert.equal(api.derive.featAbilityCap({ category: 'epicBoon' }), 30);
+});
+
 test('engine hydrates class, saves, hit points, spell slots, and spell DC from provider records', () => {
   const api = makeRulesApi(() => handle());
   const { sheet } = api.hydrate({ abilities: { INT: 16, CON: 14 }, className: 'Wizard', level: 5 });

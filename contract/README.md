@@ -32,7 +32,13 @@ against their real API without copying production content here.
 ## Engine v1
 
 The engine API exposes availability and context identity, `hydrate`, granular
-`derive` helpers, and delegated list/get/reference methods. It owns no Store,
-character namespace, UI, routes, or persistence. Without rules data it exposes
-provider-neutral arithmetic and reports rules-data-dependent hydration as
-unavailable instead of selecting a hidden addon or edition.
+`derive` helpers, and delegated list/get/reference methods. The derivation
+surface includes ability/proficiency math plus ruleset-aware hit-die averages,
+scroll-copy cost, point-buy cost/total, feat ASI options/caps, multiclass slots,
+initiative, hit points, Armor Class, and save DC. Sheet consumers delegate
+these facts instead of carrying edition tables.
+
+The engine owns no Store, character namespace, UI, routes, or persistence.
+Without rules data it exposes provider-neutral arithmetic and reports
+rules-data-dependent hydration as unavailable instead of selecting a hidden
+addon by id.

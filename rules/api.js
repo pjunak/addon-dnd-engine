@@ -1,5 +1,5 @@
 import * as Engine from './engine.js';
-import { DEFAULT_RULESET, resolveRuleset } from './ruleset.js';
+import { DEFAULT_RULESET } from './ruleset.js';
 import {
   RULES_DATA_CONTRACT,
   RULES_DATA_CONTRACT_VERSION,
@@ -16,6 +16,8 @@ const clone = value => {
 };
 
 export function makeRulesApi(getRulesDataHandle, { isDisposed = () => false } = {}) {
+  const inspectedHandles = new WeakMap();
+  const safeApis = new WeakMap();
   const active = () => {
     if (isDisposed()) throw new Error('D&D engine service has been disposed');
   };
@@ -23,20 +25,30 @@ export function makeRulesApi(getRulesDataHandle, { isDisposed = () => false } = 
     active();
     let handle = null;
     try { handle = getRulesDataHandle?.() || null; } catch (_) {}
+    if (handle && (typeof handle === 'object' || typeof handle === 'function')) {
+      const cached = inspectedHandles.get(handle);
+      if (cached) return cached;
+      const inspected = inspectRulesDataHandle(handle);
+      const current = inspected.available
+        ? Object.freeze({ ...inspected, api: safeProviderApi(inspected.api, safeApis) })
+        : inspected;
+      if (inspected.available) inspectedHandles.set(handle, current);
+      return current;
+    }
     return inspectRulesDataHandle(handle);
   };
   const data = () => context().api;
   const ruleset = () => {
     const current = context();
-    return current.available ? resolveRuleset(current.ruleset) : DEFAULT_RULESET;
+    return current.available ? current.ruleset : DEFAULT_RULESET;
   };
-  const list = (method, ...args) => clone(data()?.[method]?.(...args) || []);
-  const item = (method, ...args) => clone(data()?.[method]?.(...args) || null);
+  const list = (method, ...args) => data()?.[method]?.(...args) || [];
+  const item = (method, ...args) => data()?.[method]?.(...args) || null;
 
   const hydrate = decisions => {
     active();
     const current = context();
-    const result = Engine.hydrate(clone(decisions || {}), current.api, current.available ? resolveRuleset(current.ruleset) : DEFAULT_RULESET);
+    const result = Engine.hydrate(clone(decisions || {}), current.api, current.available ? current.ruleset : DEFAULT_RULESET);
     if (!current.available) {
       result.warnings = [
         ...(Array.isArray(result.warnings) ? result.warnings : []),
@@ -81,8 +93,7 @@ export function makeRulesApi(getRulesDataHandle, { isDisposed = () => false } = 
     getRecords: kind => list('getRecords', kind),
     resolveReference: (kind, id, mode = 'view') => {
       active();
-      const value = data()?.resolveReference?.(kind, id, mode);
-      return value && typeof value === 'object' ? clone(value) : null;
+      return data()?.resolveReference?.(kind, id, mode) || null;
     },
     getRuleset: () => clone(ruleset()),
     hydrate,
@@ -103,4 +114,48 @@ export function makeRulesApi(getRulesDataHandle, { isDisposed = () => false } = 
     }),
   };
   return Object.freeze(api);
+}
+
+function safeProviderApi(raw, cache) {
+  if (!raw || typeof raw !== 'object') return null;
+  const cached = cache.get(raw);
+  if (cached) return cached;
+
+  const safe = {};
+  for (const method of [
+    'listClasses', 'listSubclasses', 'listFeatures', 'listSpecies',
+    'listBackgrounds', 'listFeats', 'listSpells', 'listEquipment',
+    'listArmor', 'listWeapons', 'listSkills', 'getRecords',
+  ]) {
+    safe[method] = (...args) => safeListCall(raw, method, args);
+  }
+  for (const method of ['getFeature', 'getItem', 'getItemByName']) {
+    safe[method] = (...args) => safeItemCall(raw, method, args);
+  }
+  safe.resolveReference = (...args) => safeItemCall(raw, 'resolveReference', args);
+  const frozen = Object.freeze(safe);
+  cache.set(raw, frozen);
+  return frozen;
+}
+
+function safeListCall(raw, method, args) {
+  try {
+    const fn = raw[method];
+    if (typeof fn !== 'function') return [];
+    const result = fn.apply(raw, args);
+    return Array.isArray(result) ? clone(result) : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function safeItemCall(raw, method, args) {
+  try {
+    const fn = raw[method];
+    if (typeof fn !== 'function') return null;
+    const result = fn.apply(raw, args);
+    return result && typeof result === 'object' && !Array.isArray(result) ? clone(result) : null;
+  } catch (_) {
+    return null;
+  }
 }

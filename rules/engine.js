@@ -336,9 +336,9 @@ export function computeWeaponAttack(rec, mods, pb, profW, masterySet, preferredA
  * Hydrate player DECISIONS into a computed sheet. NEVER throws — every step is
  * error-isolated and failures accumulate in `warnings`. Returns { sheet, warnings }.
  * The engine only proposes; the sheet layer lets a stored override win.
- * `ruleset` is the data provider's (possibly partial) `ruleset` record —
- * resolved per constant over the 2024 defaults, so omitting it keeps
- * every existing call site byte-identical.
+ * `ruleset` is a validated provider snapshot: complete on its own, or partial
+ * only when it explicitly extends the native 2024 base. Omitting it selects
+ * that native standalone context.
  */
 export function hydrate(decisions, api, ruleset) {
   const rs = resolveRuleset(ruleset);

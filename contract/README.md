@@ -19,11 +19,16 @@ The provider API has `apiVersion: 1` and implements the list/get functions in
 `rulesetId`, positive `rulesetVersion`, and `edition`. It must either contain
 all required constants and capability flags or explicitly declare
 `extends: "dnd-2024"`. Missing fields never imply cross-edition inheritance.
+The boundary validates every engine-consumed constant and capability, rejects
+non-finite or non-plain data, and retains a detached recursively frozen
+snapshot. Later provider mutation therefore cannot change an active engine
+context.
 
 `resolveReference(kind, id, mode)` is optional. When present it returns a
 provider-owned navigation descriptor; consumers otherwise show an unlinked
 label. List projections should be fresh. Full-record identity behavior remains
-provider-documented, while the engine's public surface returns detached data.
+provider-documented. The engine catches provider access failures, rejects the
+wrong list/item shape, and returns detached data from its public surface.
 
 [`synthetic-provider.mjs`](synthetic-provider.mjs) is the redistributable
 conformance fixture. Provider repositories should run equivalent validation

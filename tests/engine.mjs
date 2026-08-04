@@ -119,6 +119,17 @@ test('public results and provider projections are detached from caller mutation'
   assert.equal(api.hydrate(decisions).sheet.abilities.STR.score, 16);
 });
 
+test('malformed provider results fail closed at the public engine boundary', () => {
+  const provider = makeFake();
+  provider.listClasses = () => ({ not: 'an array' });
+  provider.getItem = () => [];
+  provider.getItemByName = () => { throw new Error('provider failure'); };
+  const api = makeRulesApi(() => handle(provider));
+  assert.deepEqual(api.listClasses(), []);
+  assert.equal(api.getItem('class', 'wizard'), null);
+  assert.doesNotThrow(() => api.hydrate({ className: 'Wizard', level: 1 }));
+});
+
 test('context identity carries provider, ruleset, contract, and content revision', () => {
   const api = makeRulesApi(() => handle());
   assert.deepEqual(api.getContextIdentity(), {

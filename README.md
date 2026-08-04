@@ -56,6 +56,23 @@ The engine will not own:
 sheet shell, Compact and Classic built-in renderers, and renderer selection.
 Compact will be the default for characters without a saved per-browser choice.
 
+## Upgrade from the embedded engine
+
+Existing installations should roll out the separation in this order:
+
+1. Install `dnd-engine`. Existing sheet releases ignore it safely.
+2. Update the rules-data addon. The official compendium temporarily publishes
+   both its versioned service and its legacy direct API, so both old sheets and
+   the new engine can use the same records during the transition.
+3. Update `dnd-sheets`. It discovers the engine through
+   `dnd5e.rules-engine`; no compendium or engine addon ID is encoded in the
+   sheet.
+
+Reversing the last two steps can temporarily leave the Builder without rules
+automation, but stored and materialized sheet fields remain usable. Third-party
+rules-data providers do not need the official compendium bridge when their
+supported sheets already consume a rules-engine service.
+
 ## Development
 
 Node.js 26 is required. This project uses browser-native ES modules and has no

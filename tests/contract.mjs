@@ -62,6 +62,32 @@ test('rulesets must be complete or explicitly inherit the supported base', () =>
   assert.equal(validateRuleset({ ...DEFAULT_RULESET, extends: 'unknown-base' }).ok, false);
 });
 
+test('rulesets reject present-but-invalid constant and capability shapes', () => {
+  const invalid = [
+    { path: 'ability cap', apply: ruleset => { ruleset.constants.abilityCap = 'twenty'; } },
+    { path: 'point buy', apply: ruleset => { ruleset.constants.pointBuy = 'broken'; } },
+    { path: 'ASI', apply: ruleset => { ruleset.constants.asi.baseLevels = [0, 4]; } },
+    { path: 'caster fractions', apply: ruleset => { ruleset.constants.casterFractions.half = 'sideways'; } },
+    { path: 'pact magic', apply: ruleset => { ruleset.constants.pactMagic.tiers = [{ level: 1, slots: -1 }]; } },
+    { path: 'rest', apply: ruleset => { ruleset.constants.rest.longRestHitDice = 'sometimes'; } },
+    { path: 'capabilities', apply: ruleset => { ruleset.capabilities.weaponMastery = 'yes'; } },
+  ];
+  for (const fixture of invalid) {
+    const ruleset = structuredClone(DEFAULT_RULESET);
+    fixture.apply(ruleset);
+    assert.equal(validateRuleset(ruleset).ok, false, fixture.path);
+  }
+});
+
+test('accepted rulesets are detached snapshots', () => {
+  const source = structuredClone(DEFAULT_RULESET);
+  const inspected = inspectRulesDataHandle(handle({ ...makeFake(), getRuleset: () => source }));
+  assert.equal(inspected.available, true);
+  source.constants.abilityCap = 1;
+  assert.equal(inspected.ruleset.constants.abilityCap, 20);
+  assert.ok(Object.isFrozen(inspected.ruleset));
+});
+
 test('loading and provider failures remain explicit unavailable states', () => {
   const pending = makeFake();
   pending.getRuleset = () => null;

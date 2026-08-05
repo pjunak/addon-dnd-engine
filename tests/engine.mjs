@@ -2,8 +2,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as Engine from '../rules/engine.js';
 import { makeRulesApi } from '../rules/api.js';
-import { DEFAULT_RULESET, resolveRuleset } from '../rules/ruleset.js';
+import { requireRuleset } from '../rules/ruleset.js';
 import { makeFake } from '../contract/synthetic-provider.mjs';
+import {
+  SYNTHETIC_2014_RULESET,
+  SYNTHETIC_2024_RULESET,
+} from '../contract/synthetic-rulesets.mjs';
 
 const handle = (api = makeFake(), overrides = {}) => Object.freeze({
   api,
@@ -12,7 +16,7 @@ const handle = (api = makeFake(), overrides = {}) => Object.freeze({
     addonName: 'Fixture Provider',
     addonVersion: '2.3.4',
     contract: 'dnd5e.rules-data',
-    contractVersion: '1.0.0',
+    contractVersion: '2.0.0',
     contentRevision: 'content-a',
     ...overrides,
   }),
@@ -72,18 +76,8 @@ test('multiclass origin order and caster fractions are observable inputs', () =>
   assert.equal(wizardFirst.saves.INT.proficient, true);
   assert.equal(fighterFirst.saves.STR.proficient, true);
 
-  const down = {
-    ...DEFAULT_RULESET,
-    rulesetId: 'dnd-other',
-    id: 'dnd-other',
-    edition: 'other',
-    constants: {
-      ...DEFAULT_RULESET.constants,
-      casterFractions: { half: 'down', third: 'down' },
-    },
-  };
   const data = makeFake();
-  data.getRuleset = () => down;
+  data.getRuleset = () => SYNTHETIC_2014_RULESET;
   const other = makeRulesApi(() => handle(data));
   assert.deepEqual(
     other.hydrate({ classes: [{ classId: 'paladin', level: 5 }, { classId: 'sorcerer', level: 1 }] }).sheet.spellcasting.slots,
@@ -134,45 +128,88 @@ test('context identity carries provider, ruleset, contract, and content revision
   const api = makeRulesApi(() => handle());
   assert.deepEqual(api.getContextIdentity(), {
     engineContract: 'dnd5e.rules-engine',
-    engineContractVersion: '1.0.0',
+    engineContractVersion: '2.0.0',
     rulesDataContract: 'dnd5e.rules-data',
-    rulesDataContractVersion: '1.0.0',
+    rulesDataContractVersion: '2.0.0',
     available: true,
     status: 'ready',
     providerAddonId: 'fixture-provider',
     providerAddonVersion: '2.3.4',
-    providerContractVersion: '1.0.0',
+    providerContractVersion: '2.0.0',
     contentRevision: 'content-a',
-    rulesetId: 'dnd-2024',
-    rulesetVersion: 1,
+    rulesetId: 'synthetic-dnd-2024',
+    rulesetVersion: 2,
     edition: '2024',
   });
 });
 
-test('ruleset inheritance is explicit and another edition receives no implicit 2024 merge', () => {
-  const inherited = resolveRuleset({
-    rulesetId: 'variant',
-    rulesetVersion: 1,
-    edition: '2024',
-    extends: 'dnd-2024',
-    constants: { abilityCap: 18 },
-  });
-  assert.equal(inherited.constants.abilityCap, 18);
-  assert.ok(inherited.constants.multiclassSlots[20]);
+test('engine has no native rules revision and requires a provider profile', () => {
+  assert.throws(() => requireRuleset(), /required/);
+  assert.equal(requireRuleset(SYNTHETIC_2014_RULESET).edition, '2014');
+  assert.equal(requireRuleset(SYNTHETIC_2024_RULESET).edition, '2024');
+});
 
-  const other = resolveRuleset({
-    rulesetId: 'other',
-    rulesetVersion: 1,
-    edition: 'other',
-    constants: { abilityCap: 18 },
+test('builder plan normalizes edition-specific origin and advancement policy', () => {
+  const current = makeRulesApi(() => handle());
+  const plan2024 = current.getBuilderPlan({
+    background: 'Acolyte',
+    classes: [{ classId: 'fighter', level: 19 }],
   });
-  assert.equal(other.constants.multiclassSlots, undefined);
+  assert.deepEqual(plan2024.creationAbilityChoices.map(choice => choice.id), ['bgasi']);
+  assert.deepEqual(
+    plan2024.classChoices.find(choice => choice.id === 'asi:fighter:19').feat.categories,
+    ['general', 'epicBoon'],
+  );
+  assert.ok(plan2024.classChoices.some(choice => choice.id === 'asi:fighter:14'));
+
+  const provider2014 = makeFake();
+  provider2014.getRuleset = () => SYNTHETIC_2014_RULESET;
+  const legacy = makeRulesApi(() => handle(provider2014));
+  const plan2014 = legacy.getBuilderPlan({
+    species: 'Dwarf',
+    classes: [{ classId: 'fighter', level: 19 }],
+  });
+  assert.deepEqual(plan2014.creationAbilityChoices.map(choice => choice.id), ['speciesasi']);
+  assert.deepEqual(
+    plan2014.classChoices.find(choice => choice.id === 'asi:fighter:19').feat.categories,
+    ['general'],
+  );
+});
+
+test('builder mutations apply normalized ability budgets and feat caps', () => {
+  const api = makeRulesApi(() => handle());
+  let decisions = {
+    background: 'Acolyte',
+    classes: [{ classId: 'fighter', level: 19 }],
+    featureChoices: {},
+    abilityGrants: [],
+  };
+  decisions = api.applyBuilderChoice(decisions, {
+    choiceId: 'bgasi',
+    value: { ability: 'INT', amount: 3 },
+  });
+  assert.deepEqual(decisions.abilityGrants[0].assign, { INT: 2 });
+
+  decisions = api.applyBuilderChoice(decisions, { choiceId: 'asi:fighter:19', value: 'feat' });
+  decisions = api.applyBuilderChoice(decisions, { choiceId: 'asi:fighter:19:feat', value: 'boon-of-fortitude' });
+  assert.deepEqual(
+    decisions.abilityGrants.find(grant => grant.id === 'asi:fighter:19:featability'),
+    {
+      id: 'asi:fighter:19:featability',
+      source: { type: 'feat' },
+      assign: { CON: 1 },
+      cap: 30,
+    },
+  );
 });
 
 test('pure helpers stay deterministic and host-free', () => {
   assert.equal(Engine.abilityMod(9), -1);
   assert.equal(Engine.proficiencyBonus(17), 6);
-  assert.deepEqual(Engine.multiclassSlots(5, DEFAULT_RULESET), [4, 3, 2]);
+  assert.deepEqual(Engine.multiclassSlots(5, SYNTHETIC_2024_RULESET), [4, 3, 2]);
   const decisions = { abilities: { DEX: 14 }, level: 3 };
-  assert.deepEqual(Engine.hydrate(decisions, null), Engine.hydrate(decisions, null));
+  assert.deepEqual(
+    Engine.hydrate(decisions, null, SYNTHETIC_2024_RULESET),
+    Engine.hydrate(decisions, null, SYNTHETIC_2024_RULESET),
+  );
 });

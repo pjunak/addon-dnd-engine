@@ -12,14 +12,14 @@
 //  through the public service boundary.
 // ═══════════════════════════════════════════════════════════════
 
-import { DEFAULT_RULESET, resolveRuleset } from './ruleset.js';
+import { requireRuleset } from './ruleset.js';
 import {
   activationKey,
   applyChoicePackages,
   collectGrantSources,
   selectedFeatRecords,
 } from './grants.js';
-export { DEFAULT_RULESET, resolveRuleset };
+export { requireRuleset };
 
 export const ABILITIES = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
 
@@ -42,45 +42,34 @@ export const dieSize = (hitDie) => num(String(hitDie || '').replace(/^d/i, ''), 
  *  as DIE_AVG tables in entry.js + panel.sheet.js). */
 export const hitDieAvg = (hitDie) => Math.floor(dieSize(hitDie) / 2) + 1;
 
-// ── System constants ────────────────────────────────────────────────
-// The numbers below live in rules/ruleset.js as DEFAULT_RULESET (the 2024
-// values) and may be overridden per edition by the data addon's `ruleset`
-// record. Every helper takes an optional resolved-ruleset `rs` that defaults
-// to the 2024 defaults, so existing call sites and standalone use never break.
-// The named exports (ASI_RULES, POINT_BUY, …) stay as views of the DEFAULTS
-// for back-compat; ruleset-aware callers read `rulesApi.getRuleset()` instead.
+// ── Provider-profile calculations ──────────────────────────────────
+// Every edition-dependent value is an explicit argument supplied by the
+// selected rules-data service. These helpers have no hidden native edition.
 
-export const scrollCopyCost = (level, rs = DEFAULT_RULESET) =>
-  num(rs.constants.scrollCopyGpPerLevel, 50) * Math.max(1, num(level, 1));
+export const scrollCopyCost = (level, rs) =>
+  num(requireRuleset(rs).constants.scrollCopyGpPerLevel, 0) * Math.max(1, num(level, 1));
 
-// 2024 ASI budgets (AB-1/AB-2) — SYSTEM rules the Builder's pickers consume.
-export const ASI_RULES = DEFAULT_RULESET.constants.asi;
-
-// Ability score caps (AB-4): 20 by default; a cap-raising grant (2024 Epic
-// Boon: "increase … by 1, to a maximum of 30") lifts it, never past the hard
-// ceiling.
-export const ABILITY_CAP = DEFAULT_RULESET.constants.abilityCap;
-export const ABILITY_CAP_HARD = DEFAULT_RULESET.constants.abilityCapHard;
-/** Eligible abilities of a feat's abilityScoreIncrease grant. The 2024 data's
- *  'ANY' token ("one ability score of your choice" — e.g. Boon of Skill) means
- *  all six. [] when the grant is absent/malformed. */
+/** Eligible abilities of a feat's abilityScoreIncrease grant. The provider
+ *  token `ANY` means all six. [] when the grant is absent or malformed. */
 export const featAsiFrom = (asi) => (asi && Array.isArray(asi.from) ? (asi.from.includes('ANY') ? ABILITIES.slice() : asi.from) : []);
-/** The raised per-ability cap a feat's ASI carries, or null when the default
- *  applies. 2024 Epic Boons print "to a maximum of 30" as prose, so the cap
- *  rides on the CATEGORY (gated by the ruleset's epicBoons capability). */
-export const featAbilityCap = (feat, rs = DEFAULT_RULESET) => {
-  const boons = rs.capabilities.epicBoons;
-  return (boons && feat && feat.category === 'epicBoon') ? num(boons.abilityCap, rs.constants.abilityCapHard) : null;
+/** A raised per-ability cap carried by the feat record or its provider-owned
+ *  category policy, or null when the profile's ordinary cap applies. */
+export const featAbilityCap = (feat, rs) => {
+  const profile = requireRuleset(rs);
+  const explicit = feat?.grants?.abilityScoreIncrease?.cap;
+  if (explicit != null) return Math.min(num(profile.constants.abilityCapHard), num(explicit));
+  const caps = profile.builder?.abilityScoreAdvancement?.categoryAbilityCaps || {};
+  const categoryCap = feat?.category ? caps[feat.category] : null;
+  return categoryCap == null ? null : Math.min(num(profile.constants.abilityCapHard), num(categoryCap));
 };
 
-// Standard point buy. `pointCost` clamps out-of-range scores into [min,max]
+// Point buy. `pointCost` clamps out-of-range scores into [min,max]
 // for costing; `pointsSpent` totals a {STR..CHA} base map.
-export const POINT_BUY = DEFAULT_RULESET.constants.pointBuy;
-export const pointCost = (v, rs = DEFAULT_RULESET) => {
-  const pb = rs.constants.pointBuy;
+export const pointCost = (v, rs) => {
+  const pb = requireRuleset(rs).constants.pointBuy;
   return pb.cost[Math.max(pb.min, Math.min(pb.max, num(v, pb.min)))] || 0;
 };
-export const pointsSpent = (base, rs = DEFAULT_RULESET) => ABILITIES.reduce((sum, a) => sum + pointCost(base && base[a], rs), 0);
+export const pointsSpent = (base, rs) => ABILITIES.reduce((sum, a) => sum + pointCost(base && base[a], rs), 0);
 
 /** HP clamp — one rule for all sites. With a max>0, clamp into [0, max];
  *  with no max set (0), only floor at 0 (the ± action stays usable). */
@@ -93,8 +82,8 @@ export const clampHp = (hp, maxHp) => {
 // (MC-2). slots[i] = number of (i+1)-th-level slots. Single full casters land on
 // their own table row; this also covers multiclass + half/third casters.
 // A caster level above the table's top row clamps to the top row.
-export const multiclassSlots = (casterLevel, rs = DEFAULT_RULESET) => {
-  const table = rs.constants.multiclassSlots || {};
+export const multiclassSlots = (casterLevel, rs) => {
+  const table = requireRuleset(rs).constants.multiclassSlots || {};
   let lvl = Math.max(0, Math.floor(num(casterLevel, 0)));
   const top = Object.keys(table).reduce((m, k) => Math.max(m, num(k)), 0);
   if (lvl > top) lvl = top;
@@ -109,7 +98,8 @@ export const multiclassSlots = (casterLevel, rs = DEFAULT_RULESET) => {
  *  you have the Eldritch Knight or Arcane Trickster subclass." The half-caster
  *  round-UP is a 2024 change from 2014 (they cast from level 1 now) — a 2014
  *  ruleset record ships `casterFractions.half: 'down'`. */
-export function casterContribution(type, level, rs = DEFAULT_RULESET) {
+export function casterContribution(type, level, rs) {
+  requireRuleset(rs);
   if (type === 'full') return level;
   const div = type === 'half' ? 2 : type === 'third' ? 3 : 0;
   if (!div) return 0;   // 'pact' contributes 0 — Warlock Pact Magic never combines (see pactMagic)
@@ -122,14 +112,15 @@ export function casterContribution(type, level, rs = DEFAULT_RULESET) {
  *  2024: 1 slot (L1), 2 (L2–10), 3 (L11–16), 4 (L17+); slot level:
  *  min(slotLevelCap, ⌈level/2⌉). Derived by level from the ruleset's ascending
  *  tiers (the class progression carries no pact table). null below tier 1. */
-export function pactMagic(level, rs = DEFAULT_RULESET) {
+export function pactMagic(level, rs) {
+  requireRuleset(rs);
   const L = Math.max(0, Math.floor(num(level, 0)));
   if (L < 1) return null;
   const pm = rs.constants.pactMagic || {};
   let slots = 0;
   for (const t of pm.tiers || []) if (L >= num(t.level)) slots = num(t.slots);
   if (slots < 1) return null;
-  return { slots, level: Math.min(num(pm.slotLevelCap, 5), Math.ceil(L / 2)) };
+  return { slots, level: Math.min(num(pm.slotLevelCap), Math.ceil(L / 2)) };
 }
 
 /** Pick the progression row at `level` (or the highest row ≤ level — handles the
@@ -336,12 +327,11 @@ export function computeWeaponAttack(rec, mods, pb, profW, masterySet, preferredA
  * Hydrate player DECISIONS into a computed sheet. NEVER throws — every step is
  * error-isolated and failures accumulate in `warnings`. Returns { sheet, warnings }.
  * The engine only proposes; the sheet layer lets a stored override win.
- * `ruleset` is a validated provider snapshot: complete on its own, or partial
- * only when it explicitly extends the native 2024 base. Omitting it selects
- * that native standalone context.
+ * `ruleset` is a complete validated provider snapshot. Omitting it is an
+ * error; the public service boundary handles provider absence explicitly.
  */
 export function hydrate(decisions, api, ruleset) {
-  const rs = resolveRuleset(ruleset);
+  const rs = requireRuleset(ruleset);
   const cd = decisions || {};
   const warnings = [];
   const warn = (m) => { if (m) warnings.push(String(m)); };
@@ -362,18 +352,16 @@ export function hydrate(decisions, api, ruleset) {
   };
   const mods = {};
 
-  // Abilities (AB-1/AB-2/AB-4): final = base + Σ ability grants (background
-  // ASI, half-feats, Epic Boons …), clamped to a PER-ABILITY cap: 20 by
-  // default, raised by a grant carrying `cap` (2024 Epic Boons: "+1, to a
-  // maximum of 30") — the raise applies only to abilities that grant touches,
-  // with 30 as the hard ceiling (the 2024 absolute maximum). `baseStats` is
+  // Abilities (AB-1/AB-2/AB-4): final = base + Σ ability grants, clamped to
+  // the provider profile's per-ability cap. A grant may carry a higher `cap`,
+  // which is itself bounded by the profile's hard ceiling. `baseStats` is
   // preferred; `abilities` is the back-compat fallback (the flat sheet stores
   // final scores directly). Each grant is { source, assign: { STR:+2, … },
   // cap? }. Shape: abilities[a] = {base, score, mod, bonus}.
   step(() => {
     const base = cd.baseStats || cd.abilities || {};
     const grants = Array.isArray(cd.abilityGrants) ? cd.abilityGrants : [];
-    const capDefault = num(rs.constants.abilityCap, 20), capHard = num(rs.constants.abilityCapHard, 30);
+    const capDefault = num(rs.constants.abilityCap), capHard = num(rs.constants.abilityCapHard);
     for (const a of ABILITIES) {
       let bonus = 0, cap = capDefault;
       for (const g of grants) {
@@ -552,11 +540,8 @@ export function hydrate(decisions, api, ruleset) {
     sheet.derived.armorClass = ac.value;
   });
 
-  // Initiative (CX-2): DEX + feat bonuses. A feat record carrying a structured
-  // `modifiers: [{target:'initiative', add:'PB'|<number>}]` is the authority
-  // (2024 Alert adds PB; a 2014 Alert record would add a flat 5) — the
-  // hardcoded alert→PB check survives only as the fallback for books that
-  // predate the field.
+  // Initiative (CX-2): DEX + structured feat modifiers. The provider record is
+  // authoritative; no feat id receives implicit behavior.
   step(() => {
     let init = num(mods.DEX);
     for (const f of Array.isArray(cd.feats) ? cd.feats : []) {
@@ -564,8 +549,6 @@ export function hydrate(decisions, api, ruleset) {
       const frec = fid && api && api.getItem ? api.getItem('feat', fid) : null;
       if (frec && Array.isArray(frec.modifiers)) {
         for (const m of frec.modifiers) if (m && m.target === 'initiative') init += m.add === 'PB' ? pb : num(m.add);
-      } else if (fid === 'alert') {
-        init += pb;
       }
     }
     sheet.derived.initiative = init;
@@ -729,11 +712,11 @@ export function hydrate(decisions, api, ruleset) {
       const pact = eff.type === 'pact' ? pactMagic(c.level, rs) : null;
       // Wizard-style spellbook (SP-5): prepared is chosen from a LEARNED pool, not
       // the whole class list. The free-learn allotment isn't in the class table, so
-      // derive it from the ruleset (2024: 6 spells at L1, +2 per Wizard level after).
+      // derive it from the provider profile.
       // Guidance only — copying from scrolls/other books grows the book beyond it.
       const prepares = eff.prepares || 'list';
       const sb = rs.constants.spellbook || {};
-      const spellbookKnown = prepares === 'spellbook' ? num(sb.baseKnown, 6) + num(sb.knownPerLevel, 2) * (num(c.level, 1) - 1) : 0;
+      const spellbookKnown = prepares === 'spellbook' ? num(sb.baseKnown) + num(sb.knownPerLevel) * (num(c.level, 1) - 1) : 0;
       per.push({
         classId: c.classId, level: num(c.level), ability, type: eff.type, prepares, ritual: !!eff.ritual,
         spellListClassId: eff.spellListClassId || c.classId,
@@ -907,15 +890,13 @@ export function hydrate(decisions, api, ruleset) {
     };
   });
 
-  // Weapon Mastery slots (EQ-4): the best class count + Weapon Master feat.
-  // A 2024-only subsystem — a ruleset without the capability zeroes the slots
-  // (the data self-gates too: 2014 records carry no weaponMastery field).
+  // Weapon Mastery slots (EQ-4): the best class count plus structured feat
+  // grants. A profile without the subsystem zeroes the slots.
   step(() => {
     let count = 0;
     if (rs.capabilities.weaponMastery !== false) {
       for (const c of classes) count = Math.max(count, num(c.record && c.record.weaponMastery && c.record.weaponMastery.count));
-      const feats = Array.isArray(cd.feats) ? cd.feats.map((f) => (f && (f.featId || f.id || f))) : [];
-      if (feats.includes('weapon-master')) count += 1;
+      for (const feat of featRecords) count += Math.max(0, num(feat.record?.grants?.weaponMasterySlots));
     }
     sheet.weaponMastery = { slots: count, chosen: Array.isArray(cd.weaponMasteryChoices) ? cd.weaponMasteryChoices.slice() : [] };
   });
@@ -941,7 +922,7 @@ export function hydrate(decisions, api, ruleset) {
       if (rec) weapons.push(computeWeaponAttack(rec, mods, pb, profW, masterySet, preferredAbility));
     }
     sheet.weapons = weapons;
-    let attuneLimit = num(rs.constants.attunementLimit, 3);
+    let attuneLimit = num(rs.constants.attunementLimit);
     for (const c of classes) {
       for (const row of (c.record && c.record.attunementLimit) || []) {
         if (num(row.level, 1) <= c.level) attuneLimit = Math.max(attuneLimit, num(row.max, attuneLimit));
@@ -1075,11 +1056,9 @@ export function hydrate(decisions, api, ruleset) {
         });
       }
     }
-    // 2. Hit Dice — aggregate by die size. 2024 Long Rest: "You regain all
-    // lost Hit Points and all spent Hit Point Dice" — ALL of them; a 2014
-    // ruleset sets rest.longRestHitDice to 'half' (regain up to half your
-    // total), which maps onto the recharge vocabulary's 'halfLevel' amount.
-    const hdAmount = rs.constants.rest && rs.constants.rest.longRestHitDice !== 'all' ? 'halfLevel' : 'full';
+    // 2. Hit Dice — aggregate by die size. The profile maps long-rest recovery
+    // to the generic recharge vocabulary.
+    const hdAmount = rs.constants.rest.longRestHitDice === 'half' ? 'halfLevel' : 'full';
     const byDie = {};
     for (const c of classes) { const d = c.record && c.record.hitDie; if (d) byDie[d] = (byDie[d] || 0) + c.level; }
     for (const die of Object.keys(byDie)) {

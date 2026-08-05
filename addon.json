@@ -1,7 +1,7 @@
 {
   "id": "dnd-engine",
-  "name": "D&D Rules Engine",
-  "version": "1.0.0",
+  "name": "D&D 5e Rules Engine",
+  "version": "2.0.0",
   "apiVersion": 2,
   "hostVersion": ">=1.2.0",
   "capabilities": {
@@ -13,13 +13,13 @@
     "provides": [
       {
         "contract": "dnd5e.rules-engine",
-        "version": "1.0.0"
+        "version": "2.0.0"
       }
     ],
     "consumes": [
       {
         "contract": "dnd5e.rules-data",
-        "range": "^1.0.0",
+        "range": "^2.0.0",
         "cardinality": "one",
         "required": false
       }

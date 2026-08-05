@@ -3,22 +3,22 @@
 This repository is the consumer-side compatibility authority for two CodexHost
 services:
 
-- `dnd5e.rules-data` `1.0.0`: structured rule records and one explicit,
+- `dnd5e.rules-data` `2.0.0`: structured rule records and one explicit,
   validated ruleset from a replaceable provider.
-- `dnd5e.rules-engine` `1.0.0`: headless deterministic computation and the
+- `dnd5e.rules-engine` `2.0.0`: headless deterministic computation and the
   provider-neutral list/get/reference surface used by sheet builders.
 
 Provider selection is handled by CodexHost. Consumers never probe addon IDs.
 The selected handle supplies provider package and content revision metadata;
 `getContextIdentity()` combines that metadata with the ruleset identity.
 
-## Rules-data v1
+## Rules-data v2
 
-The provider API has `apiVersion: 1` and implements the list/get functions in
+The provider API has `apiVersion: 2` and implements the list/get functions in
 [`rules-data.js`](rules-data.js), plus `getRuleset()`. A ruleset has stable
-`rulesetId`, positive `rulesetVersion`, and `edition`. It must either contain
-all required constants and capability flags or explicitly declare
-`extends: "dnd-2024"`. Missing fields never imply cross-edition inheritance.
+`rulesetId`, positive `rulesetVersion`, and `edition`. It must contain every
+required computation constant, capability flag, and Builder policy field.
+Inheritance is rejected: missing fields never imply an engine edition.
 The boundary validates every engine-consumed constant and capability, rejects
 non-finite or non-plain data, and retains a detached recursively frozen
 snapshot. Later provider mutation therefore cannot change an active engine
@@ -34,10 +34,18 @@ wrong list/item shape, and returns detached data from its public surface.
 conformance fixture. Provider repositories should run equivalent validation
 against their real API without copying production content here.
 
-## Engine v1
+The normalized Builder policy covers point buy, origin ability grants, class
+advancement choices, feat categories by level, and category-specific ability
+caps. Class-specific extra advancement levels use the structured
+`abilityScoreImprovementLevels` record field; feature-name matching is not part
+of the contract.
+
+## Engine v2
 
 The engine API exposes availability and context identity, `hydrate`, granular
-`derive` helpers, and delegated list/get/reference methods. The derivation
+`derive` helpers, delegated list/get/reference methods, and normalized
+`getBuilderPlan`, `applyBuilderChoice`, and `reconcileBuilderDecisions`
+operations. The derivation
 surface includes ability/proficiency math plus ruleset-aware hit-die averages,
 scroll-copy cost, point-buy cost/total, feat ASI options/caps, multiclass slots,
 initiative, hit points, Armor Class, and save DC. Sheet consumers delegate
@@ -46,4 +54,4 @@ these facts instead of carrying edition tables.
 The engine owns no Store, character namespace, UI, routes, or persistence.
 Without rules data it exposes provider-neutral arithmetic and reports
 rules-data-dependent hydration as unavailable instead of selecting a hidden
-addon by id.
+addon or applying a bundled edition profile.

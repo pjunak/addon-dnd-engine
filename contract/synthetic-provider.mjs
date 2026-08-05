@@ -1,6 +1,6 @@
 // Synthetic, redistributable rules-data used by contract and engine tests.
 // It mirrors the public record shapes without copying production book content.
-import { DEFAULT_RULESET } from '../rules/ruleset.js';
+import { SYNTHETIC_2024_RULESET } from './synthetic-rulesets.mjs';
 
 export function makeFake() {
   const store = {
@@ -38,6 +38,7 @@ export function makeFake() {
         id: 'fighter', name: 'Fighter', kind: 'class', hitDie: 'd10', savingThrows: ['STR', 'CON'],
         spellcasting: null, weaponMastery: { count: 3 }, acFormulas: [],
         startingProficiencies: { weapons: ['simple', 'martial'] },
+        abilityScoreImprovementLevels: [6, 14],
       },
       paladin: {
         id: 'paladin', name: 'Paladin', kind: 'class', hitDie: 'd10', savingThrows: ['WIS', 'CHA'],
@@ -70,6 +71,7 @@ export function makeFake() {
         // Mirrors the real table's tricky rows: 'Expertise' repeats at two levels
         // (one record per occurrence — BOTH grant), and L3 mixes a recordless
         // generic label ('Rogue Subclass') with a real feature record.
+        abilityScoreImprovementLevels: [10],
         progression: [
           { level: 1, features: ['Expertise'] },
           { level: 3, features: ['Rogue Subclass', 'Steady Aim'] },
@@ -113,6 +115,7 @@ export function makeFake() {
       tough: { id: 'tough', name: 'Tough', category: 'general', grants: { hpPerLevel: 2 } },
       // Single-option half-feat → the Builder auto-applies its +1 (smoke.mjs).
       'great-weapon-master': { id: 'great-weapon-master', name: 'Great Weapon Master', category: 'general', grants: { abilityScoreIncrease: { choose: 1, amount: 1, from: ['STR'] } } },
+      'weapon-master': { id: 'weapon-master', name: 'Weapon Master', category: 'general', grants: { weaponMasterySlots: 1 } },
       // 2024 Epic Boons (category epicBoon — the L19 slot). Real shapes: the
       // ability increase is the standard grant; "to a maximum of 30" is prose
       // (the cap rides on the category). One multi-option `from`, one
@@ -147,7 +150,7 @@ export function makeFake() {
       leather: { id: 'leather', name: 'Leather Armor', kind: 'armor', armorType: 'light', baseAC: 11, dexCap: null, acBonus: 0 },
     },
     species: {
-      dwarf: { id: 'dwarf', name: 'Dwarf', kind: 'species', speeds: { walk: 30 }, senses: { darkvision: 120 }, resistances: ['poison'], grants: { hpPerLevel: 1 }, lineages: [{ id: 'hill-dwarf', name: 'Hill Dwarf', grants: { hpPerLevel: 1 } }] },
+      dwarf: { id: 'dwarf', name: 'Dwarf', kind: 'species', abilityScores: ['CON', 'WIS'], speeds: { walk: 30 }, senses: { darkvision: 120 }, resistances: ['poison'], grants: { hpPerLevel: 1 }, lineages: [{ id: 'hill-dwarf', name: 'Hill Dwarf', grants: { hpPerLevel: 1 } }] },
       elf: { id: 'elf', name: 'Elf', kind: 'species', speeds: { walk: 30 }, senses: { darkvision: 60 }, resistances: [], lineages: [
         { id: 'drow', name: 'Drow', grants: { senses: { darkvision: 120 }, spells: [{ level: 0, ids: ['dancing-lights'], alwaysPrepared: true }, { level: 3, ids: ['faerie-fire'], alwaysPrepared: true, free: '1/long' }, { level: 5, ids: ['darkness'], alwaysPrepared: true, free: '1/long' }] } },
         { id: 'wood-elf', name: 'Wood Elf', grants: { speedBonus: 5, spells: [{ level: 0, ids: ['druidcraft'], alwaysPrepared: true }] } },
@@ -156,7 +159,7 @@ export function makeFake() {
     background: {
       sage: { id: 'sage', name: 'Sage', kind: 'background', skillProficiencies: ['arcana', 'history'] },
       // Origin feat carrier → exercises the bg→feat→choose-grant chain (smoke.mjs).
-      acolyte: { id: 'acolyte', name: 'Acolyte', kind: 'background', skillProficiencies: ['insight', 'religion'], originFeat: 'magic-initiate' },
+      acolyte: { id: 'acolyte', name: 'Acolyte', kind: 'background', abilityScores: ['INT', 'WIS', 'CHA'], skillProficiencies: ['insight', 'religion'], originFeat: 'magic-initiate' },
     },
     // Feature records incl. an option-pool parent (Metamagic) + its category-tagged
     // options — exercises collectChoices' feature-grants + fromCategory expansion.
@@ -179,7 +182,7 @@ export function makeFake() {
   const byName = (kind, name) => Object.values(store[kind] || {}).find((r) => (r.name || '').toLowerCase() === String(name).toLowerCase()) || null;
   const vals = (kind) => Object.values(store[kind] || {});
   return {
-    apiVersion: 1,
+    apiVersion: 2,
     listClasses: () => vals('class').map((c) => ({ id: c.id, name: c.name })),
     listSubclasses: (classId) => vals('subclass').filter((s) => !classId || s.classId === classId).map((c) => ({ id: c.id, name: c.name, classId: c.classId })),
     listFeatures: (q) => vals('feature').filter((f) =>
@@ -201,7 +204,6 @@ export function makeFake() {
     getItem: (kind, id) => (store[kind] && store[kind][id]) || null,
     getItemByName: byName,
     getRecords: (kind) => vals(kind),
-    getRuleset: () => DEFAULT_RULESET,
+    getRuleset: () => SYNTHETIC_2024_RULESET,
   };
 }
-

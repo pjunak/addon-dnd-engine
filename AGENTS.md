@@ -14,7 +14,7 @@ manifest ID and service identities are permanent compatibility contracts.
 4. [`contract/README.md`](contract/README.md) before changing public services,
    ruleset validation, provider metadata, or reference resolution.
 5. [`rules/README.md`](rules/README.md) before changing computation semantics.
-6. `../dnd55e-compendium/data/SCHEMA.md` when a provider record field changes.
+6. `../addon-dnd-2024-compendium/data/SCHEMA.md` when a provider record field changes.
 
 Do not duplicate the host authoring guide or compendium record catalog here.
 Link to their authoritative documents.
@@ -39,8 +39,8 @@ These ownership rules are mandatory:
   generic service registry. Never probe known addon IDs or sourcebook IDs.
 - Provider identity, contract version, ruleset identity/version, and content
   revision remain explicit across the service boundary.
-- A ruleset is complete unless it explicitly declares inheritance from a
-  compatible base. Never apply D&D 2024 constants silently to another edition.
+- A ruleset is always complete. The engine owns no edition base and rejects
+  inheritance or implicit profile defaults.
 - Pure rule functions stay independent of the DOM, browser globals, CodexHost,
   storage, network access, and addon lifecycle.
 - Provider records supply rule facts and provenance. Engine code interprets

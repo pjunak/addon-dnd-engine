@@ -1,7 +1,5 @@
-import { DEFAULT_RULESET, resolveRuleset } from '../rules/ruleset.js';
-
 export const RULES_DATA_CONTRACT = 'dnd5e.rules-data';
-export const RULES_DATA_CONTRACT_VERSION = '1.0.0';
+export const RULES_DATA_CONTRACT_VERSION = '2.0.0';
 
 export const REQUIRED_RULES_DATA_METHODS = Object.freeze([
   'listClasses', 'listSubclasses', 'listFeatures', 'getFeature',
@@ -13,12 +11,12 @@ export const REQUIRED_RULES_DATA_METHODS = Object.freeze([
 const RULESET_KEYS = Object.freeze([
   'constants.abilityCap', 'constants.abilityCapHard',
   'constants.attunementLimit', 'constants.scrollCopyGpPerLevel',
-  'constants.pointBuy', 'constants.asi', 'constants.multiclassSlots',
+  'constants.pointBuy', 'constants.multiclassSlots',
   'constants.casterFractions', 'constants.pactMagic',
   'constants.spellbook', 'constants.rest',
-  'capabilities.weaponMastery', 'capabilities.epicBoons',
-  'capabilities.backgroundAsi', 'capabilities.speciesAsi',
-  'capabilities.originFeats',
+  'capabilities.weaponMastery',
+  'builder.abilityScoreAdvancement',
+  'builder.backgroundAbilityGrant', 'builder.speciesAbilityGrant',
 ]);
 
 const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
@@ -27,6 +25,7 @@ const MAX_RULESET_NODES = 10_000;
 const isObject = value => !!value && typeof value === 'object' && !Array.isArray(value);
 const valueAt = (value, path) => path.split('.').reduce((current, key) => current?.[key], value);
 const safeId = value => /^[a-z0-9][a-z0-9._-]{0,79}$/.test(String(value || ''));
+const safeCategory = value => /^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/.test(String(value || ''));
 const isFiniteNumber = value => typeof value === 'number' && Number.isFinite(value);
 const isIntegerIn = (value, min, max = Number.MAX_SAFE_INTEGER) => Number.isInteger(value) && value >= min && value <= max;
 
@@ -51,12 +50,12 @@ export function inspectRulesDataHandle(handle) {
   if (!provider || !isObject(api)) return unavailable('missing', null, ['No rules-data service is selected.']);
 
   try {
-    if (provider.contract !== RULES_DATA_CONTRACT || !String(provider.contractVersion || '').startsWith('1.')) {
-      return unavailable('incompatible', provider, ['The selected service does not implement dnd5e.rules-data v1.']);
+    if (provider.contract !== RULES_DATA_CONTRACT || !String(provider.contractVersion || '').startsWith('2.')) {
+      return unavailable('incompatible', provider, ['The selected service does not implement dnd5e.rules-data v2.']);
     }
 
     const errors = [];
-    if (api.apiVersion !== 1) errors.push('rules-data apiVersion must be 1');
+    if (api.apiVersion !== 2) errors.push('rules-data apiVersion must be 2');
     for (const method of REQUIRED_RULES_DATA_METHODS) {
       if (typeof api[method] !== 'function') errors.push(`rules-data method ${method}() is required`);
     }
@@ -109,18 +108,17 @@ function analyzeRuleset(record) {
   if (!isIntegerIn(snapshot.rulesetVersion, 1)) errors.push('rulesetVersion must be a positive integer');
   if (typeof snapshot.edition !== 'string' || !snapshot.edition.trim()) errors.push('edition is required');
 
-  if (snapshot.extends !== undefined && snapshot.extends !== DEFAULT_RULESET.rulesetId) {
-    errors.push(`unsupported ruleset base "${String(snapshot.extends)}"`);
+  if (snapshot.extends !== undefined) {
+    errors.push('ruleset inheritance is not supported; providers must publish a complete profile');
   }
-  if (snapshot.extends === undefined) {
-    for (const path of RULESET_KEYS) {
-      if (valueAt(snapshot, path) === undefined) errors.push(`complete ruleset is missing ${path}`);
-    }
+  for (const path of RULESET_KEYS) {
+    if (valueAt(snapshot, path) === undefined) errors.push(`complete ruleset is missing ${path}`);
   }
 
-  const candidate = snapshot.extends === DEFAULT_RULESET.rulesetId ? resolveRuleset(snapshot) : snapshot;
+  const candidate = snapshot;
   validateConstants(candidate.constants, errors);
   validateCapabilities(candidate.capabilities, candidate.constants, errors);
+  validateBuilder(candidate.builder, candidate.constants, errors);
 
   return analysisResult(errors.length ? null : deepFreeze(candidate), errors, {
     rulesetId: String(rulesetId || ''),
@@ -143,7 +141,6 @@ function validateConstants(constants, errors) {
     errors.push('constants.scrollCopyGpPerLevel must be a non-negative finite number');
   }
   validatePointBuy(constants.pointBuy, errors);
-  validateAsi(constants.asi, errors);
   validateMulticlassSlots(constants.multiclassSlots, errors);
   validateCasterFractions(constants.casterFractions, errors);
   validatePactMagic(constants.pactMagic, errors);
@@ -171,19 +168,6 @@ function validatePointBuy(pointBuy, errors) {
       errors.push(`constants.pointBuy.cost must define a non-negative finite cost for score ${score}`);
       break;
     }
-  }
-}
-
-function validateAsi(asi, errors) {
-  if (!isObject(asi)
-    || !isIntegerIn(asi.budget, 0)
-    || !isIntegerIn(asi.perMax, 0)
-    || !isIntegerIn(asi.bgBudget, 0)
-    || !isIntegerIn(asi.bgPerMax, 0)
-    || !Array.isArray(asi.baseLevels)
-    || asi.baseLevels.some(level => !isIntegerIn(level, 1))
-    || new Set(asi.baseLevels).size !== asi.baseLevels.length) {
-    errors.push('constants.asi must define valid budgets and unique positive baseLevels');
   }
 }
 
@@ -217,15 +201,46 @@ function validateCapabilities(capabilities, constants, errors) {
     errors.push('capabilities must be an object');
     return;
   }
-  for (const key of ['weaponMastery', 'backgroundAsi', 'speciesAsi', 'originFeats']) {
-    if (typeof capabilities[key] !== 'boolean') errors.push(`capabilities.${key} must be boolean`);
+  if (typeof capabilities.weaponMastery !== 'boolean') {
+    errors.push('capabilities.weaponMastery must be boolean');
   }
-  const boons = capabilities.epicBoons;
-  if (boons === false) return;
-  if (!isObject(boons)
-    || !isIntegerIn(boons.atLevel, 1)
-    || !isIntegerIn(boons.abilityCap, constants?.abilityCap || 1, constants?.abilityCapHard || Number.MAX_SAFE_INTEGER)) {
-    errors.push('capabilities.epicBoons must be false or define a positive level and an ability cap within the ruleset limits');
+}
+
+function validateBuilder(builder, constants, errors) {
+  if (!isObject(builder)) {
+    errors.push('builder must be an object');
+    return;
+  }
+  const advancement = builder.abilityScoreAdvancement;
+  if (!isObject(advancement)
+    || !Array.isArray(advancement.baseLevels)
+    || advancement.baseLevels.some(level => !isIntegerIn(level, 1, 20))
+    || new Set(advancement.baseLevels).size !== advancement.baseLevels.length
+    || !isIntegerIn(advancement.budget, 1)
+    || !isIntegerIn(advancement.perAbilityMax, 1, advancement.budget || 1)
+    || !Array.isArray(advancement.featCategories)
+    || advancement.featCategories.some(category => !safeCategory(category))
+    || !isObject(advancement.categoriesByLevel)
+    || Object.entries(advancement.categoriesByLevel).some(([level, categories]) =>
+      !isIntegerIn(Number(level), 1, 20)
+      || !Array.isArray(categories)
+      || categories.some(category => !safeCategory(category)))
+    || !isObject(advancement.categoryAbilityCaps)
+    || Object.entries(advancement.categoryAbilityCaps).some(([category, cap]) =>
+      !safeCategory(category)
+      || !isIntegerIn(cap, constants?.abilityCap || 1, constants?.abilityCapHard || Number.MAX_SAFE_INTEGER))) {
+    errors.push('builder.abilityScoreAdvancement must define valid levels, budgets, feat categories, and ability caps');
+  }
+  validateOriginAbilityGrant(builder.backgroundAbilityGrant, 'backgroundAbilityGrant', errors);
+  validateOriginAbilityGrant(builder.speciesAbilityGrant, 'speciesAbilityGrant', errors);
+}
+
+function validateOriginAbilityGrant(value, name, errors) {
+  if (value === false) return;
+  if (!isObject(value)
+    || !isIntegerIn(value.budget, 1)
+    || !isIntegerIn(value.perAbilityMax, 1, value.budget || 1)) {
+    errors.push(`builder.${name} must be false or define positive budget and perAbilityMax values`);
   }
 }
 

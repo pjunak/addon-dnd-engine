@@ -1,5 +1,5 @@
 import * as Engine from './engine.js';
-import { DEFAULT_RULESET } from './ruleset.js';
+import * as Builder from './builder.js';
 import {
   RULES_DATA_CONTRACT,
   RULES_DATA_CONTRACT_VERSION,
@@ -7,7 +7,7 @@ import {
 } from '../contract/rules-data.js';
 
 export const RULES_ENGINE_CONTRACT = 'dnd5e.rules-engine';
-export const RULES_ENGINE_CONTRACT_VERSION = '1.0.0';
+export const RULES_ENGINE_CONTRACT_VERSION = '2.0.0';
 
 const clone = value => {
   if (value == null) return value;
@@ -38,28 +38,22 @@ export function makeRulesApi(getRulesDataHandle, { isDisposed = () => false } = 
     return inspectRulesDataHandle(handle);
   };
   const data = () => context().api;
-  const ruleset = () => {
-    const current = context();
-    return current.available ? current.ruleset : DEFAULT_RULESET;
-  };
+  const ruleset = () => context().ruleset;
   const list = (method, ...args) => data()?.[method]?.(...args) || [];
   const item = (method, ...args) => data()?.[method]?.(...args) || null;
 
   const hydrate = decisions => {
     active();
     const current = context();
-    const result = Engine.hydrate(clone(decisions || {}), current.api, current.available ? current.ruleset : DEFAULT_RULESET);
     if (!current.available) {
-      result.warnings = [
-        ...(Array.isArray(result.warnings) ? result.warnings : []),
-        `Rules data unavailable (${current.status}).`,
-      ];
+      return clone(hydrateWithoutRulesData(decisions, current.status));
     }
-    return clone(result);
+    const normalized = Builder.normalizeBuilderDecisions(clone(decisions || {}), current.api, current.ruleset);
+    return clone(Engine.hydrate(normalized, current.api, current.ruleset));
   };
 
   const api = {
-    apiVersion: 1,
+    apiVersion: 2,
     getAvailability: () => {
       const current = context();
       return Object.freeze({ available: current.available, status: current.status, errors: current.errors });
@@ -95,18 +89,35 @@ export function makeRulesApi(getRulesDataHandle, { isDisposed = () => false } = 
       active();
       return data()?.resolveReference?.(kind, id, mode) || null;
     },
-    getRuleset: () => clone(ruleset()),
+    getBuilderPlan: decisions => {
+      const current = context();
+      return current.available
+        ? clone(Builder.getBuilderPlan(clone(decisions || {}), current.api, current.ruleset))
+        : null;
+    },
+    applyBuilderChoice: (decisions, change) => {
+      const current = context();
+      return current.available
+        ? clone(Builder.applyBuilderChoice(clone(decisions || {}), clone(change || {}), current.api, current.ruleset))
+        : clone(decisions || {});
+    },
+    reconcileBuilderDecisions: decisions => {
+      const current = context();
+      return current.available
+        ? clone(Builder.reconcileBuilderDecisions(clone(decisions || {}), current.api, current.ruleset))
+        : clone(decisions || {});
+    },
     hydrate,
     derive: Object.freeze({
       abilityMod: Engine.abilityMod,
       proficiencyBonus: Engine.proficiencyBonus,
       hitDieAverage: Engine.hitDieAvg,
-      scrollCopyCost: level => Engine.scrollCopyCost(level, ruleset()),
-      pointBuyCost: score => Engine.pointCost(score, ruleset()),
-      pointsSpent: scores => Engine.pointsSpent(scores, ruleset()),
-      featAbilityCap: feat => Engine.featAbilityCap(feat, ruleset()),
+      scrollCopyCost: level => ruleset() ? Engine.scrollCopyCost(level, ruleset()) : null,
+      pointBuyCost: score => ruleset() ? Engine.pointCost(score, ruleset()) : null,
+      pointsSpent: scores => ruleset() ? Engine.pointsSpent(scores, ruleset()) : null,
+      featAbilityCap: feat => ruleset() ? Engine.featAbilityCap(feat, ruleset()) : null,
       featAsiFrom: Engine.featAsiFrom,
-      multiclassSlots: casterLevel => Engine.multiclassSlots(casterLevel, ruleset()),
+      multiclassSlots: casterLevel => ruleset() ? Engine.multiclassSlots(casterLevel, ruleset()) : [],
       initiative: decisions => hydrate(decisions).sheet.derived.initiative,
       maxHp: decisions => hydrate(decisions).sheet.derived.maxHp,
       armorClass: decisions => hydrate(decisions).sheet.derived.armorClass,
@@ -114,6 +125,32 @@ export function makeRulesApi(getRulesDataHandle, { isDisposed = () => false } = 
     }),
   };
   return Object.freeze(api);
+}
+
+function hydrateWithoutRulesData(decisions, status) {
+  const source = decisions || {};
+  const base = source.baseStats || source.abilities || {};
+  const abilities = {};
+  for (const ability of Engine.ABILITIES) {
+    const score = Engine.num(base[ability], 10);
+    abilities[ability] = { base: score, score, mod: Engine.abilityMod(score), bonus: 0 };
+  }
+  const totalLevel = Array.isArray(source.classes) && source.classes.length
+    ? source.classes.reduce((sum, entry) => sum + Math.max(0, Engine.num(entry?.level)), 0)
+    : Math.max(1, Engine.num(source.level, 1));
+  return {
+    sheet: {
+      abilities,
+      totalLevel,
+      derived: {
+        proficiencyBonus: Engine.proficiencyBonus(totalLevel),
+        initiative: abilities.DEX.mod,
+      },
+      proficiencies: { saves: {}, skills: {}, armor: [], weapons: [], tools: [], languages: [] },
+      features: [],
+    },
+    warnings: [`Rules data unavailable (${status}); edition-dependent computation was skipped.`],
+  };
 }
 
 function safeProviderApi(raw, cache) {

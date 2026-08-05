@@ -25,12 +25,12 @@ rules-data provider (official or third-party)
  official character sheet   custom sheet
 ```
 
-The current `dnd55e-compendium` is one rules-data provider. Provider and engine
+The official `addon-dnd-2024-compendium` is one rules-data provider. Provider and engine
 selection use generic versioned CodexHost services rather than recognized addon
 IDs:
 
-- consumes zero or one `dnd5e.rules-data` `^1.0.0` service;
-- provides `dnd5e.rules-engine` `1.0.0`.
+- consumes zero or one `dnd5e.rules-data` `^2.0.0` service;
+- provides `dnd5e.rules-engine` `2.0.0`.
 
 With no provider, universal arithmetic remains available and provider-dependent
 hydration reports its unavailable state. Multiple compatible providers are
@@ -43,35 +43,35 @@ The engine will own:
 - Pure D&D derivation functions.
 - The versioned engine API.
 - The consumer-side rules-data provider contract and conformance fixtures.
-- Explicit ruleset identity, compatibility, and validation.
+- Complete profile validation and normalized Builder choice interpretation.
 
 The engine will not own:
 
 - Character storage or migrations.
 - Sheet layout, renderers, CSS, routes, fragments, or browser preferences.
 - Compendium records, sourcebook provenance, or browsing UI.
+- Edition profiles, advancement tables, origin policy, or native fallback rules.
 - Combat encounter automation.
 
 `dnd-character-sheets` will retain its stable data namespace, editing model,
 sheet shell, Compact and Classic built-in renderers, and renderer selection.
 Compact will be the default for characters without a saved per-browser choice.
 
-## Upgrade from the embedded engine
+## Compatibility transition
 
 Existing installations should roll out the separation in this order:
 
 1. Install `dnd-engine`. Existing sheet releases ignore it safely.
-2. Update the rules-data addon. The official compendium temporarily publishes
-   both its versioned service and its legacy direct API, so both old sheets and
-   the new engine can use the same records during the transition.
+2. Update the rules-data addon to contract v2. A v2 provider publishes one
+   complete rules profile; there is no engine-owned base to inherit.
 3. Update `dnd-sheets`. It discovers the engine through
    `dnd5e.rules-engine`; no compendium or engine addon ID is encoded in the
    sheet.
 
 Reversing the last two steps can temporarily leave the Builder without rules
-automation, but stored and materialized sheet fields remain usable. Third-party
-rules-data providers do not need the official compendium bridge when their
-supported sheets already consume a rules-engine service.
+automation, but stored and materialized sheet fields remain usable. A provider
+declares the rules-data service exclusive so the host requires uninstalling an
+existing revision before another one can be installed.
 
 ## Development
 

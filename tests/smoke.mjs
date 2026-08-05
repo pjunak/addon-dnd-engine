@@ -6,15 +6,15 @@ import { makeFake } from '../contract/synthetic-provider.mjs';
 
 const META = {
   id: 'dnd-engine',
-  name: 'D&D Rules Engine',
-  version: '1.0.0',
+  name: 'D&D 5e Rules Engine',
+  version: '2.0.0',
   apiVersion: 2,
   hostVersion: '>=1.2.0',
   capabilities: { required: ['lifecycle.dispose'] },
   permissions: [],
   services: {
-    provides: [{ contract: 'dnd5e.rules-engine', version: '1.0.0' }],
-    consumes: [{ contract: 'dnd5e.rules-data', range: '^1.0.0', cardinality: 'one', required: false }],
+    provides: [{ contract: 'dnd5e.rules-engine', version: '2.0.0' }],
+    consumes: [{ contract: 'dnd5e.rules-data', range: '^2.0.0', cardinality: 'one', required: false }],
   },
 };
 
@@ -25,7 +25,7 @@ const dataHandle = (api = makeFake(), revision = 'fixture-1') => Object.freeze({
     addonName: 'Unknown Rules Addon',
     addonVersion: '7.0.0',
     contract: 'dnd5e.rules-data',
-    contractVersion: '1.0.0',
+    contractVersion: '2.0.0',
     contentRevision: revision,
   }),
 });

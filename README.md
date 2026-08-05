@@ -53,7 +53,7 @@ The engine will not own:
 - Edition profiles, advancement tables, origin policy, or native fallback rules.
 - Combat encounter automation.
 
-`dnd-character-sheets` will retain its stable data namespace, editing model,
+`addon-dnd-character-sheets` will retain its stable `dnd-sheets` data namespace, editing model,
 sheet shell, Compact and Classic built-in renderers, and renderer selection.
 Compact will be the default for characters without a saved per-browser choice.
 

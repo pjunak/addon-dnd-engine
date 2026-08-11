@@ -105,5 +105,6 @@ plans belong only in the host repository's ignored `docs/plans/` directory and
 must be deleted when the work closes. Do not create repository-local TODO or
 roadmap files.
 
-Commit logical task changes when the active session instructions require it.
-Never push commits or tags unless the maintainer explicitly requests it.
+The global Codex instructions govern task commits. Keep public-contract and
+computation changes separate when they are independently reviewable. Never
+push commits or tags unless the maintainer explicitly requests it.

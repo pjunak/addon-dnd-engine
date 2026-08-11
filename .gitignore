@@ -15,10 +15,6 @@ coverage/
 id_rsa
 id_ed25519
 
-# Local agent-tool compatibility files
-.claude/
-CLAUDE.md
-
 # OS and editor noise
 .DS_Store
 Thumbs.db

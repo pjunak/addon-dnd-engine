@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contractVersion", "kind", "id"],
+  "properties": {
+    "contractVersion": { "const": "rules-engine-get.v1" },
+    "kind": { "type": "string", "minLength": 1, "maxLength": 100 },
+    "id": { "type": "string", "minLength": 1, "maxLength": 200 }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contractVersion", "value"],
+  "properties": {
+    "contractVersion": { "const": "rules-engine-derived.v1" },
+    "value": {},
+    "identity": { "$ref": "provider-identity.schema.json#/$defs/identity" }
+  }
+}

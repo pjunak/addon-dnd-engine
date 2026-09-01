@@ -1,36 +1,49 @@
 {
+  "$schema": "https://junak.eu/ttrpg-codex/contracts/addons/v3/manifest.schema.json",
+  "packageFormat": 1,
   "id": "dnd-engine",
   "name": "D&D 5e Rules Engine",
-  "version": "2.0.0",
-  "apiVersion": 2,
-  "hostVersion": ">=1.2.0",
-  "capabilities": {
-    "required": ["lifecycle.dispose"]
+  "version": "3.0.0",
+  "description": "Headless provider-neutral D&D rules computation for character-sheet add-ons.",
+  "license": "MIT",
+  "compatibility": {
+    "host": ">=2.0.0 <3.0.0",
+    "addonApi": "^3.0.0",
+    "workerProtocol": "^1.0.0"
   },
-  "entry": "entry.js",
+  "capabilities": {
+    "required": ["worker.native"],
+    "optional": []
+  },
+  "runtime": {
+    "worker": {
+      "type": "native",
+      "protocol": "^1.0.0",
+      "entrypoints": {
+        "windows-amd64": "worker/windows-amd64/dnd-engine.exe",
+        "linux-amd64": "worker/linux-amd64/dnd-engine",
+        "linux-arm64": "worker/linux-arm64/dnd-engine"
+      }
+    }
+  },
   "permissions": [],
   "services": {
     "provides": [
       {
         "contract": "dnd5e.rules-engine",
-        "version": "2.0.0"
+        "version": "3.0.0",
+        "transport": "worker",
+        "schema": "contracts/rules-engine.service.json"
       }
     ],
     "consumes": [
       {
         "contract": "dnd5e.rules-data",
-        "range": "^2.0.0",
+        "range": "^3.0.0",
         "cardinality": "one",
-        "required": false
+        "required": false,
+        "selection": "operator"
       }
     ]
-  },
-  "tests": {
-    "client": [
-      "tests/contract.mjs",
-      "tests/engine.mjs",
-      "tests/smoke.mjs"
-    ]
-  },
-  "summary": "A headless, replaceable D&D rules engine. It discovers any compatible rules-data provider and exposes deterministic computation to character-sheet addons without owning UI or character storage."
+  }
 }

@@ -1,6 +1,7 @@
 # Dependencies and generated test output
 node_modules/
 coverage/
+dist/
 
 # Secrets and private keys
 .env

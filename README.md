@@ -3,8 +3,8 @@
 Headless, reusable D&D rules computation for
 [ttrpg-codex](https://github.com/pjunak/ttrpg-codex).
 
-Addon id: `dnd-engine`. It is an independently installable API-v2 addon with no
-UI permissions and no character storage.
+Addon id: `dnd-engine`. It is an independently installable API-v3 native-worker
+addon with no UI permissions and no character storage.
 
 ## Purpose
 
@@ -29,8 +29,8 @@ The official `addon-dnd-2024-compendium` is one rules-data provider. Provider an
 selection use generic versioned CodexHost services rather than recognized addon
 IDs:
 
-- consumes zero or one `dnd5e.rules-data` `^2.0.0` service;
-- provides `dnd5e.rules-engine` `2.0.0`.
+- consumes zero or one `dnd5e.rules-data` `^3.0.0` service;
+- provides `dnd5e.rules-engine` `3.0.0` through the host service broker.
 
 With no provider, universal arithmetic remains available and provider-dependent
 hydration reports its unavailable state. Multiple compatible providers are
@@ -57,32 +57,40 @@ The engine will not own:
 sheet shell, Compact and Classic built-in renderers, and renderer selection.
 Compact will be the default for characters without a saved per-browser choice.
 
-## Compatibility transition
+## Engine service
 
-Existing installations should roll out the separation in this order:
+The v3 service exposes explicit, schema-validated worker calls:
 
-1. Install `dnd-engine`. Existing sheet releases ignore it safely.
-2. Update the rules-data addon to contract v2. A v2 provider publishes one
-   complete rules profile; there is no engine-owned base to inherit.
-3. Update `dnd-sheets`. It discovers the engine through
-   `dnd5e.rules-engine`; no compendium or engine addon ID is encoded in the
-   sheet.
+- `context` reports provider availability and exact provider/ruleset identity;
+- `get-record` and `query-records` expose provider-neutral rule records;
+- `derive` performs deterministic universal or ruleset-backed arithmetic.
 
-Reversing the last two steps can temporarily leave the Builder without rules
-automation, but stored and materialized sheet fields remain usable. A provider
-declares the rules-data service exclusive so the host requires uninstalling an
-existing revision before another one can be installed.
+Every ruleset-backed response carries the provider package generation, content
+revision, ruleset ID, ruleset version, and edition. The worker can therefore
+reject or expose stale context rather than silently mixing revisions.
 
 ## Development
 
-Node.js 26 is required. This project uses browser-native ES modules and has no
-build step or runtime package dependencies.
+Go 1.26 is required. The repository builds static native workers for Windows
+amd64, Linux amd64, and Linux arm64.
 
-Run all tests from this repository with relative paths:
+Run the Go checks from this repository:
 
 ```text
-node --test tests/*.mjs
+go test ./...
+go vet ./...
+go test -race ./internal/rules ./internal/provider ./internal/engine
 ```
+
+Build the worker binaries and deterministic install archive:
+
+```text
+go run ./cmd/build-package
+```
+
+The generated archive is written to `dist/dnd-engine-3.0.0.zip`. Platform
+binaries under `worker/` are committed because host source installs download
+the repository rather than compiling add-on source.
 
 Install the working tree from a sibling `ttrpg-codex` checkout:
 

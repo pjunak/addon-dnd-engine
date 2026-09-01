@@ -1,0 +1,178 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contractVersion", "operation", "input"],
+  "properties": {
+    "contractVersion": { "const": "rules-engine-derive.v1" },
+    "operation": { "type": "string" },
+    "input": { "type": "object" }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "operation": { "const": "ability-modifier" },
+        "input": { "$ref": "#/$defs/score" }
+      }
+    },
+    {
+      "properties": {
+        "operation": { "const": "proficiency-bonus" },
+        "input": { "$ref": "#/$defs/totalLevel" }
+      }
+    },
+    {
+      "properties": {
+        "operation": { "const": "hit-die-average" },
+        "input": { "$ref": "#/$defs/hitDie" }
+      }
+    },
+    {
+      "properties": {
+        "operation": { "const": "clamp-hp" },
+        "input": { "$ref": "#/$defs/hitPoints" }
+      }
+    },
+    {
+      "properties": {
+        "operation": { "const": "save-dc" },
+        "input": { "$ref": "#/$defs/saveDC" }
+      }
+    },
+    {
+      "properties": {
+        "operation": { "const": "feat-asi-from" },
+        "input": { "$ref": "#/$defs/grant" }
+      }
+    },
+    {
+      "properties": {
+        "operation": { "const": "scroll-copy-cost" },
+        "input": { "$ref": "#/$defs/levelNumber" }
+      }
+    },
+    {
+      "properties": {
+        "operation": { "const": "point-buy-cost" },
+        "input": { "$ref": "#/$defs/scoreInteger" }
+      }
+    },
+    {
+      "properties": {
+        "operation": { "const": "points-spent" },
+        "input": { "$ref": "#/$defs/scores" }
+      }
+    },
+    {
+      "properties": {
+        "operation": { "const": "multiclass-slots" },
+        "input": { "$ref": "#/$defs/casterLevel" }
+      }
+    },
+    {
+      "properties": {
+        "operation": { "const": "pact-magic" },
+        "input": { "$ref": "#/$defs/levelInteger" }
+      }
+    },
+    {
+      "properties": {
+        "operation": { "const": "feat-ability-cap" },
+        "input": { "$ref": "#/$defs/feat" }
+      }
+    }
+  ],
+  "$defs": {
+    "score": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["score"],
+      "properties": { "score": { "type": "number" } }
+    },
+    "scoreInteger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["score"],
+      "properties": { "score": { "type": "integer" } }
+    },
+    "totalLevel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["totalLevel"],
+      "properties": { "totalLevel": { "type": "number" } }
+    },
+    "hitDie": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hitDie"],
+      "properties": { "hitDie": { "type": "string", "minLength": 1, "maxLength": 20 } }
+    },
+    "hitPoints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hitPoints", "maximum"],
+      "properties": {
+        "hitPoints": { "type": "number" },
+        "maximum": { "type": "number" }
+      }
+    },
+    "saveDC": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["abilityScore", "totalLevel"],
+      "properties": {
+        "abilityScore": { "type": "number" },
+        "totalLevel": { "type": "number" }
+      }
+    },
+    "grant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["grant"],
+      "properties": { "grant": { "type": "object" } }
+    },
+    "levelNumber": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["level"],
+      "properties": { "level": { "type": "number" } }
+    },
+    "scores": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scores"],
+      "properties": {
+        "scores": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "STR": { "type": "integer" },
+            "DEX": { "type": "integer" },
+            "CON": { "type": "integer" },
+            "INT": { "type": "integer" },
+            "WIS": { "type": "integer" },
+            "CHA": { "type": "integer" }
+          }
+        }
+      }
+    },
+    "casterLevel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["casterLevel"],
+      "properties": { "casterLevel": { "type": "integer" } }
+    },
+    "levelInteger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["level"],
+      "properties": { "level": { "type": "integer" } }
+    },
+    "feat": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["feat"],
+      "properties": { "feat": { "type": "object" } }
+    }
+  }
+}

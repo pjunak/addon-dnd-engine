@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contractVersion", "identity", "record"],
+  "properties": {
+    "contractVersion": { "const": "rules-engine-record.v1" },
+    "identity": { "$ref": "provider-identity.schema.json#/$defs/identity" },
+    "record": { "$ref": "rule-record.schema.json#/$defs/record" }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "providerAddonId", "providerContractVersion", "providerGeneration", "contentRevision"
+      ],
+      "properties": {
+        "providerAddonId": { "type": "string", "maxLength": 80 },
+        "providerContractVersion": { "type": "string", "maxLength": 100 },
+        "providerGeneration": { "type": "string", "maxLength": 64 },
+        "contentRevision": { "type": "string", "maxLength": 200 },
+        "rulesetId": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "rulesetVersion": { "type": "integer", "minimum": 1 },
+        "edition": { "type": "string", "minLength": 1, "maxLength": 100 }
+      }
+    }
+  }
+}

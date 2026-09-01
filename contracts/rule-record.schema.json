@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id", "value"],
+      "properties": {
+        "kind": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "id": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "value": {
+          "type": "object",
+          "required": ["kind", "id", "name"],
+          "properties": {
+            "kind": { "type": "string", "minLength": 1, "maxLength": 100 },
+            "id": { "type": "string", "minLength": 1, "maxLength": 200 },
+            "name": { "type": "string", "minLength": 1, "maxLength": 500 }
+          }
+        }
+      }
+    }
+  }
+}

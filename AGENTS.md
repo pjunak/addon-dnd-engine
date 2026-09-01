@@ -22,11 +22,14 @@ Link to their authoritative documents.
 ## Intended architecture
 
 ```text
-addon.json          API-v2 manifest and service declarations
-entry.js            composition root; service binding and lifecycle only
-contract/           public engine/provider schemas and conformance fixtures
-rules/              deterministic host-free computation modules
-tests/              unit, contract, provider, lifecycle, and smoke tests
+addon.json          API-v3 manifest and service declarations
+cmd/worker/         native worker composition root
+cmd/build-package/  reproducible cross-platform worker/package build
+contracts/          public JSON Schemas for the worker service
+internal/engine/    worker service boundary
+internal/provider/  brokered rules-data v3 client
+internal/rules/     deterministic host-free computation
+worker/             committed platform binaries used by source installs
 ```
 
 These ownership rules are mandatory:
@@ -41,7 +44,7 @@ These ownership rules are mandatory:
   revision remain explicit across the service boundary.
 - A ruleset is always complete. The engine owns no edition base and rejects
   inheritance or implicit profile defaults.
-- Pure rule functions stay independent of the DOM, browser globals, CodexHost,
+- Pure rule functions stay independent of the worker protocol, host services,
   storage, network access, and addon lifecycle.
 - Provider records supply rule facts and provenance. Engine code interprets
   generic documented fields and never branches on a book or product ID.
@@ -65,8 +68,8 @@ These ownership rules are mandatory:
 
 ## Code quality
 
-- Use browser-native named ES-module exports. There is no bundler or
-  transpiler.
+- Use Go 1.26 for worker and rules code. Keep the `cmd/worker` package limited
+  to process composition and move behavior into focused internal packages.
 - Keep functions focused and pass dependencies explicitly.
 - Prefer immutable inputs/results and pure helpers. Clone at the contract
   boundary when caller mutation could leak across consumers.
@@ -80,12 +83,21 @@ These ownership rules are mandatory:
 
 ## Working loop
 
-Use Node.js 26 and PowerShell on Windows. Once executable code exists, the
-complete repository test command is:
+Use Go 1.26 and PowerShell on Windows. The complete Go validation is:
 
 ```text
-node --test tests/*.mjs
+go test ./...
+go vet ./...
+go test -race ./internal/rules ./internal/provider ./internal/engine
 ```
+
+Build the committed worker binaries and deterministic install archive with
+`go run ./cmd/build-package`. Inspect the archive with the sibling host's
+`codex-addon-inspect` command before committing a release candidate.
+
+The old JavaScript tests remain a temporary behavioral oracle while hydration
+and Builder behavior are ported. Run `node --test tests/*.mjs` until those
+fixtures have Go replacements and the JavaScript implementation is removed.
 
 Use relative test paths on Windows. From the host repository, install the
 working tree with:

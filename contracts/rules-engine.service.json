@@ -1,0 +1,36 @@
+{
+  "$schema": "https://junak.eu/ttrpg-codex/contracts/addons/v3/service-document.schema.json",
+  "contract": "dnd5e.rules-engine",
+  "version": "3.0.0",
+  "allowsExclusive": false,
+  "methods": {
+    "context": {
+      "requestSchema": "contracts/empty.request.schema.json",
+      "responseSchema": "contracts/context.response.schema.json",
+      "maxDeadlineMs": 6000,
+      "idempotency": "none",
+      "errors": ["UNAVAILABLE", "VALIDATION_FAILED"]
+    },
+    "get-record": {
+      "requestSchema": "contracts/get-record.request.schema.json",
+      "responseSchema": "contracts/get-record.response.schema.json",
+      "maxDeadlineMs": 3000,
+      "idempotency": "none",
+      "errors": ["INVALID_REQUEST", "NOT_FOUND", "UNAVAILABLE", "STALE_BINDING"]
+    },
+    "query-records": {
+      "requestSchema": "contracts/query-records.request.schema.json",
+      "responseSchema": "contracts/query-records.response.schema.json",
+      "maxDeadlineMs": 6000,
+      "idempotency": "none",
+      "errors": ["INVALID_REQUEST", "UNAVAILABLE", "STALE_BINDING"]
+    },
+    "derive": {
+      "requestSchema": "contracts/derive.request.schema.json",
+      "responseSchema": "contracts/derive.response.schema.json",
+      "maxDeadlineMs": 6000,
+      "idempotency": "none",
+      "errors": ["INVALID_REQUEST", "UNAVAILABLE", "VALIDATION_FAILED", "STALE_BINDING"]
+    }
+  }
+}

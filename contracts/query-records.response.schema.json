@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contractVersion", "identity", "records"],
+  "properties": {
+    "contractVersion": { "const": "rules-engine-query-result.v1" },
+    "identity": { "$ref": "provider-identity.schema.json#/$defs/identity" },
+    "records": {
+      "type": "array",
+      "maxItems": 200,
+      "items": { "$ref": "rule-record.schema.json#/$defs/record" }
+    },
+    "nextCursor": { "type": "string", "minLength": 1, "maxLength": 32 }
+  }
+}

@@ -9,7 +9,7 @@ manifest ID and service identities are permanent compatibility contracts.
 
 1. [`README.md`](README.md) for the repository purpose and boundaries.
 2. `../ttrpg-codex/examples/addons/AGENTS.md` for the host addon contract.
-3. `../ttrpg-codex/docs/reference/addons.md` before changing manifests,
+3. `../ttrpg-codex/examples/addons/API_V3.md` before changing manifests,
    service discovery, lifecycle, permissions, or installation behavior.
 4. [`contract/README.md`](contract/README.md) before changing public services,
    ruleset validation, provider metadata, or reference resolution.
@@ -29,7 +29,7 @@ contracts/          public JSON Schemas for the worker service
 internal/engine/    worker service boundary
 internal/provider/  brokered rules-data v3 client
 internal/rules/     deterministic host-free computation
-worker/             committed platform binaries used by source installs
+worker/             committed platform binaries used by reviewed packages
 ```
 
 These ownership rules are mandatory:
@@ -95,16 +95,16 @@ Build the committed worker binaries and deterministic install archive with
 `go run ./cmd/build-package`. Inspect the archive with the sibling host's
 `codex-addon-inspect` command before committing a release candidate.
 
-Use relative test paths on Windows. From the host repository, install the
-working tree with:
+Inspect the resulting release archive from the host repository:
 
 ```text
-node scripts/dev-install-addon.cjs ../addon-dnd-engine
+go run ./cmd/codex-addon-inspect ../addon-dnd-engine/dist/dnd-engine-3.0.0.zip
 ```
 
-Source edits are not visible in the running app until the worker is rebuilt and
-dev-reinstalled. Keep the manifest entrypoints synchronized with the committed
-platform binaries and retain meaningful Go coverage for every public method.
+Source edits are not visible in the running app until the worker is rebuilt,
+packaged, staged, reviewed, and activated. Keep manifest entrypoints
+synchronized with committed platform binaries and retain meaningful Go
+coverage for every public method.
 
 The only durable suite backlog is
 `../ttrpg-codex/docs/BACKLOG.md`. Temporary cross-repository implementation

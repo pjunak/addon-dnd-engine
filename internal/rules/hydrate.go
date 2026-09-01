@@ -97,15 +97,20 @@ func Hydrate(decisions Object, records Records, ruleset *Ruleset) HydrationResul
 		warn("Unknown background: " + text(decisions["background"]))
 	}
 	featRecords := selectedFeats(decisions, records)
+	grantSources := applyChoicePackages(collectGrantSources(
+		classes, species, lineage, background, featRecords, records, totalLevel,
+	), object(decisions["featureChoices"]))
+	activeModifiers := activeGrantModifiers(decisions, sheet, grantSources, records)
 	hydrateHitPoints(sheet, classes, mods["CON"], hpPerLevel, featRecords)
-	hydrateArmorClass(decisions, sheet, classes, mods, records, species)
+	hydrateArmorClass(decisions, sheet, classes, mods, records, species, grantSources, activeModifiers)
 	derived["initiative"] = initiative(decisions, records, mods["DEX"], pb)
-	hydrateSaves(decisions, sheet, classes, mods, pb)
-	hydrateSkills(decisions, sheet, background, mods, pb)
-	hydrateProficiencies(decisions, sheet, classes, background, records)
+	hydrateSaves(decisions, sheet, classes, mods, pb, grantSources)
+	hydrateSkills(decisions, sheet, background, mods, pb, grantSources)
+	hydrateProficiencies(decisions, sheet, classes, background, records, grantSources)
+	applyGenericGrants(decisions, sheet, grantSources, activeModifiers)
 	hydrateSpellcasting(decisions, sheet, classes, featRecords, records, *ruleset, mods, pb)
 	hydrateWeaponMastery(decisions, sheet, classes, featRecords, *ruleset)
-	hydrateWeaponsAndAttunement(decisions, sheet, classes, records, mods, pb, *ruleset, warn)
+	hydrateWeaponsAndAttunement(decisions, sheet, classes, records, mods, pb, *ruleset, activeModifiers, warn)
 	hydrateCoreResources(sheet, classes, *ruleset)
 
 	_ = lineage
@@ -327,6 +332,8 @@ func hydrateArmorClass(
 	mods map[string]int,
 	records Records,
 	species Object,
+	sources []grantSource,
+	activeModifiers []Object,
 ) {
 	var bodyArmor Object
 	var shield Object
@@ -377,6 +384,26 @@ func hydrateArmorClass(
 				})
 			}
 		}
+		for _, source := range sources {
+			if text(source.Source["type"]) == "class" {
+				continue
+			}
+			formulas := append(append([]Object(nil), objects(source.Record["acFormulas"])...),
+				objects(source.Grants["acFormulas"])...)
+			for _, formula := range formulas {
+				if truth(object(formula["requires"])["noShield"]) && shield != nil {
+					continue
+				}
+				addition := 0
+				for _, ability := range stringsOf(formula["addAbilities"]) {
+					addition += mods[ability]
+				}
+				candidates = append(candidates, Object{
+					"id": text(formula["id"]), "label": firstText(formula["name"], formula["id"]),
+					"value": integer(formula["base"], 10) + addition,
+				})
+			}
+		}
 	}
 	candidates = append(candidates, Object{"id": "unarmored", "label": "Unarmored", "value": 10 + mods["DEX"]})
 	best := object(candidates[0])
@@ -389,10 +416,23 @@ func hydrateArmorClass(
 	if shield != nil {
 		shieldBonus = integer(shield["acBonus"], 2)
 	}
-	value := integer(best["value"], 0) + shieldBonus + integer(object(species["grants"])["acBonus"], 0)
+	speciesBonus := integer(object(species["grants"])["acBonus"], 0)
+	activeBonus := 0
+	for _, modifier := range activeModifiers {
+		if text(modifier["target"]) == "armorClass" {
+			activeBonus += integer(modifier["add"], 0) + mods[text(modifier["addAbility"])]
+		}
+	}
+	value := integer(best["value"], 0) + shieldBonus + speciesBonus + activeBonus
 	ac := Object{
 		"value": value, "base": text(best["label"]), "shield": shieldBonus,
 		"candidates": candidates, "restrictions": nil,
+	}
+	if speciesBonus != 0 {
+		ac["speciesBonus"] = speciesBonus
+	}
+	if activeBonus != 0 {
+		ac["activeBonus"] = activeBonus
 	}
 	if bodyArmor != nil {
 		requirement := strengthRequirement(bodyArmor["strReq"])
@@ -416,13 +456,19 @@ func hydrateArmorClass(
 	object(sheet["derived"])["armorClass"] = value
 }
 
-func hydrateSaves(decisions, sheet Object, classes []resolvedClass, mods map[string]int, pb int) {
+func hydrateSaves(
+	decisions, sheet Object,
+	classes []resolvedClass,
+	mods map[string]int,
+	pb int,
+	sources []grantSource,
+) {
 	first := []string{}
 	if len(classes) > 0 {
 		first = stringsOf(classes[0].Record["savingThrows"])
 	}
 	manual := object(decisions["saveProf"])
-	granted := stringsOf(decisions["saveProficiencies"])
+	granted := append(grantValues(sources, "savingThrows"), stringsOf(decisions["saveProficiencies"])...)
 	proficiencies := object(object(sheet["proficiencies"])["saves"])
 	saves := Object{}
 	for _, ability := range Abilities {
@@ -437,7 +483,13 @@ func hydrateSaves(decisions, sheet Object, classes []resolvedClass, mods map[str
 	sheet["saves"] = saves
 }
 
-func hydrateSkills(decisions, sheet Object, background Object, mods map[string]int, pb int) {
+func hydrateSkills(
+	decisions, sheet Object,
+	background Object,
+	mods map[string]int,
+	pb int,
+	sources []grantSource,
+) {
 	manual := object(decisions["skillProf"])
 	resolved := stringsOf(decisions["skillProficiencies"])
 	if decisions["skillProficiencies"] == nil {
@@ -449,7 +501,14 @@ func hydrateSkills(decisions, sheet Object, background Object, mods map[string]i
 	}
 	resolved = append(resolved, stringsOf(background["skillProficiencies"])...)
 	resolved = append(resolved, stringsOf(decisions["speciesSkillProficiencies"])...)
+	resolved = append(resolved, grantValues(sources, "skills")...)
 	expertise := object(decisions["skillExpertise"])
+	if expertise == nil {
+		expertise = Object{}
+	}
+	for _, id := range grantValues(sources, "expertise") {
+		expertise[id] = true
+	}
 	proficiencies := object(object(sheet["proficiencies"])["skills"])
 	skills := Object{}
 	ids := make([]string, 0, len(SkillAbility))
@@ -480,10 +539,16 @@ func hydrateSkills(decisions, sheet Object, background Object, mods map[string]i
 	object(sheet["derived"])["passivePerception"] = passive
 }
 
-func hydrateProficiencies(decisions, sheet Object, classes []resolvedClass, background Object, records Records) {
+func hydrateProficiencies(
+	decisions, sheet Object,
+	classes []resolvedClass,
+	background Object,
+	records Records,
+	sources []grantSource,
+) {
 	armor := make([]string, 0)
 	tools := make([]string, 0)
-	weapons := append([]string(nil), stringsOf(decisions["weaponProficiencies"])...)
+	weapons := append(grantValues(sources, "weapons"), stringsOf(decisions["weaponProficiencies"])...)
 	for index, current := range classes {
 		source := object(current.Record["startingProficiencies"])
 		if index > 0 && current.Record["multiclassProficiencies"] != nil {
@@ -503,6 +568,8 @@ func hydrateProficiencies(decisions, sheet Object, classes []resolvedClass, back
 	tools = append(tools, stringsOf(decisions["toolProficiencies"])...)
 	tools = append(tools, stringsOf(decisions["speciesToolProficiencies"])...)
 	armor = append(armor, stringsOf(decisions["armorProficiencies"])...)
+	armor = append(armor, grantValues(sources, "armor")...)
+	tools = append(tools, grantValues(sources, "tools")...)
 	proficiencies := object(sheet["proficiencies"])
 	proficiencies["armor"] = anyStrings(unique(armor))
 	proficiencies["weapons"] = anyStrings(unique(weapons))
@@ -624,6 +691,7 @@ func hydrateWeaponsAndAttunement(
 	mods map[string]int,
 	pb int,
 	ruleset Ruleset,
+	activeModifiers []Object,
 	warn func(string),
 ) {
 	proficiency := weaponProficiency(classes, stringsOf(object(sheet["proficiencies"])["weapons"]))
@@ -633,6 +701,13 @@ func hydrateWeaponsAndAttunement(
 	}
 	weapons := make([]any, 0)
 	attuned := 0
+	preferredAbility := ""
+	for _, modifier := range activeModifiers {
+		if text(modifier["target"]) == "weaponAbility" && text(modifier["ability"]) != "" {
+			preferredAbility = text(modifier["ability"])
+			break
+		}
+	}
 	for _, item := range objects(decisions["inventory"]) {
 		if truth(item["attuned"]) {
 			attuned++
@@ -645,7 +720,7 @@ func hydrateWeaponsAndAttunement(
 		if record == nil {
 			continue
 		}
-		weapons = append(weapons, weaponAttack(record, mods, pb, proficiency, mastery))
+		weapons = append(weapons, weaponAttack(record, mods, pb, proficiency, mastery, preferredAbility))
 	}
 	sheet["weapons"] = weapons
 	limit := ruleset.Constants.AttunementLimit
@@ -752,7 +827,14 @@ func weaponProficiency(classes []resolvedClass, extra []string) weaponProf {
 	return result
 }
 
-func weaponAttack(record Object, mods map[string]int, pb int, prof weaponProf, mastery map[string]struct{}) Object {
+func weaponAttack(
+	record Object,
+	mods map[string]int,
+	pb int,
+	prof weaponProf,
+	mastery map[string]struct{},
+	preferredAbility string,
+) Object {
 	properties := stringsOf(record["properties"])
 	_, explicit := prof.ids[text(record["id"])]
 	proficient := explicit || text(record["category"]) == "simple" && prof.simple ||
@@ -765,6 +847,9 @@ func weaponAttack(record Object, mods map[string]int, pb int, prof weaponProf, m
 	}
 	if contains(properties, "finesse") {
 		ability = max(mods["STR"], mods["DEX"])
+	}
+	if proficient && preferredAbility != "" {
+		ability = max(ability, mods[preferredAbility])
 	}
 	attack := ability
 	if proficient {

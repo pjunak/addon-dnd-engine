@@ -107,6 +107,33 @@ func TestHydrateWithoutProviderKeepsUniversalMath(t *testing.T) {
 	}
 }
 
+func TestHydrateAppliesGenericChoicePackagesAndActiveModifiers(t *testing.T) {
+	t.Parallel()
+	profile := syntheticRuleset(t)
+	result := Hydrate(Object{
+		"abilities": Object{"DEX": 14, "CON": 14},
+		"classes":   []any{Object{"classId": "fighter", "level": 3}},
+		"feats":     []any{Object{"featId": "guardian"}, Object{"featId": "adaptable"}},
+		"featureChoices": Object{
+			"feat:adaptable:heritage": "stone",
+		},
+		"activeFeatures": Object{"feat:guardian:stance": true},
+	}, syntheticRecords(), &profile).Sheet
+	if integer(object(result["derived"])["armorClass"], 0) != 13 ||
+		integer(result["speed"], 0) != 35 || integer(result["flySpeed"], 0) != 35 ||
+		integer(result["concentrationSaveBonus"], 0) != 2 ||
+		!contains(stringsOf(result["languages"]), "giant") ||
+		!contains(stringsOf(result["languages"]), "dwarvish") ||
+		!contains(stringsOf(result["resistances"]), "fire") ||
+		!contains(stringsOf(result["resistances"]), "cold") {
+		t.Fatalf("sheet = %+v", result)
+	}
+	activation := object(values(result["activations"])[0])
+	if !truth(activation["active"]) || !truth(activation["available"]) {
+		t.Fatalf("activation = %+v", activation)
+	}
+}
+
 type memoryRecords struct {
 	byKind map[string]map[string]json.RawMessage
 }
@@ -152,6 +179,18 @@ func syntheticRecords() memoryRecords {
 			"senses": Object{"darkvision": 120}, "resistances": []any{"poison"}, "grants": Object{"hpPerLevel": 1}},
 		{"kind": "weapon", "id": "longsword", "name": "Longsword", "category": "martial", "range": "melee",
 			"damage": "1d8", "damageType": "slashing", "properties": []any{"versatile"}, "versatileDamage": "1d10", "mastery": "Sap"},
+		{"kind": "feat", "id": "guardian", "name": "Guardian", "grants": Object{
+			"languages": []any{"giant"}, "resistances": []any{"fire"},
+			"activations": []any{Object{"id": "stance", "name": "Guardian Stance", "modifiers": []any{
+				Object{"target": "armorClass", "add": 1}, Object{"target": "speed", "add": 5},
+				Object{"target": "flySpeed", "value": "speed"}, Object{"target": "concentrationSave", "addAbility": "CON"},
+			}}},
+		}},
+		{"kind": "feat", "id": "adaptable", "name": "Adaptable", "grants": Object{
+			"choicePackages": []any{Object{"choiceId": "heritage", "options": Object{
+				"stone": Object{"languages": []any{"dwarvish"}, "resistances": []any{"cold"}},
+			}}},
+		}},
 	})
 }
 

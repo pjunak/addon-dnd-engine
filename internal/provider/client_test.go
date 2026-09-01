@@ -78,9 +78,43 @@ func TestRulesDataClientRejectsMismatchedRecordIdentity(t *testing.T) {
 	}
 }
 
+func TestRepositoryLoadsOneConsistentSnapshotAndReusesIt(t *testing.T) {
+	t.Parallel()
+	caller := &rulesDataCaller{t: t, methodCalls: make(map[string]int)}
+	client, err := New(caller)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, err := client.Repository(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := client.Repository(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first != second {
+		t.Fatal("unchanged provider content was loaded twice")
+	}
+	record, exists := first.GetByName("class", "WIZARD")
+	if !exists || record.ID != "wizard" {
+		t.Fatalf("record = %+v, exists = %v", record, exists)
+	}
+	record.Value[0] = '['
+	again, _ := first.Get("class", "wizard")
+	if again.Value[0] != '{' {
+		t.Fatal("repository returned mutable record storage")
+	}
+	if caller.methodCalls["catalog"] != 2 || caller.methodCalls["query:ruleset"] != 1 ||
+		caller.methodCalls["query:class"] != 1 {
+		t.Fatalf("method calls = %v", caller.methodCalls)
+	}
+}
+
 type rulesDataCaller struct {
-	t     *testing.T
-	calls int
+	t           *testing.T
+	calls       int
+	methodCalls map[string]int
 }
 
 func (caller *rulesDataCaller) Call(
@@ -108,8 +142,12 @@ func (caller *rulesDataCaller) Call(
 	if err := json.Unmarshal(body, &request); err != nil || request.Contract != RulesDataContract {
 		caller.t.Fatalf("request = %s, %v", body, err)
 	}
+	if caller.methodCalls == nil {
+		caller.methodCalls = make(map[string]int)
+	}
 	switch request.Method {
 	case "catalog":
+		caller.methodCalls["catalog"]++
 		return serviceEnvelope(`{
 			"contractVersion":"content-catalog.v1","sets":[{
 				"id":"rules","revision":"fixture-1","schemaSha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -117,11 +155,13 @@ func (caller *rulesDataCaller) Call(
 			}]
 		}`), nil
 	case "get":
+		caller.methodCalls["get"]++
 		return serviceEnvelope(`{
 			"contractVersion":"content-record.v1","setId":"rules","revision":"fixture-1",
 			"record":{"kind":"class","id":"wizard","value":{"kind":"class","id":"wizard","name":"Wizard"}}
 		}`), nil
 	case "query":
+		caller.methodCalls["query:"+request.Params.Kind]++
 		if request.Params.Kind == "ruleset" {
 			ruleset, err := os.ReadFile(filepath.Join("..", "..", "testdata", "synthetic-ruleset.json"))
 			if err != nil {

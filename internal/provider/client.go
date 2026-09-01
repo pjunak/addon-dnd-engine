@@ -9,7 +9,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
+	"sync"
 
 	"github.com/pjunak/addon-dnd-engine/internal/rules"
 	"github.com/pjunak/ttrpg-codex/sdk/go/workerrpc"
@@ -23,6 +25,8 @@ const (
 
 type Client struct {
 	services *workerrpc.ServiceClient
+	cacheMu  sync.Mutex
+	cached   *Repository
 }
 
 type Identity struct {
@@ -65,6 +69,24 @@ type RulesetResult struct {
 	Ruleset  rules.Ruleset
 }
 
+type CatalogResult struct {
+	Identity    Identity
+	RecordCount int
+	Kinds       map[string]int
+}
+
+type Repository struct {
+	Identity Identity
+	Ruleset  rules.Ruleset
+	records  map[string]map[string]Record
+	names    map[string]map[string]string
+}
+
+var engineKinds = [...]string{
+	"armor", "background", "class", "feat", "feature", "skill", "species",
+	"spell", "subclass", "tool", "weapon",
+}
+
 func New(caller workerrpc.ServiceCaller) (*Client, error) {
 	services, err := workerrpc.NewServiceClient(caller)
 	if err != nil {
@@ -100,31 +122,176 @@ func (client *Client) Inspect(ctx context.Context, meta *workerrpc.Meta) Context
 func (client *Client) Catalog(
 	ctx context.Context,
 	meta *workerrpc.Meta,
-) (Identity, error) {
+) (CatalogResult, error) {
 	call, err := client.call(ctx, meta, "catalog", map[string]any{})
 	if err != nil {
-		return Identity{}, err
+		return CatalogResult{}, err
 	}
 	var response struct {
 		ContractVersion string `json:"contractVersion"`
 		Sets            []struct {
-			ID          string         `json:"id"`
-			Revision    string         `json:"revision"`
-			RecordCount int            `json:"recordCount"`
-			Kinds       map[string]int `json:"kinds"`
+			ID           string          `json:"id"`
+			Revision     string          `json:"revision"`
+			SchemaSHA256 string          `json:"schemaSha256"`
+			RecordCount  int             `json:"recordCount"`
+			Kinds        map[string]int  `json:"kinds"`
+			Groups       json.RawMessage `json:"groups,omitempty"`
 		} `json:"sets"`
 	}
 	if err := decodeExact(call.Result, &response); err != nil ||
 		response.ContractVersion != "content-catalog.v1" {
-		return Identity{}, incompatible("rules-data catalog is invalid")
+		return CatalogResult{}, incompatible("rules-data catalog is invalid")
 	}
 	for _, set := range response.Sets {
-		if set.ID == RulesSetID && set.Revision != "" && set.RecordCount > 0 && len(set.Kinds) > 0 {
+		if set.ID == RulesSetID && set.Revision != "" && validDigest(set.SchemaSHA256) &&
+			validCatalogCounts(set.RecordCount, set.Kinds) {
 			identity := identityOf(call, set.Revision)
-			return identity, nil
+			return CatalogResult{
+				Identity: identity, RecordCount: set.RecordCount, Kinds: cloneCounts(set.Kinds),
+			}, nil
 		}
 	}
-	return Identity{}, incompatible("rules-data catalog has no rules content set")
+	return CatalogResult{}, incompatible("rules-data catalog has no rules content set")
+}
+
+func (client *Client) Repository(
+	ctx context.Context,
+	meta *workerrpc.Meta,
+) (*Repository, error) {
+	if client == nil {
+		return nil, errors.New("rules-data client is unavailable")
+	}
+	client.cacheMu.Lock()
+	defer client.cacheMu.Unlock()
+
+	catalog, err := client.Catalog(ctx, meta)
+	if err != nil {
+		return nil, err
+	}
+	if client.cached != nil && sameProviderContent(client.cached.Identity, catalog.Identity) {
+		return client.cached, nil
+	}
+	profile, err := client.Ruleset(ctx, meta)
+	if err != nil {
+		return nil, err
+	}
+	if !sameProviderContent(profile.Identity, catalog.Identity) {
+		return nil, incompatible("rules-data identity changed while loading engine content")
+	}
+
+	repository := &Repository{
+		Identity: profile.Identity,
+		Ruleset:  profile.Ruleset,
+		records:  make(map[string]map[string]Record),
+		names:    make(map[string]map[string]string),
+	}
+	for _, kind := range engineKinds {
+		expected := catalog.Kinds[kind]
+		if expected == 0 {
+			continue
+		}
+		loaded, err := client.loadKind(ctx, meta, catalog.Identity, kind, expected)
+		if err != nil {
+			return nil, err
+		}
+		repository.records[kind] = make(map[string]Record, len(loaded))
+		repository.names[kind] = make(map[string]string, len(loaded))
+		for _, record := range loaded {
+			repository.records[kind][record.ID] = record
+			name, err := recordName(record.Value)
+			if err != nil {
+				return nil, incompatible("rules-data record name is invalid")
+			}
+			normalized := strings.ToLower(name)
+			if previous, duplicate := repository.names[kind][normalized]; duplicate && previous != record.ID {
+				return nil, incompatible("rules-data record names are ambiguous")
+			}
+			repository.names[kind][normalized] = record.ID
+		}
+	}
+	client.cached = repository
+	return repository, nil
+}
+
+func (client *Client) loadKind(
+	ctx context.Context,
+	meta *workerrpc.Meta,
+	identity Identity,
+	kind string,
+	expected int,
+) ([]Record, error) {
+	cursor := ""
+	seenCursors := make(map[string]struct{})
+	seenRecords := make(map[string]struct{}, expected)
+	records := make([]Record, 0, expected)
+	for {
+		page, err := client.Query(ctx, meta, Query{Kind: kind, Cursor: cursor, Limit: 200})
+		if err != nil {
+			return nil, err
+		}
+		if !sameProviderContent(page.Identity, identity) {
+			return nil, incompatible("rules-data identity changed while loading records")
+		}
+		for _, record := range page.Records {
+			if _, duplicate := seenRecords[record.ID]; duplicate {
+				return nil, incompatible("rules-data query returned a duplicate record")
+			}
+			seenRecords[record.ID] = struct{}{}
+			records = append(records, record)
+		}
+		if page.NextCursor == "" {
+			break
+		}
+		if _, duplicate := seenCursors[page.NextCursor]; duplicate {
+			return nil, incompatible("rules-data query repeated a cursor")
+		}
+		seenCursors[page.NextCursor] = struct{}{}
+		cursor = page.NextCursor
+	}
+	if len(records) != expected {
+		return nil, incompatible("rules-data catalog count changed while loading records")
+	}
+	sort.Slice(records, func(left, right int) bool { return records[left].ID < records[right].ID })
+	return records, nil
+}
+
+func (repository *Repository) Get(kind, id string) (Record, bool) {
+	if repository == nil {
+		return Record{}, false
+	}
+	record, exists := repository.records[kind][id]
+	if !exists {
+		return Record{}, false
+	}
+	return cloneRecord(record), true
+}
+
+func (repository *Repository) GetByName(kind, name string) (Record, bool) {
+	if repository == nil {
+		return Record{}, false
+	}
+	id, exists := repository.names[kind][strings.ToLower(strings.TrimSpace(name))]
+	if !exists {
+		return Record{}, false
+	}
+	return repository.Get(kind, id)
+}
+
+func (repository *Repository) List(kind string) []Record {
+	if repository == nil {
+		return []Record{}
+	}
+	records := repository.records[kind]
+	ids := make([]string, 0, len(records))
+	for id := range records {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	result := make([]Record, 0, len(ids))
+	for _, id := range ids {
+		result = append(result, cloneRecord(records[id]))
+	}
+	return result
 }
 
 func (client *Client) Get(
@@ -263,6 +430,62 @@ func identityOf(call workerrpc.ServiceResult, revision string) Identity {
 		ProviderAddonID: call.ProviderAddonID, ProviderContractVersion: call.ProviderContractVersion,
 		ProviderGeneration: call.ProviderGeneration, ContentRevision: revision,
 	}
+}
+
+func sameProviderContent(left, right Identity) bool {
+	return left.ProviderAddonID == right.ProviderAddonID &&
+		left.ProviderContractVersion == right.ProviderContractVersion &&
+		left.ProviderGeneration == right.ProviderGeneration &&
+		left.ContentRevision == right.ContentRevision
+}
+
+func cloneCounts(source map[string]int) map[string]int {
+	result := make(map[string]int, len(source))
+	for key, value := range source {
+		result[key] = value
+	}
+	return result
+}
+
+func validCatalogCounts(total int, kinds map[string]int) bool {
+	if total < 1 || len(kinds) == 0 {
+		return false
+	}
+	sum := 0
+	for kind, count := range kinds {
+		if !validKind(kind) || count < 1 {
+			return false
+		}
+		sum += count
+	}
+	return sum == total
+}
+
+func validDigest(value string) bool {
+	if len(value) != 64 {
+		return false
+	}
+	for _, character := range value {
+		if character < '0' || character > '9' && (character < 'a' || character > 'f') {
+			return false
+		}
+	}
+	return true
+}
+
+func cloneRecord(record Record) Record {
+	record.Value = append(json.RawMessage(nil), record.Value...)
+	return record
+}
+
+func recordName(value json.RawMessage) (string, error) {
+	var identity struct {
+		Name string `json:"name"`
+	}
+	if err := json.Unmarshal(value, &identity); err != nil || strings.TrimSpace(identity.Name) == "" {
+		return "", errors.New("record name is missing")
+	}
+	return identity.Name, nil
 }
 
 func validRecord(record Record) bool {

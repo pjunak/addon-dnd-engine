@@ -138,7 +138,7 @@ func (handler *Handler) HandleRPC(ctx context.Context, request workerrpc.Request
 			ContractVersion: "rules-engine-context.v1",
 			EngineContract:  Contract, EngineContractVersion: ContractVersion,
 			Available: current.Available, Status: current.Status,
-			Identity: current.Identity, Errors: append([]string(nil), current.Errors...),
+			Identity: current.Identity, Errors: append([]string{}, current.Errors...),
 		}, nil
 	case methodPrefix + "get-record":
 		var input getRequest

@@ -26,7 +26,7 @@ func TestHandlerExposesContextAndRecords(t *testing.T) {
 		t.Fatal(err)
 	}
 	current := contextValue.(contextResponse)
-	if !current.Available || current.Identity.ProviderAddonID != "synthetic-provider" {
+	if !current.Available || current.Identity.ProviderAddonID != "synthetic-provider" || current.Errors == nil {
 		t.Fatalf("context = %+v", current)
 	}
 

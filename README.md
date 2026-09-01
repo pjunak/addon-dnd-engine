@@ -93,14 +93,17 @@ go run ./cmd/build-package
 ```
 
 The generated archive is written to `dist/dnd-engine-3.0.0.zip`. Platform
-binaries under `worker/` are committed because host source installs download
-the repository rather than compiling add-on source.
+binaries under `worker/` are committed so deterministic packages contain every
+supported deployment target without compiling source in production.
 
-Install the working tree from a sibling `ttrpg-codex` checkout:
+Inspect the release candidate from a sibling host checkout:
 
 ```text
-node scripts/dev-install-addon.cjs ../addon-dnd-engine
+go run ./cmd/codex-addon-inspect ../addon-dnd-engine/dist/dnd-engine-3.0.0.zip
 ```
+
+Installation uses the host's reviewed package upload flow during supervised
+integration testing.
 
 See [`contract/README.md`](contract/README.md) for the public service contracts,
 [`rules/README.md`](rules/README.md) for computation semantics, and

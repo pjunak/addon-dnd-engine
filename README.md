@@ -63,7 +63,9 @@ The v3 service exposes explicit, schema-validated worker calls:
 
 - `context` reports provider availability and exact provider/ruleset identity;
 - `get-record` and `query-records` expose provider-neutral rule records;
-- `derive` performs deterministic universal or ruleset-backed arithmetic.
+- `derive` performs deterministic universal or ruleset-backed arithmetic;
+- `hydrate` turns detached character decisions into computed sheet state while
+  preserving a provider-free universal fallback.
 
 Every ruleset-backed response carries the provider package generation, content
 revision, ruleset ID, ruleset version, and edition. The worker can therefore

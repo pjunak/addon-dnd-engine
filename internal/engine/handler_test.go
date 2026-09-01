@@ -104,6 +104,43 @@ func TestHandlerRejectsMissingInputsAndUnknownMethods(t *testing.T) {
 	}
 }
 
+func TestHandlerHydratesWithExactProviderIdentity(t *testing.T) {
+	t.Parallel()
+	data := engineProvider{ruleset: engineRuleset(t)}
+	handler, _ := New(&data)
+	value, err := handler.HandleRPC(context.Background(), rpcRequest("hydrate", `{
+		"contractVersion":"rules-engine-hydrate.v1",
+		"decisions":{"abilities":{"STR":16,"DEX":14},"level":5}
+	}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	hydrated := value.(hydrateResponse)
+	if hydrated.Identity == nil || hydrated.Identity.ContentRevision != "fixture-1" ||
+		len(hydrated.Warnings) != 0 || hydrated.Sheet["totalLevel"] != 5 {
+		t.Fatalf("hydrated = %+v", hydrated)
+	}
+}
+
+func TestHandlerHydrationDegradesWhenOptionalProviderIsMissing(t *testing.T) {
+	t.Parallel()
+	data := engineProvider{rulesetError: workerrpc.NewRPCError(
+		workerrpc.JSONRPCApplication, workerrpc.KindUnauthorized, "no provider", false, nil,
+	)}
+	handler, _ := New(&data)
+	value, err := handler.HandleRPC(context.Background(), rpcRequest("hydrate", `{
+		"contractVersion":"rules-engine-hydrate.v1","decisions":{"abilities":{"DEX":14},"level":5}
+	}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	hydrated := value.(hydrateResponse)
+	if hydrated.Identity != nil || len(hydrated.Warnings) != 1 ||
+		objectNumber(hydrated.Sheet, "derived", "initiative") != 2 {
+		t.Fatalf("hydrated = %+v", hydrated)
+	}
+}
+
 type engineProvider struct {
 	ruleset      rules.Ruleset
 	rulesetError error
@@ -146,6 +183,16 @@ func (data *engineProvider) Ruleset(
 	return provider.RulesetResult{Identity: engineIdentity(), Ruleset: data.ruleset}, nil
 }
 
+func (data *engineProvider) Evaluation(
+	context.Context, *workerrpc.Meta,
+) (provider.Identity, rules.Records, rules.Ruleset, error) {
+	data.rulesetCalls++
+	if data.rulesetError != nil {
+		return provider.Identity{}, nil, rules.Ruleset{}, data.rulesetError
+	}
+	return engineIdentity(), nil, data.ruleset, nil
+}
+
 func rpcRequest(method, params string) workerrpc.Request {
 	return workerrpc.Request{Method: methodPrefix + method, Params: json.RawMessage(params)}
 }
@@ -176,5 +223,26 @@ func assertRPCError(t *testing.T, err error, kind string) {
 	var failure *workerrpc.RPCError
 	if !errors.As(err, &failure) || failure.Data == nil || failure.Data.Kind != kind {
 		t.Fatalf("error = %T %v", err, err)
+	}
+}
+
+func objectNumber(source rules.Object, path ...string) int {
+	var current any = source
+	for _, key := range path {
+		value, _ := current.(rules.Object)
+		if value == nil {
+			if raw, ok := current.(map[string]any); ok {
+				value = rules.Object(raw)
+			}
+		}
+		current = value[key]
+	}
+	switch value := current.(type) {
+	case int:
+		return value
+	case float64:
+		return int(value)
+	default:
+		return 0
 	}
 }

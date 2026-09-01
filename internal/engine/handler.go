@@ -26,6 +26,7 @@ type RulesData interface {
 	Get(context.Context, *workerrpc.Meta, string, string) (provider.Identity, provider.Record, error)
 	Query(context.Context, *workerrpc.Meta, provider.Query) (provider.QueryResult, error)
 	Ruleset(context.Context, *workerrpc.Meta) (provider.RulesetResult, error)
+	Evaluation(context.Context, *workerrpc.Meta) (provider.Identity, rules.Records, rules.Ruleset, error)
 }
 
 type Handler struct {
@@ -77,6 +78,18 @@ type deriveRequest struct {
 type deriveResponse struct {
 	ContractVersion string             `json:"contractVersion"`
 	Value           any                `json:"value"`
+	Identity        *provider.Identity `json:"identity,omitempty"`
+}
+
+type hydrateRequest struct {
+	ContractVersion string          `json:"contractVersion"`
+	Decisions       json.RawMessage `json:"decisions"`
+}
+
+type hydrateResponse struct {
+	ContractVersion string             `json:"contractVersion"`
+	Sheet           rules.Object       `json:"sheet"`
+	Warnings        []string           `json:"warnings"`
 	Identity        *provider.Identity `json:"identity,omitempty"`
 }
 
@@ -142,6 +155,29 @@ func (handler *Handler) HandleRPC(ctx context.Context, request workerrpc.Request
 		}
 		return deriveResponse{
 			ContractVersion: "rules-engine-derived.v1", Value: value, Identity: identity,
+		}, nil
+	case methodPrefix + "hydrate":
+		var input hydrateRequest
+		if decodeExact(request.Params, &input) != nil || input.ContractVersion != "rules-engine-hydrate.v1" ||
+			!objectPayload(input.Decisions) {
+			return nil, invalidRequest("rules engine hydrate request is invalid")
+		}
+		decisions, valid := rules.DecodeObject(input.Decisions)
+		if !valid {
+			return nil, invalidRequest("rules engine hydrate decisions are invalid")
+		}
+		identity, records, profile, err := handler.provider.Evaluation(ctx, request.Meta)
+		if err != nil {
+			current := provider.ContextForError(err)
+			result := rules.HydrateWithoutRulesData(decisions, current.Status)
+			return hydrateResponse{
+				ContractVersion: "rules-engine-hydrated.v1", Sheet: result.Sheet, Warnings: result.Warnings,
+			}, nil
+		}
+		result := rules.Hydrate(decisions, records, &profile)
+		return hydrateResponse{
+			ContractVersion: "rules-engine-hydrated.v1", Sheet: result.Sheet,
+			Warnings: result.Warnings, Identity: &identity,
 		}, nil
 	default:
 		return nil, workerrpc.NewRPCError(workerrpc.JSONRPCMethodNotFound, workerrpc.KindNotFound,

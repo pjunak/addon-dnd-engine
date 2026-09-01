@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contractVersion", "sheet", "warnings"],
+  "properties": {
+    "contractVersion": { "const": "rules-engine-hydrated.v1" },
+    "sheet": { "type": "object" },
+    "warnings": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 500 },
+      "maxItems": 200
+    },
+    "identity": { "$ref": "provider-identity.schema.json#/$defs/identity" }
+  }
+}

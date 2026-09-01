@@ -31,6 +31,13 @@
       "maxDeadlineMs": 6000,
       "idempotency": "none",
       "errors": ["INVALID_REQUEST", "UNAVAILABLE", "VALIDATION_FAILED", "STALE_BINDING"]
+    },
+    "hydrate": {
+      "requestSchema": "contracts/hydrate.request.schema.json",
+      "responseSchema": "contracts/hydrate.response.schema.json",
+      "maxDeadlineMs": 15000,
+      "idempotency": "none",
+      "errors": ["INVALID_REQUEST", "UNAVAILABLE", "VALIDATION_FAILED", "STALE_BINDING"]
     }
   }
 }

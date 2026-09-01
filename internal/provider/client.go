@@ -102,6 +102,10 @@ func (client *Client) Inspect(ctx context.Context, meta *workerrpc.Meta) Context
 			Available: true, Status: "ready", Identity: result.Identity, Errors: []string{},
 		}
 	}
+	return ContextForError(err)
+}
+
+func ContextForError(err error) Context {
 	status := "unavailable"
 	var failure *workerrpc.RPCError
 	if errors.As(err, &failure) && failure.Data != nil {
@@ -117,6 +121,17 @@ func (client *Client) Inspect(ctx context.Context, meta *workerrpc.Meta) Context
 	return Context{
 		Available: false, Status: status, Errors: []string{boundedMessage(err)},
 	}
+}
+
+func (client *Client) Evaluation(
+	ctx context.Context,
+	meta *workerrpc.Meta,
+) (Identity, rules.Records, rules.Ruleset, error) {
+	repository, err := client.Repository(ctx, meta)
+	if err != nil {
+		return Identity{}, nil, rules.Ruleset{}, err
+	}
+	return repository.Identity, repository, repository.Ruleset, nil
 }
 
 func (client *Client) Catalog(
@@ -290,6 +305,25 @@ func (repository *Repository) List(kind string) []Record {
 	result := make([]Record, 0, len(ids))
 	for _, id := range ids {
 		result = append(result, cloneRecord(records[id]))
+	}
+	return result
+}
+
+func (repository *Repository) Value(kind, id string) (json.RawMessage, bool) {
+	record, exists := repository.Get(kind, id)
+	return record.Value, exists
+}
+
+func (repository *Repository) ValueByName(kind, name string) (json.RawMessage, bool) {
+	record, exists := repository.GetByName(kind, name)
+	return record.Value, exists
+}
+
+func (repository *Repository) Values(kind string) []json.RawMessage {
+	records := repository.List(kind)
+	result := make([]json.RawMessage, 0, len(records))
+	for _, record := range records {
+		result = append(result, record.Value)
 	}
 	return result
 }

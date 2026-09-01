@@ -134,6 +134,33 @@ func TestHydrateAppliesGenericChoicePackagesAndActiveModifiers(t *testing.T) {
 	}
 }
 
+func TestHydrateMaterializesSpellGrantsResourcesAndFeatureIdentity(t *testing.T) {
+	t.Parallel()
+	profile := syntheticRuleset(t)
+	result := Hydrate(Object{
+		"abilities": Object{"INT": 16},
+		"classes":   []any{Object{"classId": "wizard", "level": 2}},
+		"feats":     []any{Object{"featId": "magic-initiate"}, Object{"featId": "guardian"}},
+		"grantChoices": Object{
+			"feat:magic-initiate:mi-cantrips": []any{"fire-bolt"},
+			"feat:magic-initiate:mi-spell":    []any{"mage-armor"},
+		},
+	}, syntheticRecords(), &profile).Sheet
+	spellcasting := object(result["spellcasting"])
+	if len(values(spellcasting["granted"])) != 2 || len(values(spellcasting["pendingChoices"])) != 2 {
+		t.Fatalf("spellcasting = %+v", spellcasting)
+	}
+	resources := values(result["resources"])
+	if !hasResource(resources, "guardian-pool", 2) || !hasResource(resources, "charge-mage-armor", 1) {
+		t.Fatalf("resources = %+v", resources)
+	}
+	features := values(result["features"])
+	if !hasFeature(features, "wizard-arcane-recovery") || !hasFeature(features, "wizard-scholar") ||
+		hasFeature(features, "wizard-spell-mastery") || hasFeature(features, "Spell Mastery") {
+		t.Fatalf("features = %+v", features)
+	}
+}
+
 type memoryRecords struct {
 	byKind map[string]map[string]json.RawMessage
 }
@@ -165,7 +192,11 @@ func syntheticRecords() memoryRecords {
 	return newMemoryRecords([]Object{
 		{"kind": "class", "id": "wizard", "name": "Wizard", "hitDie": "d6", "savingThrows": []any{"INT", "WIS"},
 			"spellcasting": Object{"ability": "INT", "type": "full", "prepares": "spellbook", "ritual": true},
-			"progression":  []any{Object{"level": 1, "spellSlots": []any{2}}, Object{"level": 5, "preparedSpells": 9, "cantripsKnown": 4, "spellSlots": []any{4, 3, 2}}}},
+			"progression": []any{
+				Object{"level": 1, "spellSlots": []any{2}, "features": []any{"Arcane Recovery"}},
+				Object{"level": 2, "spellSlots": []any{3}, "features": []any{"Scholar", "Spell Mastery"}},
+				Object{"level": 5, "preparedSpells": 9, "cantripsKnown": 4, "spellSlots": []any{4, 3, 2}},
+			}},
 		{"kind": "class", "id": "warlock", "name": "Warlock", "hitDie": "d8", "savingThrows": []any{"WIS", "CHA"},
 			"spellcasting": Object{"ability": "CHA", "type": "pact", "prepares": "list"},
 			"progression":  []any{Object{"level": 1, "preparedSpells": 2}, Object{"level": 5, "preparedSpells": 6}}},
@@ -181,6 +212,7 @@ func syntheticRecords() memoryRecords {
 			"damage": "1d8", "damageType": "slashing", "properties": []any{"versatile"}, "versatileDamage": "1d10", "mastery": "Sap"},
 		{"kind": "feat", "id": "guardian", "name": "Guardian", "grants": Object{
 			"languages": []any{"giant"}, "resistances": []any{"fire"},
+			"resources": []any{Object{"key": "guardian-pool", "name": "Guardian Pool", "fixed": 2, "recharge": "short"}},
 			"activations": []any{Object{"id": "stance", "name": "Guardian Stance", "modifiers": []any{
 				Object{"target": "armorClass", "add": 1}, Object{"target": "speed", "add": 5},
 				Object{"target": "flySpeed", "value": "speed"}, Object{"target": "concentrationSave", "addAbility": "CON"},
@@ -191,7 +223,37 @@ func syntheticRecords() memoryRecords {
 				"stone": Object{"languages": []any{"dwarvish"}, "resistances": []any{"cold"}},
 			}}},
 		}},
+		{"kind": "feat", "id": "magic-initiate", "name": "Magic Initiate", "grants": Object{
+			"spells": []any{
+				Object{"id": "mi-cantrips", "choose": 2, "spellLevel": 0, "from": Object{"class": []any{"wizard"}}, "alwaysPrepared": true},
+				Object{"id": "mi-spell", "choose": 1, "spellLevel": 1, "from": Object{"class": []any{"wizard"}}, "alwaysPrepared": true, "free": "1/long"},
+			},
+		}},
+		{"kind": "spell", "id": "fire-bolt", "name": "Fire Bolt", "level": 0, "school": "Evocation"},
+		{"kind": "spell", "id": "mage-armor", "name": "Mage Armor", "level": 1, "school": "Abjuration"},
+		{"kind": "feature", "id": "wizard-arcane-recovery", "name": "Arcane Recovery", "classId": "wizard", "level": 1},
+		{"kind": "feature", "id": "wizard-scholar", "name": "Scholar", "classId": "wizard", "level": 2},
+		{"kind": "feature", "id": "wizard-spell-mastery", "name": "Spell Mastery", "classId": "wizard", "level": 18},
 	})
+}
+
+func hasResource(resources []any, key string, maximum int) bool {
+	for _, raw := range resources {
+		resource := object(raw)
+		if text(resource["key"]) == key && integer(resource["max"], 0) == maximum {
+			return true
+		}
+	}
+	return false
+}
+
+func hasFeature(features []any, id string) bool {
+	for _, raw := range features {
+		if text(object(raw)["id"]) == id {
+			return true
+		}
+	}
+	return false
 }
 
 func newMemoryRecords(records []Object) memoryRecords {

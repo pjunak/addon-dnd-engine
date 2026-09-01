@@ -109,11 +109,12 @@ func Hydrate(decisions Object, records Records, ruleset *Ruleset) HydrationResul
 	hydrateProficiencies(decisions, sheet, classes, background, records, grantSources)
 	applyGenericGrants(decisions, sheet, grantSources, activeModifiers)
 	hydrateSpellcasting(decisions, sheet, classes, featRecords, records, *ruleset, mods, pb)
+	hydrateSpellGrants(decisions, sheet, classes, featRecords, grantSources, records)
 	hydrateWeaponMastery(decisions, sheet, classes, featRecords, *ruleset)
 	hydrateWeaponsAndAttunement(decisions, sheet, classes, records, mods, pb, *ruleset, activeModifiers, warn)
-	hydrateCoreResources(sheet, classes, *ruleset)
+	hydrateFeatures(sheet, classes, records)
+	hydrateResources(decisions, sheet, classes, grantSources, records, *ruleset, pb)
 
-	_ = lineage
 	return HydrationResult{Sheet: sheet, Warnings: warnings}
 }
 
@@ -735,59 +736,6 @@ func hydrateWeaponsAndAttunement(
 	if attuned > limit {
 		warn(fmt.Sprintf("Attuned to more than %d magic items (limit %d)", limit, limit))
 	}
-}
-
-func hydrateCoreResources(sheet Object, classes []resolvedClass, ruleset Ruleset) {
-	resources := make([]any, 0)
-	byDie := make(map[string]int)
-	for _, current := range classes {
-		die := text(current.Record["hitDie"])
-		if die != "" {
-			byDie[die] += current.Level
-		}
-	}
-	dice := make([]string, 0, len(byDie))
-	for die := range byDie {
-		dice = append(dice, die)
-	}
-	sort.Strings(dice)
-	amount := "full"
-	if ruleset.Constants.Rest.LongRestHitDice == "half" {
-		amount = "halfLevel"
-	}
-	for _, die := range dice {
-		resources = append(resources, Object{
-			"key": "hit-dice-" + die, "name": "Hit Dice (" + die + ")", "max": byDie[die],
-			"kind": "hitdice", "die": die,
-			"recharge": []any{Object{"on": "long", "amount": amount}},
-			"source":   Object{"type": "class"},
-		})
-	}
-	for index, count := range integersOf(object(sheet["spellcasting"])["slots"]) {
-		if count < 1 {
-			continue
-		}
-		resources = append(resources, Object{
-			"key": fmt.Sprintf("slot-%d", index+1), "name": fmt.Sprintf("Spell Slots (%d)", index+1),
-			"max": count, "kind": "slot",
-			"recharge": []any{Object{"on": "long", "amount": "full"}},
-			"source":   Object{"type": "spellcasting"},
-		})
-	}
-	for _, raw := range values(object(sheet["spellcasting"])["perClass"]) {
-		entry := object(raw)
-		pact := object(entry["pact"])
-		if pact == nil || integer(pact["slots"], 0) < 1 {
-			continue
-		}
-		resources = append(resources, Object{
-			"key": "pact-slot", "name": fmt.Sprintf("Pact Slots (%d)", integer(pact["level"], 0)),
-			"max": integer(pact["slots"], 0), "kind": "slot",
-			"recharge": []any{Object{"on": "short", "amount": "full"}},
-			"source":   Object{"type": "pactMagic", "id": text(entry["classId"])},
-		})
-	}
-	sheet["resources"] = resources
 }
 
 type weaponProf struct {

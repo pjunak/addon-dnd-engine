@@ -22,10 +22,5 @@ choices degrade to warnings rather than exceptions. The public API clones
 inputs and outputs at its boundary so callers cannot mutate another consumer's
 state.
 
-The JavaScript modules in this directory remain only as a temporary regression
-oracle while hydration and Builder behavior move to Go; they are not included
-in the v3 install package.
-
 Run `go test ./...` and the focused race tests documented in the root README
-after any production rules change. Until the migration oracle is removed, also
-run `node --test tests/*.mjs`.
+after any production rules change.

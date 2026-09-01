@@ -32,9 +32,10 @@ label. List projections should be fresh. Full-record identity behavior remains
 provider-documented. The engine catches provider access failures, rejects the
 wrong list/item shape, and returns detached data from its public surface.
 
-[`synthetic-provider.mjs`](synthetic-provider.mjs) is the redistributable
-conformance fixture. Provider repositories should run equivalent validation
-against their real API without copying production content here.
+The Go provider tests and [`../testdata/synthetic-ruleset.json`](../testdata/synthetic-ruleset.json)
+are the redistributable conformance fixtures. Provider repositories should run
+equivalent validation against their real content without copying production
+records here.
 
 The normalized Builder policy covers point buy, origin ability grants, class
 advancement choices, feat categories by level, and category-specific ability

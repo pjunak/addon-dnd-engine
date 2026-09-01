@@ -95,10 +95,6 @@ Build the committed worker binaries and deterministic install archive with
 `go run ./cmd/build-package`. Inspect the archive with the sibling host's
 `codex-addon-inspect` command before committing a release candidate.
 
-The old JavaScript tests remain a temporary behavioral oracle while hydration
-and Builder behavior are ported. Run `node --test tests/*.mjs` until those
-fixtures have Go replacements and the JavaScript implementation is removed.
-
 Use relative test paths on Windows. From the host repository, install the
 working tree with:
 
@@ -106,10 +102,9 @@ working tree with:
 node scripts/dev-install-addon.cjs ../addon-dnd-engine
 ```
 
-Source edits are not visible in the running app until dev-reinstall. Keep test
-metadata in `addon.json` synchronized with the real test inventory. Add the
-ordinary test workflow in the same commit that introduces executable source
-and meaningful tests; do not create a permanently green no-test workflow.
+Source edits are not visible in the running app until the worker is rebuilt and
+dev-reinstalled. Keep the manifest entrypoints synchronized with the committed
+platform binaries and retain meaningful Go coverage for every public method.
 
 The only durable suite backlog is
 `../ttrpg-codex/docs/BACKLOG.md`. Temporary cross-repository implementation

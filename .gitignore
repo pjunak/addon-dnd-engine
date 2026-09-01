@@ -1,6 +1,6 @@
-# Dependencies and generated test output
-node_modules/
+# Generated test and package output
 coverage/
+coverage.out
 dist/
 
 # Secrets and private keys

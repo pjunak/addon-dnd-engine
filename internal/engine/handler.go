@@ -93,6 +93,30 @@ type hydrateResponse struct {
 	Identity        *provider.Identity `json:"identity,omitempty"`
 }
 
+type builderRequest struct {
+	ContractVersion string          `json:"contractVersion"`
+	Decisions       json.RawMessage `json:"decisions"`
+	Change          json.RawMessage `json:"change,omitempty"`
+}
+
+type builderPlanResponse struct {
+	ContractVersion string             `json:"contractVersion"`
+	Available       bool               `json:"available"`
+	Status          string             `json:"status"`
+	Plan            rules.Object       `json:"plan,omitempty"`
+	Identity        *provider.Identity `json:"identity,omitempty"`
+	Errors          []string           `json:"errors"`
+}
+
+type builderDecisionsResponse struct {
+	ContractVersion string             `json:"contractVersion"`
+	Available       bool               `json:"available"`
+	Status          string             `json:"status"`
+	Decisions       rules.Object       `json:"decisions"`
+	Identity        *provider.Identity `json:"identity,omitempty"`
+	Errors          []string           `json:"errors"`
+}
+
 func New(data RulesData) (*Handler, error) {
 	if data == nil {
 		return nil, errors.New("rules-data provider client is required")
@@ -174,15 +198,92 @@ func (handler *Handler) HandleRPC(ctx context.Context, request workerrpc.Request
 				ContractVersion: "rules-engine-hydrated.v1", Sheet: result.Sheet, Warnings: result.Warnings,
 			}, nil
 		}
-		result := rules.Hydrate(decisions, records, &profile)
+		normalized := rules.NormalizeBuilderDecisions(decisions, records, profile)
+		result := rules.Hydrate(normalized, records, &profile)
 		return hydrateResponse{
 			ContractVersion: "rules-engine-hydrated.v1", Sheet: result.Sheet,
 			Warnings: result.Warnings, Identity: &identity,
+		}, nil
+	case methodPrefix + "builder-plan":
+		input, decisions, err := decodeBuilderRequest(request.Params, "rules-engine-builder-plan.v1", false)
+		if err != nil {
+			return nil, err
+		}
+		_ = input
+		identity, records, profile, evaluationErr := handler.provider.Evaluation(ctx, request.Meta)
+		if evaluationErr != nil {
+			current := provider.ContextForError(evaluationErr)
+			return builderPlanResponse{
+				ContractVersion: "rules-engine-builder-plan-result.v1", Available: false,
+				Status: current.Status, Errors: current.Errors,
+			}, nil
+		}
+		return builderPlanResponse{
+			ContractVersion: "rules-engine-builder-plan-result.v1", Available: true, Status: "ready",
+			Plan: rules.BuilderPlan(decisions, records, profile), Identity: &identity, Errors: []string{},
+		}, nil
+	case methodPrefix + "apply-builder-choice":
+		input, decisions, err := decodeBuilderRequest(request.Params, "rules-engine-builder-change.v1", true)
+		if err != nil {
+			return nil, err
+		}
+		change, valid := rules.DecodeObject(input.Change)
+		if !valid {
+			return nil, invalidRequest("rules engine builder change is invalid")
+		}
+		identity, records, profile, evaluationErr := handler.provider.Evaluation(ctx, request.Meta)
+		if evaluationErr != nil {
+			current := provider.ContextForError(evaluationErr)
+			return builderDecisionsResponse{
+				ContractVersion: "rules-engine-builder-decisions.v1", Available: false,
+				Status: current.Status, Decisions: decisions, Errors: current.Errors,
+			}, nil
+		}
+		return builderDecisionsResponse{
+			ContractVersion: "rules-engine-builder-decisions.v1", Available: true, Status: "ready",
+			Decisions: rules.ApplyBuilderChoice(decisions, change, records, profile),
+			Identity:  &identity, Errors: []string{},
+		}, nil
+	case methodPrefix + "reconcile-builder-decisions":
+		_, decisions, err := decodeBuilderRequest(request.Params, "rules-engine-builder-reconcile.v1", false)
+		if err != nil {
+			return nil, err
+		}
+		identity, records, profile, evaluationErr := handler.provider.Evaluation(ctx, request.Meta)
+		if evaluationErr != nil {
+			current := provider.ContextForError(evaluationErr)
+			return builderDecisionsResponse{
+				ContractVersion: "rules-engine-builder-decisions.v1", Available: false,
+				Status: current.Status, Decisions: decisions, Errors: current.Errors,
+			}, nil
+		}
+		return builderDecisionsResponse{
+			ContractVersion: "rules-engine-builder-decisions.v1", Available: true, Status: "ready",
+			Decisions: rules.ReconcileBuilderDecisions(decisions, records, profile),
+			Identity:  &identity, Errors: []string{},
 		}, nil
 	default:
 		return nil, workerrpc.NewRPCError(workerrpc.JSONRPCMethodNotFound, workerrpc.KindNotFound,
 			"The rules engine method was not found.", false, nil)
 	}
+}
+
+func decodeBuilderRequest(
+	body json.RawMessage,
+	contractVersion string,
+	requireChange bool,
+) (builderRequest, rules.Object, error) {
+	var input builderRequest
+	if decodeExact(body, &input) != nil || input.ContractVersion != contractVersion ||
+		!objectPayload(input.Decisions) || requireChange && !objectPayload(input.Change) ||
+		!requireChange && len(input.Change) != 0 {
+		return builderRequest{}, nil, invalidRequest("rules engine builder request is invalid")
+	}
+	decisions, valid := rules.DecodeObject(input.Decisions)
+	if !valid {
+		return builderRequest{}, nil, invalidRequest("rules engine builder decisions are invalid")
+	}
+	return input, decisions, nil
 }
 
 func (handler *Handler) derive(

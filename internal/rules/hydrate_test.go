@@ -161,6 +161,52 @@ func TestHydrateMaterializesSpellGrantsResourcesAndFeatureIdentity(t *testing.T)
 	}
 }
 
+func TestBuilderPlanAndMutationsFollowRulesetPolicy(t *testing.T) {
+	t.Parallel()
+	profile := syntheticRuleset(t)
+	records := syntheticRecords()
+	decisions := Object{
+		"background":     "Acolyte",
+		"classes":        []any{Object{"classId": "fighter", "level": 19}},
+		"featureChoices": Object{},
+		"abilityGrants":  []any{},
+	}
+	plan := BuilderPlan(decisions, records, profile)
+	creation := objects(plan["creationAbilityChoices"])
+	if len(creation) != 1 || text(creation[0]["id"]) != "bgasi" {
+		t.Fatalf("creation choices = %+v", creation)
+	}
+	advancement := findChoice(objects(plan["classChoices"]), "asi:fighter:19")
+	if advancement == nil || !contains(stringsOf(object(advancement["feat"])["categories"]), "epicBoon") ||
+		findChoice(objects(plan["classChoices"]), "asi:fighter:14") == nil {
+		t.Fatalf("class choices = %+v", plan["classChoices"])
+	}
+
+	decisions = ApplyBuilderChoice(decisions, Object{
+		"choiceId": "bgasi", "value": Object{"ability": "INT", "amount": 3},
+	}, records, profile)
+	grant := objects(decisions["abilityGrants"])[0]
+	if integer(object(grant["assign"])["INT"], 0) != 2 {
+		t.Fatalf("background grant = %+v", grant)
+	}
+	decisions = ApplyBuilderChoice(decisions, Object{
+		"choiceId": "asi:fighter:19", "value": "feat",
+	}, records, profile)
+	decisions = ApplyBuilderChoice(decisions, Object{
+		"choiceId": "asi:fighter:19:feat", "value": "boon-of-fortitude",
+	}, records, profile)
+	featGrant := findGrant(objects(decisions["abilityGrants"]), "asi:fighter:19:featability")
+	if featGrant == nil || integer(object(featGrant["assign"])["CON"], 0) != 1 ||
+		integer(featGrant["cap"], 0) != 30 {
+		t.Fatalf("feat grant = %+v", featGrant)
+	}
+	normalized := NormalizeBuilderDecisions(decisions, records, profile)
+	if findFeat(values(normalized["feats"]), "magic-initiate") == nil ||
+		findFeat(values(normalized["feats"]), "boon-of-fortitude") == nil {
+		t.Fatalf("normalized feats = %+v", normalized["feats"])
+	}
+}
+
 type memoryRecords struct {
 	byKind map[string]map[string]json.RawMessage
 }
@@ -200,7 +246,8 @@ func syntheticRecords() memoryRecords {
 		{"kind": "class", "id": "warlock", "name": "Warlock", "hitDie": "d8", "savingThrows": []any{"WIS", "CHA"},
 			"spellcasting": Object{"ability": "CHA", "type": "pact", "prepares": "list"},
 			"progression":  []any{Object{"level": 1, "preparedSpells": 2}, Object{"level": 5, "preparedSpells": 6}}},
-		{"kind": "class", "id": "fighter", "name": "Fighter", "hitDie": "d10", "savingThrows": []any{"STR", "CON"}},
+		{"kind": "class", "id": "fighter", "name": "Fighter", "hitDie": "d10", "savingThrows": []any{"STR", "CON"},
+			"abilityScoreImprovementLevels": []any{6, 14}},
 		{"kind": "class", "id": "paladin", "name": "Paladin", "hitDie": "d10", "savingThrows": []any{"WIS", "CHA"},
 			"spellcasting": Object{"ability": "CHA", "type": "half", "prepares": "list"}},
 		{"kind": "class", "id": "sorcerer", "name": "Sorcerer", "hitDie": "d6", "savingThrows": []any{"CON", "CHA"},
@@ -229,6 +276,11 @@ func syntheticRecords() memoryRecords {
 				Object{"id": "mi-spell", "choose": 1, "spellLevel": 1, "from": Object{"class": []any{"wizard"}}, "alwaysPrepared": true, "free": "1/long"},
 			},
 		}},
+		{"kind": "feat", "id": "boon-of-fortitude", "name": "Boon of Fortitude", "category": "epicBoon", "grants": Object{
+			"abilityScoreIncrease": Object{"choose": 1, "amount": 1, "from": []any{"CON"}},
+		}},
+		{"kind": "background", "id": "acolyte", "name": "Acolyte", "abilityScores": []any{"INT", "WIS", "CHA"},
+			"originFeat": "magic-initiate"},
 		{"kind": "spell", "id": "fire-bolt", "name": "Fire Bolt", "level": 0, "school": "Evocation"},
 		{"kind": "spell", "id": "mage-armor", "name": "Mage Armor", "level": 1, "school": "Abjuration"},
 		{"kind": "feature", "id": "wizard-arcane-recovery", "name": "Arcane Recovery", "classId": "wizard", "level": 1},
@@ -254,6 +306,34 @@ func hasFeature(features []any, id string) bool {
 		}
 	}
 	return false
+}
+
+func findChoice(choices []Object, id string) Object {
+	for _, choice := range choices {
+		if text(choice["id"]) == id {
+			return choice
+		}
+	}
+	return nil
+}
+
+func findGrant(grants []Object, id string) Object {
+	for _, grant := range grants {
+		if text(grant["id"]) == id {
+			return grant
+		}
+	}
+	return nil
+}
+
+func findFeat(feats []any, id string) Object {
+	for _, raw := range feats {
+		feat := object(raw)
+		if text(feat["featId"]) == id {
+			return feat
+		}
+	}
+	return nil
 }
 
 func newMemoryRecords(records []Object) memoryRecords {

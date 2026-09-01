@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contractVersion", "decisions", "change"],
+  "properties": {
+    "contractVersion": { "const": "rules-engine-builder-change.v1" },
+    "decisions": { "type": "object" },
+    "change": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["choiceId", "value"],
+      "properties": {
+        "choiceId": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "slot": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "value": {}
+      }
+    }
+  }
+}

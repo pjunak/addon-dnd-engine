@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contractVersion", "available", "status", "decisions", "errors"],
+  "properties": {
+    "contractVersion": { "const": "rules-engine-builder-decisions.v1" },
+    "available": { "type": "boolean" },
+    "status": { "enum": ["ready", "missing", "unavailable", "incompatible", "stale"] },
+    "decisions": { "type": "object" },
+    "identity": { "$ref": "provider-identity.schema.json#/$defs/identity" },
+    "errors": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 500 },
+      "maxItems": 20
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "available": { "const": true } }, "required": ["available"] },
+      "then": { "required": ["identity"] },
+      "else": { "not": { "required": ["identity"] } }
+    }
+  ]
+}

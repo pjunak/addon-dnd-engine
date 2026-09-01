@@ -45,12 +45,17 @@ of the contract.
 ## Engine v3
 
 The package-owned schemas under `contracts/` define all requests and responses.
-The surface exposes `context`, `get-record`, `query-records`, `derive`, and
-`hydrate`. Universal arithmetic does not require a provider. Ruleset-backed
+The surface exposes `context`, record queries, derivation, hydration, and the
+Builder plan/apply/reconcile lifecycle. Universal arithmetic does not require a provider. Ruleset-backed
 derivations obtain a validated complete profile on the same request and return
 the exact provider identity used for the result. Hydration returns a detached
 computed sheet plus bounded warnings; when the optional provider is missing it
 returns the universal subset rather than inventing edition policy.
+
+Builder calls report `available` and `status` explicitly. Planning requires a
+provider; apply and reconcile return the unchanged detached decisions when the
+optional provider is unavailable. Hydration normalizes Builder choices before
+computing the sheet, so saved decisions and derived state follow one path.
 
 The engine owns no Store, character namespace, UI, routes, or persistence.
 Without rules data it exposes provider-neutral arithmetic and reports

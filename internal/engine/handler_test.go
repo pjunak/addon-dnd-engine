@@ -141,6 +141,53 @@ func TestHandlerHydrationDegradesWhenOptionalProviderIsMissing(t *testing.T) {
 	}
 }
 
+func TestHandlerExposesBuilderLifecycle(t *testing.T) {
+	t.Parallel()
+	data := engineProvider{ruleset: engineRuleset(t)}
+	handler, _ := New(&data)
+	value, err := handler.HandleRPC(context.Background(), rpcRequest("builder-plan", `{
+		"contractVersion":"rules-engine-builder-plan.v1","decisions":{}
+	}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan := value.(builderPlanResponse)
+	if !plan.Available || plan.Status != "ready" || plan.Identity == nil || plan.Plan == nil {
+		t.Fatalf("plan = %+v", plan)
+	}
+
+	value, err = handler.HandleRPC(context.Background(), rpcRequest("reconcile-builder-decisions", `{
+		"contractVersion":"rules-engine-builder-reconcile.v1","decisions":{"featureChoices":{"stale":"x"}}
+	}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	reconciled := value.(builderDecisionsResponse)
+	if !reconciled.Available || len(reconciled.Decisions) == 0 {
+		t.Fatalf("reconciled = %+v", reconciled)
+	}
+}
+
+func TestBuilderMutationIsNoOpWhenOptionalProviderIsMissing(t *testing.T) {
+	t.Parallel()
+	data := engineProvider{rulesetError: workerrpc.NewRPCError(
+		workerrpc.JSONRPCApplication, workerrpc.KindUnauthorized, "no provider", false, nil,
+	)}
+	handler, _ := New(&data)
+	value, err := handler.HandleRPC(context.Background(), rpcRequest("apply-builder-choice", `{
+		"contractVersion":"rules-engine-builder-change.v1",
+		"decisions":{"marker":"preserved"},"change":{"choiceId":"unknown","value":"x"}
+	}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := value.(builderDecisionsResponse)
+	if result.Available || result.Status != "missing" || result.Decisions["marker"] != "preserved" ||
+		result.Identity != nil {
+		t.Fatalf("result = %+v", result)
+	}
+}
+
 type engineProvider struct {
 	ruleset      rules.Ruleset
 	rulesetError error

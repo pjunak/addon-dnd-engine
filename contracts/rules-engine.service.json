@@ -38,6 +38,27 @@
       "maxDeadlineMs": 15000,
       "idempotency": "none",
       "errors": ["INVALID_REQUEST", "UNAVAILABLE", "VALIDATION_FAILED", "STALE_BINDING"]
+    },
+    "builder-plan": {
+      "requestSchema": "contracts/builder-plan.request.schema.json",
+      "responseSchema": "contracts/builder-plan.response.schema.json",
+      "maxDeadlineMs": 15000,
+      "idempotency": "none",
+      "errors": ["INVALID_REQUEST", "UNAVAILABLE", "VALIDATION_FAILED", "STALE_BINDING"]
+    },
+    "apply-builder-choice": {
+      "requestSchema": "contracts/builder-change.request.schema.json",
+      "responseSchema": "contracts/builder-decisions.response.schema.json",
+      "maxDeadlineMs": 15000,
+      "idempotency": "none",
+      "errors": ["INVALID_REQUEST", "UNAVAILABLE", "VALIDATION_FAILED", "STALE_BINDING"]
+    },
+    "reconcile-builder-decisions": {
+      "requestSchema": "contracts/builder-reconcile.request.schema.json",
+      "responseSchema": "contracts/builder-decisions.response.schema.json",
+      "maxDeadlineMs": 15000,
+      "idempotency": "none",
+      "errors": ["INVALID_REQUEST", "UNAVAILABLE", "VALIDATION_FAILED", "STALE_BINDING"]
     }
   }
 }

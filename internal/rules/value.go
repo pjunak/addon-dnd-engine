@@ -71,7 +71,10 @@ func object(value any) Object {
 }
 
 func objects(value any) []Object {
-	items, _ := value.([]any)
+	items := values(value)
+	if items == nil {
+		return nil
+	}
 	result := make([]Object, 0, len(items))
 	for _, item := range items {
 		if current := object(item); current != nil {
@@ -82,12 +85,29 @@ func objects(value any) []Object {
 }
 
 func values(value any) []any {
-	result, _ := value.([]any)
-	return result
+	switch current := value.(type) {
+	case []any:
+		return current
+	case []string:
+		return anyStrings(current)
+	case []int:
+		return anyInts(current)
+	case []Object:
+		result := make([]any, len(current))
+		for index := range current {
+			result[index] = current[index]
+		}
+		return result
+	default:
+		return nil
+	}
 }
 
 func stringsOf(value any) []string {
 	items := values(value)
+	if items == nil {
+		return nil
+	}
 	result := make([]string, 0, len(items))
 	for _, item := range items {
 		if current, ok := item.(string); ok {

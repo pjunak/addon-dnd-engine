@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contractVersion", "decisions"],
+  "properties": {
+    "contractVersion": { "const": "rules-engine-builder-reconcile.v1" },
+    "decisions": { "type": "object" }
+  }
+}

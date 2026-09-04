@@ -68,7 +68,7 @@ These ownership rules are mandatory:
 
 ## Code quality
 
-- Use Go 1.26 for worker and rules code. Keep the `cmd/worker` package limited
+- Use Go 1.27.1 for worker and rules code. Keep the `cmd/worker` package limited
   to process composition and move behavior into focused internal packages.
 - Keep functions focused and pass dependencies explicitly.
 - Prefer immutable inputs/results and pure helpers. Clone at the contract
@@ -83,7 +83,7 @@ These ownership rules are mandatory:
 
 ## Working loop
 
-Use Go 1.26 and PowerShell on Windows. The complete Go validation is:
+Use Go 1.27.1 and PowerShell on Windows. The complete Go validation is:
 
 ```text
 go test ./...

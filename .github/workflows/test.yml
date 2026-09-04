@@ -18,8 +18,19 @@ jobs:
         with:
           repository: pjunak/ttrpg-codex
           path: ttrpg-codex
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-go@v7
         with:
-          node-version: 26
-      - run: node --test tests/*.mjs
+          go-version-file: addon-dnd-engine/go.mod
+          cache-dependency-path: addon-dnd-engine/go.sum
+      - run: go test ./...
         working-directory: addon-dnd-engine
+      - run: go vet ./...
+        working-directory: addon-dnd-engine
+      - run: go test -race ./internal/rules ./internal/provider ./internal/engine
+        working-directory: addon-dnd-engine
+      - name: Build release package
+        run: go run ./cmd/build-package
+        working-directory: addon-dnd-engine
+      - name: Inspect release package with the host
+        run: go run ./cmd/codex-addon-inspect ../addon-dnd-engine/dist/dnd-engine-3.0.0.zip
+        working-directory: ttrpg-codex

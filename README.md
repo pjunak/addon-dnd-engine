@@ -53,9 +53,10 @@ The engine will not own:
 - Edition profiles, advancement tables, origin policy, or native fallback rules.
 - Combat encounter automation.
 
-`addon-dnd-character-sheets` will retain its stable `dnd-sheets` data namespace, editing model,
-sheet shell, Compact and Classic built-in renderers, and renderer selection.
-Compact will be the default for characters without a saved per-browser choice.
+`addon-dnd-character-sheets` retains its stable `dnd-sheets` data namespace and
+owns sheet presentation. Acceptance of the former Compact/Classic layouts and
+renderer selection remains an open product gate in the
+[suite backlog](../ttrpg-codex/docs/BACKLOG.md), not an engine guarantee.
 
 ## Engine service
 
@@ -75,7 +76,7 @@ reject or expose stale context rather than silently mixing revisions.
 
 ## Development
 
-Go 1.26 is required. The repository builds static native workers for Windows
+Go 1.27.1 is required, matching the host SDK module. The repository builds static native workers for Windows
 amd64, Linux amd64, and Linux arm64.
 
 Run the Go checks from this repository:

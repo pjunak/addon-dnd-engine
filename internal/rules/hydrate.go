@@ -503,12 +503,17 @@ func hydrateSkills(
 	resolved = append(resolved, stringsOf(background["skillProficiencies"])...)
 	resolved = append(resolved, stringsOf(decisions["speciesSkillProficiencies"])...)
 	resolved = append(resolved, grantValues(sources, "skills")...)
-	expertise := object(decisions["skillExpertise"])
-	if expertise == nil {
-		expertise = Object{}
+	for index, id := range resolved {
+		resolved[index] = canonicalSkill(id)
+	}
+	expertise := Object{}
+	for id, selected := range object(decisions["skillExpertise"]) {
+		if truth(selected) {
+			expertise[canonicalSkill(id)] = true
+		}
 	}
 	for _, id := range grantValues(sources, "expertise") {
-		expertise[id] = true
+		expertise[canonicalSkill(id)] = true
 	}
 	proficiencies := object(object(sheet["proficiencies"])["skills"])
 	skills := Object{}

@@ -71,3 +71,17 @@ copying retains inventory metadata and swaps retain their class/total levels.
 Explicitly clearing a default granted spell now suppresses that default, a
 tested correction beyond the original hydration behavior. Unset choices still
 use the provider default and existing pinned vectors remain unchanged.
+
+`builder_guidance.go` projects completion and labeled options beside the stable
+plan, including distinct valid picks, origin/feat ability budgets, declared
+subclass requirements, level features and spell-grant reminders. Weapon,
+feature-pool, tool, feat and expertise options come from the same rules snapshot.
+Synthetic tests cover incomplete budgets, duplicate selections, deterministic
+output and unchanged input. Guidance is read-only and does not enforce undeclared
+prerequisites or turn advisory completion into a persistence restriction.
+
+Play changes retain the caller's manual feat array instead of saving resolved
+feats back into it. A rest followed by removing an extra feat therefore removes
+its mechanics. Skills accept space, hyphen, underscore and camelCase spellings
+for computation while preserving authored keys. These corrections have separate
+regression cases; all 144 pinned v1 vectors continue to match.

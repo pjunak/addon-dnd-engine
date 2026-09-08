@@ -104,6 +104,7 @@ type builderPlanResponse struct {
 	Available       bool               `json:"available"`
 	Status          string             `json:"status"`
 	Plan            rules.Object       `json:"plan,omitempty"`
+	Guidance        rules.Object       `json:"guidance,omitempty"`
 	Identity        *provider.Identity `json:"identity,omitempty"`
 	Errors          []string           `json:"errors"`
 }
@@ -238,16 +239,17 @@ func (handler *Handler) HandleRPC(ctx context.Context, request workerrpc.Request
 		}
 		var changed rules.Object
 		if planning {
-			changed = rules.NormalizeBuilderDecisions(decisions, records, profile)
+			changed = decisions
 		} else {
 			changed, err = rules.ApplyPlayChange(decisions, change, records, profile)
 		}
 		if err != nil {
 			return nil, invalidRequest(err.Error())
 		}
-		hydrated := rules.Hydrate(changed, records, &profile)
+		computed := rules.NormalizeBuilderDecisions(changed, records, profile)
+		hydrated := rules.Hydrate(computed, records, &profile)
 		return playResponse{ContractVersion: "rules-engine-play-result.v1", Available: true, Status: "ready",
-			Decisions: changed, Sheet: hydrated.Sheet, Warnings: hydrated.Warnings, Identity: &identity, Errors: []string{}, Options: rules.SpellOptions(changed, hydrated.Sheet, records, profile)}, nil
+			Decisions: changed, Sheet: hydrated.Sheet, Warnings: hydrated.Warnings, Identity: &identity, Errors: []string{}, Options: rules.SpellOptions(computed, hydrated.Sheet, records, profile)}, nil
 	case methodPrefix + "builder-plan":
 		input, decisions, err := decodeBuilderRequest(request.Params, "rules-engine-builder-plan.v1", false)
 		if err != nil {
@@ -262,9 +264,10 @@ func (handler *Handler) HandleRPC(ctx context.Context, request workerrpc.Request
 				Status: current.Status, Errors: current.Errors,
 			}, nil
 		}
+		plan := rules.BuilderPlan(decisions, records, profile)
 		return builderPlanResponse{
 			ContractVersion: "rules-engine-builder-plan-result.v1", Available: true, Status: "ready",
-			Plan: rules.BuilderPlan(decisions, records, profile), Identity: &identity, Errors: []string{},
+			Plan: plan, Guidance: rules.BuilderGuidance(decisions, plan, records, profile), Identity: &identity, Errors: []string{},
 		}, nil
 	case methodPrefix + "apply-builder-choice":
 		input, decisions, err := decodeBuilderRequest(request.Params, "rules-engine-builder-change.v1", true)

@@ -147,6 +147,37 @@ func TestHandlerPlayChangeUsesOneEvaluationAndDoesNotInventMissingRules(t *testi
 	}
 }
 
+func TestHandlerPlayRetainsDerivedFeatEffectsWithoutAuthoringThem(t *testing.T) {
+	t.Parallel()
+	data := engineProvider{ruleset: engineRuleset(t), records: engineRecords{
+		{"kind": "class", "id": "sentinel", "name": "Sentinel", "hitDie": "d10"},
+		{"kind": "feat", "id": "resilient", "name": "Resilient", "grants": rules.Object{"hpPerLevel": 2}},
+	}}
+	handler, _ := New(&data)
+	for _, method := range []string{"spell-options", "apply-play-change"} {
+		params := rules.Object{"contractVersion": "rules-engine-" + method + ".v1", "decisions": rules.Object{
+			"classes":   []any{rules.Object{"classId": "sentinel", "level": 5}},
+			"abilities": rules.Object{"CON": 10}, "extraFeats": []any{rules.Object{"id": "reward", "featId": "resilient"}},
+		}}
+		if method == "apply-play-change" {
+			params["contractVersion"] = "rules-engine-play-change.v1"
+			params["change"] = rules.Object{"operation": "rest", "rest": "short"}
+		}
+		body, _ := json.Marshal(params)
+		value, err := handler.HandleRPC(context.Background(), rpcRequest(method, string(body)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		result := value.(playResponse)
+		if _, present := result.Decisions["feats"]; present {
+			t.Fatalf("%s promoted derived feats: %+v", method, result.Decisions["feats"])
+		}
+		if hp := result.Sheet["hp"].(rules.Object); hp["max"] != 44 {
+			t.Fatalf("%s lost derived feat bonus: %+v", method, hp)
+		}
+	}
+}
+
 func TestHandlerSpellOptionsUsesOneReadOnlyEvaluation(t *testing.T) {
 	t.Parallel()
 	data := engineProvider{ruleset: engineRuleset(t)}
@@ -203,7 +234,7 @@ func TestHandlerExposesBuilderLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	plan := value.(builderPlanResponse)
-	if !plan.Available || plan.Status != "ready" || plan.Identity == nil || plan.Plan == nil {
+	if !plan.Available || plan.Status != "ready" || plan.Identity == nil || plan.Plan == nil || plan.Guidance == nil || data.rulesetCalls != 1 {
 		t.Fatalf("plan = %+v", plan)
 	}
 
@@ -239,8 +270,40 @@ func TestBuilderMutationIsNoOpWhenOptionalProviderIsMissing(t *testing.T) {
 	}
 }
 
+type engineRecords []rules.Object
+
+func (records engineRecords) lookup(kind, field, value string) (json.RawMessage, bool) {
+	for _, record := range records {
+		if record["kind"] == kind && record[field] == value {
+			body, _ := json.Marshal(record)
+			return body, true
+		}
+	}
+	return nil, false
+}
+
+func (records engineRecords) Value(kind, id string) (json.RawMessage, bool) {
+	return records.lookup(kind, "id", id)
+}
+
+func (records engineRecords) ValueByName(kind, name string) (json.RawMessage, bool) {
+	return records.lookup(kind, "name", name)
+}
+
+func (records engineRecords) Values(kind string) []json.RawMessage {
+	result := []json.RawMessage{}
+	for _, record := range records {
+		if record["kind"] == kind {
+			body, _ := json.Marshal(record)
+			result = append(result, body)
+		}
+	}
+	return result
+}
+
 type engineProvider struct {
 	ruleset      rules.Ruleset
+	records      rules.Records
 	rulesetError error
 	getCalls     int
 	queryCalls   int
@@ -288,7 +351,7 @@ func (data *engineProvider) Evaluation(
 	if data.rulesetError != nil {
 		return provider.Identity{}, nil, rules.Ruleset{}, data.rulesetError
 	}
-	return engineIdentity(), nil, data.ruleset, nil
+	return engineIdentity(), data.records, data.ruleset, nil
 }
 
 func rpcRequest(method, params string) workerrpc.Request {

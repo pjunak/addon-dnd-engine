@@ -73,6 +73,13 @@ func ApplyPlayChange(decisions, change Object, records Records, profile Ruleset)
 	if err != nil {
 		return nil, err
 	}
+	// Resolved feats are computation output. Persisting them as manual feats
+	// would keep a removed background, advancement or extra feat active forever.
+	if authored, exists := decisions["feats"]; exists {
+		next["feats"] = cloneValue(authored)
+	} else {
+		delete(next, "feats")
+	}
 	return next, nil
 }
 

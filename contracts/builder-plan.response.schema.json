@@ -8,6 +8,7 @@
     "available": { "type": "boolean" },
     "status": { "enum": ["ready", "missing", "unavailable", "incompatible", "stale"] },
     "plan": { "type": "object" },
+    "guidance": { "type": "object" },
     "identity": { "$ref": "provider-identity.schema.json#/$defs/identity" },
     "errors": {
       "type": "array",

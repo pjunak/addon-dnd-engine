@@ -68,7 +68,8 @@ The v3 service exposes explicit, schema-validated worker calls:
 - `hydrate` turns detached character decisions into computed sheet state while
   preserving a provider-free universal fallback;
 - `builder-plan`, `apply-builder-choice`, and `reconcile-builder-decisions`
-  keep edition-specific creation choices explicit and reviewable;
+  keep edition-specific creation choices explicit and reviewable; planning
+  also returns completion guidance, labeled options and class-level features;
 - `spell-options` describes eligible spell/grant choices, casting slots,
   rituals and copying costs without changing authored state;
 - `apply-play-change` returns detached rest, hit-die, activation, class/grant

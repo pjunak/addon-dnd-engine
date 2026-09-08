@@ -65,6 +65,17 @@ provider; apply and reconcile return the unchanged detached decisions when the
 optional provider is unavailable. Hydration normalizes Builder choices before
 computing the sheet, so saved decisions and derived state follow one path.
 
+Successful `builder-plan` responses additionally expose optional `guidance`
+from the same provider evaluation. It contains labeled `choices` with option
+IDs/descriptions, valid picked/required counts, completion and advancement feat
+options; `classes` with named level/feature rows and subclass options; and
+foundation/progression/spell `sections` with actionable issue targets. The
+top-level total/complete/ready fields summarize these declared requirements;
+derived stats and warnings are preview values. This is advisory completion of
+the provider's declared choices, not a complete character-legality validator.
+Neither planning nor guidance changes authored decisions. The existing pure
+plan shape is unchanged, and consumers without guidance retain their flat form.
+
 The engine owns no Store, character namespace, UI, routes, or persistence.
 
 `apply-play-change` uses `rules-engine-play-change.v1` requests and
@@ -79,6 +90,9 @@ swap-spell (`classId`, `out`, `ref`). Selection is `cantrips`, `spellbook` or
 decisions and the resulting sheet from one evaluation, with its exact identity.
 Unavailable rules return unchanged decisions and no computed sheet; invalid
 changes fail without a draft. Consumers own confirmation and revisioned writes.
+Resolved origin/advancement/reward feats are not promoted into the returned
+manual `feats` array. Authored manual entries remain intact, so removing a feat's
+original source removes its effect after a play action as well.
 
 Class spells must belong to the class/expanded list and unlocked level; prepared
 spellbook spells must be learned first. Removing obsolete references remains

@@ -5,10 +5,17 @@ This repository contains the headless `dnd-engine` addon for the sibling
 `dnd5e.rules-engine` service without installing the official sheet UI. The
 manifest ID and service identities are permanent compatibility contracts.
 
-## Read before editing
+## Read by task
 
-1. [`README.md`](README.md) for the repository purpose and boundaries.
-2. `../ttrpg-codex/examples/addons/AGENTS.md` for the host addon contract.
+Sibling paths in this guide assume the named repositories are checked out
+next to this one. For an independent checkout, locate the compatible public
+host/consumer contracts only when needed; do not assume parent workspace
+instructions were loaded or read unrelated sibling implementations. Go builds
+use the sibling host replacement declared in go.mod; ensure that compatible
+checkout exists before building, without importing its unrelated instructions.
+
+1. [`README.md`](README.md) for setup, purpose or product boundaries.
+2. `../ttrpg-codex/examples/addons/AGENTS.md` for host integration or package work.
 3. `../ttrpg-codex/examples/addons/API_V3.md` before changing manifests,
    service discovery, lifecycle, permissions, or installation behavior.
 4. [`contract/README.md`](contract/README.md) before changing public services,
@@ -83,15 +90,24 @@ These ownership rules are mandatory:
 
 ## Working loop
 
-Use Go 1.27.1 and PowerShell on Windows. The complete Go validation is:
+Use the version in go.mod and the current shell. For prose or agent-guidance-only changes, review the diff, check local links,
+and verify changed commands or contract claims. Runtime builds and operational
+acceptance are required only for the affected behavior below. Reuse successful
+checks on unchanged inputs; preserve complete CI and release gates.
+
+For Go/runtime changes, the complete validation is:
 
 ```text
 go test ./...
 go vet ./...
-go test -race ./internal/rules ./internal/provider ./internal/engine
 ```
 
-Build the committed worker binaries and deterministic install archive with
+For changed concurrent rules/provider/engine behavior, also run
+`go test -race ./internal/rules ./internal/provider ./internal/engine` where the
+platform and C toolchain support it; report any unavailable coverage.
+
+For worker, schema, manifest or packaging changes and release candidates,
+build the committed worker binaries and deterministic install archive with
 `go run ./cmd/build-package`. Inspect the archive with the sibling host's
 `codex-addon-inspect` command before committing a release candidate.
 

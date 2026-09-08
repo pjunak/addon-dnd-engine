@@ -49,6 +49,9 @@
         "maxLength": 500
       },
       "maxItems": 200
+    },
+    "options": {
+      "type": "object"
     }
   }
 }

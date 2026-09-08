@@ -132,7 +132,8 @@ func hydrateSpellGrants(
 		if len(picked) > count {
 			picked = picked[:count]
 		}
-		if len(picked) == 0 && text(spell["default"]) != "" {
+		_, explicitlySelected := grantChoices[key]
+		if len(picked) == 0 && !explicitlySelected && text(spell["default"]) != "" {
 			picked = []string{text(spell["default"])}
 		}
 		for _, reference := range picked {

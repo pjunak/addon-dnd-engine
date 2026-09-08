@@ -27,7 +27,13 @@
             "spend-hit-die",
             "toggle-feature",
             "select-spell",
-            "cast-spell"
+            "cast-spell",
+            "select-grant-spell",
+            "select-casting-ability",
+            "cast-granted-spell",
+            "cast-ritual",
+            "copy-spell",
+            "swap-spell"
           ]
         },
         "rest": {
@@ -66,6 +72,25 @@
         },
         "slot": {
           "type": "string",
+          "maxLength": 200
+        },
+        "ability": {
+          "enum": [
+            "STR",
+            "DEX",
+            "CON",
+            "INT",
+            "WIS",
+            "CHA"
+          ]
+        },
+        "scrollId": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "out": {
+          "type": "string",
+          "minLength": 1,
           "maxLength": 200
         }
       }

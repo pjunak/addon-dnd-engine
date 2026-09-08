@@ -2,8 +2,6 @@ package rules
 
 import (
 	"fmt"
-	"strconv"
-	"strings"
 )
 
 // ApplyPlayChange returns a detached decision draft. The caller owns review and
@@ -57,6 +55,20 @@ func ApplyPlayChange(decisions, change Object, records Records, profile Ruleset)
 		err = selectPlaySpell(next, sheet, change, records)
 	case "cast-spell":
 		err = castPlaySpell(next, sheet, change, records)
+	case "select-grant-spell":
+		err = selectGrantSpell(next, sheet, change, records)
+	case "select-casting-ability":
+		err = selectCastingAbility(next, sheet, change)
+	case "cast-granted-spell":
+		err = castGrantedSpell(next, sheet, change, records)
+	case "cast-ritual":
+		if !canCastRitual(next, playCaster(sheet, text(change["classId"])), recordByID(records, "spell", text(change["ref"]))) {
+			err = fmt.Errorf("This class cannot cast this spell as a ritual.")
+		}
+	case "copy-spell":
+		err = copyPlaySpell(next, sheet, change, records, profile)
+	case "swap-spell":
+		err = swapPlaySpell(next, sheet, change, records)
 	}
 	if err != nil {
 		return nil, err
@@ -68,6 +80,9 @@ func validatePlayChange(change Object) error {
 	fields := map[string][]string{
 		"rest": {"rest"}, "spend-hit-die": {"key"}, "toggle-feature": {"key", "enabled"},
 		"select-spell": {"classId", "ref", "selection", "selected"}, "cast-spell": {"classId", "ref", "slot"},
+		"select-grant-spell": {"key", "ref", "selected"}, "select-casting-ability": {"key", "ability"},
+		"cast-granted-spell": {"key", "slot"}, "cast-ritual": {"classId", "ref"},
+		"copy-spell": {"classId", "ref", "scrollId"}, "swap-spell": {"classId", "out", "ref"},
 	}
 	allowed, known := fields[text(change["operation"])]
 	if !known || len(change) != len(allowed)+1 {
@@ -82,7 +97,7 @@ func validatePlayChange(change Object) error {
 			if _, ok := value.(bool); !ok {
 				return fmt.Errorf("%s must be a boolean.", key)
 			}
-		} else if value, ok := value.(string); !ok || len(value) > 200 || value == "" && key != "slot" {
+		} else if value, ok := value.(string); !ok || len(value) > 200 || value == "" && key != "slot" && key != "scrollId" {
 			return fmt.Errorf("%s must be a valid string.", key)
 		}
 	}
@@ -259,15 +274,5 @@ func castPlaySpell(decisions, sheet, change Object, records Records) error {
 		}
 		return nil
 	}
-	resource := findPlayResource(sheet, slot)
-	slotLevel, _ := strconv.Atoi(strings.TrimPrefix(slot, "slot-"))
-	if slot == "pact-slot" {
-		for _, entry := range objects(object(sheet["spellcasting"])["perClass"]) {
-			slotLevel = max(slotLevel, integer(object(entry["pact"])["level"], 0))
-		}
-	}
-	if text(resource["kind"]) != "slot" || slotLevel < level {
-		return fmt.Errorf("Choose a spell slot of this spell's level or higher.")
-	}
-	return spendResource(decisions, resource)
+	return spendSpellSlot(decisions, sheet, records, ref, level, slot)
 }

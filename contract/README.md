@@ -70,8 +70,11 @@ The engine owns no Store, character namespace, UI, routes, or persistence.
 `apply-play-change` uses `rules-engine-play-change.v1` requests and
 `rules-engine-play-result.v1` responses. Each operation accepts only its named
 fields: rest (`rest`), spend-hit-die (`key`), toggle-feature (`key`, `enabled`),
-select-spell (`classId`, `ref`, `selection`, `selected`), and cast-spell
-(`classId`, `ref`, `slot`). Selection is `cantrips`, `spellbook` or
+select-spell (`classId`, `ref`, `selection`, `selected`), cast-spell
+(`classId`, `ref`, `slot`), select-grant-spell (`key`, `ref`, `selected`),
+select-casting-ability (`key`, `ability`), cast-granted-spell (`key`, `slot`),
+cast-ritual (`classId`, `ref`), copy-spell (`classId`, `ref`, `scrollId`) and
+swap-spell (`classId`, `out`, `ref`). Selection is `cantrips`, `spellbook` or
 `preparedSpells`; a cantrip cast uses an empty slot. The service returns both
 decisions and the resulting sheet from one evaluation, with its exact identity.
 Unavailable rules return unchanged decisions and no computed sheet; invalid
@@ -80,9 +83,32 @@ changes fail without a draft. Consumers own confirmation and revisioned writes.
 Class spells must belong to the class/expanded list and unlocked level; prepared
 spellbook spells must be learned first. Removing obsolete references remains
 possible. Books can record already learned or copied spells beyond class-level
-additions; this method does not charge currency or implement scribing.
-Standard/pact slot casting checks level and remaining uses. Granted-spell free
-casting and restricted feat slots are outside this operation.
+additions; select-spell records these without charging. Copy-spell instead
+deducts the profile's GP cost, rejects insufficient GP or duplicate learning,
+and consumes one matching scroll when `scrollId` is nonempty. Empty means a
+copy from another book. Scroll identity is an authored `spellRef` or a legacy
+name containing both "scroll" and the spell name. The full detached result
+must be saved atomically. Swap-spell replaces a non-spellbook class selection
+and appends `{level, classLevel, classId, out, in}` to `spellSwaps`; the caller
+decides when level-up changes are appropriate.
+
+Standard/pact and restricted feat slots check level, permitted spell list and
+remaining uses. Grant keys and casting-ability choice keys come from options;
+granted free casts use the existing `charge-<spell>` resource keys. Rituals
+require the class's ritual ability and a ritual in its prepared list (or book
+for a spellbook class); they consume no slot. Explicitly clearing a default
+grant choice stores an empty list so hydration does not select it again.
+
+`spell-options` accepts `rules-engine-spell-options.v1` with `decisions` and
+returns `rules-engine-play-result.v1` without applying a play change. The
+optional `options` object is also returned after successful play changes:
+`classes` contains `classId`, eligible `spellIds`, `ritualIds`, per-spell
+`copyCosts` and `castSlots`, plus `canSwap`; `pendingChoices` enriches hydration
+choices with `eligibleSpellIds`; `castingAbilityChoices` retains hydration's
+choice descriptors; `granted` adds stable `key` and eligible `slots` to each
+grant; `slots` contains `key`, `name`, `max` and `current`. Consumers render
+these choices rather than duplicating edition policy. Planning and mutation
+use one evaluation and return the same exact provider identity.
 
 Rest recharge follows each computed resource declaration. Long rests include
 short-rest recovery, restore HP, clear temporary HP and end active features.

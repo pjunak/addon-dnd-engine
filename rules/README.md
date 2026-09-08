@@ -61,3 +61,13 @@ input immutability, preserved manual fields, missing/invalid choices, exhausted
 slots and the shared half-level multiclass recovery allowance. These new actions
 do not change the pinned v1 hydration results. Selected feat ability descriptors
 are enriched in Builder plans; budgets remain engine-owned.
+
+`internal/rules/spell_play.go` extends detached actions with grant/ability
+selection, free and restricted-slot casting, rituals, paid spell copying and
+recorded known-spell swaps. `SpellOptions` exposes eligibility separately from
+the existing hydration shape. Regression cases reject exhausted resources,
+invalid grants, mismatched scrolls and insufficient GP without mutating input;
+copying retains inventory metadata and swaps retain their class/total levels.
+Explicitly clearing a default granted spell now suppresses that default, a
+tested correction beyond the original hydration behavior. Unset choices still
+use the provider default and existing pinned vectors remain unchanged.

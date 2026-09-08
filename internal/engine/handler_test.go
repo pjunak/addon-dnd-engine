@@ -147,6 +147,32 @@ func TestHandlerPlayChangeUsesOneEvaluationAndDoesNotInventMissingRules(t *testi
 	}
 }
 
+func TestHandlerSpellOptionsUsesOneReadOnlyEvaluation(t *testing.T) {
+	t.Parallel()
+	data := engineProvider{ruleset: engineRuleset(t)}
+	handler, _ := New(&data)
+	request := rpcRequest("spell-options", `{"contractVersion":"rules-engine-spell-options.v1","decisions":{"hp":7,"notes":"retained","homebrew":{"clue":"blue"}}}`)
+	value, err := handler.HandleRPC(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := value.(playResponse)
+	if !result.Available || result.Identity == nil || data.rulesetCalls != 1 || result.Options == nil || result.Decisions["hp"] != float64(7) || result.Decisions["notes"] != "retained" {
+		t.Fatalf("options = %+v, evaluations = %d", result, data.rulesetCalls)
+	}
+	_, err = handler.HandleRPC(context.Background(), rpcRequest("spell-options", `{"contractVersion":"rules-engine-spell-options.v1","decisions":{},"change":{"operation":"rest","rest":"long"}}`))
+	assertRPCError(t, err, workerrpc.KindInvalidRequest)
+	data.rulesetError = workerrpc.NewRPCError(workerrpc.JSONRPCApplication, workerrpc.KindUnauthorized, "no provider", false, nil)
+	value, err = handler.HandleRPC(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result = value.(playResponse)
+	if result.Available || result.Identity != nil || result.Options != nil || result.Decisions["hp"] != float64(7) {
+		t.Fatalf("missing options = %+v", result)
+	}
+}
+
 func TestHandlerHydrationDegradesWhenOptionalProviderIsMissing(t *testing.T) {
 	t.Parallel()
 	data := engineProvider{rulesetError: workerrpc.NewRPCError(

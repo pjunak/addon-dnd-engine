@@ -69,8 +69,11 @@ The v3 service exposes explicit, schema-validated worker calls:
   preserving a provider-free universal fallback;
 - `builder-plan`, `apply-builder-choice`, and `reconcile-builder-decisions`
   keep edition-specific creation choices explicit and reviewable;
-- `apply-play-change` returns a detached rest, hit-die, activation or class-spell
-  change plus hydration from one provider evaluation. It never persists data.
+- `spell-options` describes eligible spell/grant choices, casting slots,
+  rituals and copying costs without changing authored state;
+- `apply-play-change` returns detached rest, hit-die, activation, class/grant
+  spell, casting-ability, copying or swap changes plus hydration and refreshed
+  spell options from one provider evaluation. It never persists data.
 
 Every ruleset-backed response carries the provider package generation, content
 revision, ruleset ID, ruleset version, and edition. The worker can therefore

@@ -126,6 +126,7 @@ type playResponse struct {
 	Warnings        []string           `json:"warnings"`
 	Identity        *provider.Identity `json:"identity,omitempty"`
 	Errors          []string           `json:"errors"`
+	Options         rules.Object       `json:"options,omitempty"`
 }
 
 func New(data RulesData) (*Handler, error) {
@@ -215,13 +216,18 @@ func (handler *Handler) HandleRPC(ctx context.Context, request workerrpc.Request
 			ContractVersion: "rules-engine-hydrated.v1", Sheet: result.Sheet,
 			Warnings: result.Warnings, Identity: &identity,
 		}, nil
-	case methodPrefix + "apply-play-change":
-		input, decisions, err := decodeBuilderRequest(request.Params, "rules-engine-play-change.v1", true)
+	case methodPrefix + "apply-play-change", methodPrefix + "spell-options":
+		planning := request.Method == methodPrefix+"spell-options"
+		contractVersion := "rules-engine-play-change.v1"
+		if planning {
+			contractVersion = "rules-engine-spell-options.v1"
+		}
+		input, decisions, err := decodeBuilderRequest(request.Params, contractVersion, !planning)
 		if err != nil {
 			return nil, err
 		}
 		change, valid := rules.DecodeObject(input.Change)
-		if !valid {
+		if !planning && !valid {
 			return nil, invalidRequest("rules engine play change is invalid")
 		}
 		identity, records, profile, evaluationErr := handler.provider.Evaluation(ctx, request.Meta)
@@ -230,13 +236,18 @@ func (handler *Handler) HandleRPC(ctx context.Context, request workerrpc.Request
 			return playResponse{ContractVersion: "rules-engine-play-result.v1", Available: false, Status: current.Status,
 				Decisions: decisions, Sheet: rules.Object{}, Warnings: []string{}, Errors: current.Errors}, nil
 		}
-		changed, err := rules.ApplyPlayChange(decisions, change, records, profile)
+		var changed rules.Object
+		if planning {
+			changed = rules.NormalizeBuilderDecisions(decisions, records, profile)
+		} else {
+			changed, err = rules.ApplyPlayChange(decisions, change, records, profile)
+		}
 		if err != nil {
 			return nil, invalidRequest(err.Error())
 		}
 		hydrated := rules.Hydrate(changed, records, &profile)
 		return playResponse{ContractVersion: "rules-engine-play-result.v1", Available: true, Status: "ready",
-			Decisions: changed, Sheet: hydrated.Sheet, Warnings: hydrated.Warnings, Identity: &identity, Errors: []string{}}, nil
+			Decisions: changed, Sheet: hydrated.Sheet, Warnings: hydrated.Warnings, Identity: &identity, Errors: []string{}, Options: rules.SpellOptions(changed, hydrated.Sheet, records, profile)}, nil
 	case methodPrefix + "builder-plan":
 		input, decisions, err := decodeBuilderRequest(request.Params, "rules-engine-builder-plan.v1", false)
 		if err != nil {

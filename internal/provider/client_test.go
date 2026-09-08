@@ -111,6 +111,102 @@ func TestRepositoryLoadsOneConsistentSnapshotAndReusesIt(t *testing.T) {
 	}
 }
 
+func TestRepositoryKeepsDuplicateNamesAddressableByID(t *testing.T) {
+	t.Parallel()
+	caller := &snapshotCaller{base: rulesDataCaller{t: t}, revision: "fixture-1", generation: testGeneration,
+		records: []Record{
+			{Kind: "class", ID: "first", Value: json.RawMessage(`{"id":"first","kind":"class","name":"Shared"}`)},
+			{Kind: "class", ID: "second", Value: json.RawMessage(`{"id":"second","kind":"class","name":" SHARED "}`)},
+			{Kind: "class", ID: "third", Value: json.RawMessage(`{"id":"third","kind":"class","name":"Shared"}`)},
+			{Kind: "class", ID: "unique", Value: json.RawMessage(`{"id":"unique","kind":"class","name":"Unique"}`)},
+		}}
+	client, _ := New(caller)
+	repository, err := client.Repository(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, record := range caller.records {
+		if loaded, ok := repository.Get("class", record.ID); !ok || loaded.ID != record.ID {
+			t.Fatalf("ID lookup %s = %+v, %v", record.ID, loaded, ok)
+		}
+	}
+	if _, ok := repository.GetByName("class", "shared"); ok {
+		t.Fatal("ambiguous name selected an arbitrary record")
+	}
+	if record, ok := repository.GetByName("class", " UNIQUE "); !ok || record.ID != "unique" {
+		t.Fatal("unique name no longer resolves")
+	}
+}
+
+func TestRepositoryRefreshesChangedRevisionAndGenerationWithoutServingMissingProvider(t *testing.T) {
+	t.Parallel()
+	caller := &snapshotCaller{base: rulesDataCaller{t: t}, revision: "fixture-1", generation: testGeneration}
+	client, _ := New(caller)
+	first, err := client.Repository(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	caller.missing = true
+	if stale, err := client.Repository(context.Background(), nil); err == nil || stale != nil {
+		t.Fatal("cached snapshot hid provider loss")
+	}
+	caller.missing = false
+	caller.revision = "fixture-2"
+	caller.records = []Record{{Kind: "class", ID: "wizard", Value: json.RawMessage(`{"id":"wizard","kind":"class","name":"Revised Wizard"}`)}}
+	second, err := client.Repository(context.Background(), nil)
+	if err != nil || first == second || second.Identity.ContentRevision != "fixture-2" {
+		t.Fatalf("changed revision = %+v, %v", second, err)
+	}
+	if record, ok := second.GetByName("class", "Revised Wizard"); !ok || record.ID != "wizard" {
+		t.Fatal("changed content retained stale name index")
+	}
+	caller.generation = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+	third, err := client.Repository(context.Background(), nil)
+	if err != nil || second == third || third.Identity.ProviderGeneration != caller.generation {
+		t.Fatalf("changed generation = %+v, %v", third, err)
+	}
+	if _, ok := first.GetByName("class", "Wizard"); !ok {
+		t.Fatal("loading a replacement mutated the previous snapshot")
+	}
+}
+
+type snapshotCaller struct {
+	base                 rulesDataCaller
+	records              []Record
+	revision, generation string
+	missing              bool
+}
+
+func (caller *snapshotCaller) Call(ctx context.Context, method string, params any, meta *workerrpc.Meta) (json.RawMessage, error) {
+	if caller.missing {
+		return nil, workerrpc.NewRPCError(workerrpc.JSONRPCApplication, workerrpc.KindUnauthorized, "no bound provider", false, nil)
+	}
+	raw, err := caller.base.Call(ctx, method, params, meta)
+	if err != nil {
+		return nil, err
+	}
+	var envelope map[string]any
+	if err := json.Unmarshal(raw, &envelope); err != nil {
+		return nil, err
+	}
+	envelope["providerGeneration"] = caller.generation
+	result := envelope["result"].(map[string]any)
+	if sets, ok := result["sets"].([]any); ok {
+		catalog := sets[0].(map[string]any)
+		catalog["revision"] = caller.revision
+		if caller.records != nil {
+			catalog["kinds"].(map[string]any)["class"] = len(caller.records)
+			catalog["recordCount"] = len(caller.records) + 1
+		}
+	} else {
+		result["revision"] = caller.revision
+		if records, ok := result["records"].([]any); ok && caller.records != nil && records[0].(map[string]any)["kind"] == "class" {
+			result["records"] = caller.records
+		}
+	}
+	return json.Marshal(envelope)
+}
+
 type rulesDataCaller struct {
 	t           *testing.T
 	calls       int

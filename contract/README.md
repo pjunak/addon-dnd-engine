@@ -37,6 +37,13 @@ are the redistributable conformance fixtures. Provider repositories should run
 equivalent validation against their real content without copying production
 records here.
 
+Record identity is `(kind, id)`. Names are display labels and may repeat within
+a kind (for example, features acquired at different levels). Snapshot loading
+keeps all such records available by ID. Name-only lookup succeeds only for a
+unique trimmed, case-insensitive name; an ambiguous name stays unresolved.
+A changed provider generation or content revision rebuilds the entire snapshot
+and name index. Cached content cannot conceal a missing provider.
+
 The normalized Builder policy covers point buy, origin ability grants, class
 advancement choices, feat categories by level, and category-specific ability
 caps. Class-specific extra advancement levels use the structured

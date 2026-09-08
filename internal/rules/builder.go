@@ -304,13 +304,24 @@ func appendRecordChoices(result *[]any, rawGrants any, context choiceContext) {
 				count = max(1, integer(amount, count))
 			}
 		}
-		*result = append(*result, Object{
-			"id": text(choice["id"]), "kind": kind, "count": count, "from": cloneValue(from),
-			"category": nullableText(choice["category"]), "prompt": nullableText(choice["prompt"]),
-			"default": nullableText(choice["default"]), "changeOn": nullableText(choice["changeOn"]),
+		descriptor := Object{
+			"id": text(choice["id"]), "kind": kind, "count": count,
 			"classId": context.classID,
 			"source":  Object{"type": context.sourceType, "id": context.owner, "level": sourceLevel},
-		})
+		}
+		copyChoiceFields(descriptor, choice)
+		if from != nil {
+			descriptor["from"] = cloneValue(from)
+		}
+		*result = append(*result, descriptor)
+	}
+}
+
+func copyChoiceFields(descriptor, choice Object) {
+	for _, key := range []string{"from", "category", "prompt", "default", "changeOn"} {
+		if value, exists := choice[key]; exists {
+			descriptor[key] = cloneValue(value)
+		}
 	}
 }
 
@@ -320,23 +331,27 @@ func collectCreationChoices(source Object, records Records) []any {
 		if text(choice["id"]) == "" {
 			return
 		}
-		result = append(result, Object{
+		descriptor := Object{
 			"id": owner + ":" + text(choice["id"]), "kind": choiceKind(choice, choice["from"]),
-			"count": max(1, integer(choice["count"], 1)), "from": cloneValue(choice["from"]),
-			"category": nullableText(choice["category"]), "prompt": nullableText(choice["prompt"]),
-			"default": nullableText(choice["default"]), "changeOn": nullableText(choice["changeOn"]),
+			"count":  max(1, integer(choice["count"], 1)),
 			"source": recordSource,
-		})
+		}
+		copyChoiceFields(descriptor, choice)
+		result = append(result, descriptor)
 	}
 	for _, origin := range selectedOrigins(source, records) {
 		record := object(origin["record"])
 		typeID := text(origin["type"])
 		if choice := object(record["toolProficiencyChoice"]); choice != nil {
-			result = append(result, Object{
+			descriptor := Object{
 				"id": typeID + ":" + text(record["id"]) + ":tool", "kind": "tools",
 				"count": max(1, integer(choice["count"], 1)), "from": anyStrings(stringsOf(choice["from"])),
-				"prompt": nullableText(choice["prompt"]), "source": origin["source"],
-			})
+				"source": origin["source"],
+			}
+			if prompt, exists := choice["prompt"]; exists {
+				descriptor["prompt"] = cloneValue(prompt)
+			}
+			result = append(result, descriptor)
 		}
 		for _, choice := range objects(object(record["grants"])["choices"]) {
 			appendChoice(choice, typeID+":"+text(record["id"]), object(origin["source"]))

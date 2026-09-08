@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math"
 	"regexp"
-	"sort"
 	"strings"
 )
 
@@ -172,12 +171,15 @@ func hydrateResources(
 
 func appendHitDiceAndSpellSlots(resources *[]any, sheet Object, classes []resolvedClass, ruleset Ruleset) {
 	byDie := make(map[string]int)
+	dice := make([]string, 0)
 	for _, current := range classes {
 		if die := text(current.Record["hitDie"]); die != "" {
+			if _, exists := byDie[die]; !exists {
+				dice = append(dice, die)
+			}
 			byDie[die] += current.Level
 		}
 	}
-	dice := sortedKeys(byDie)
 	amount := "full"
 	if ruleset.Constants.Rest.LongRestHitDice == "half" {
 		amount = "halfLevel"
@@ -244,15 +246,6 @@ func ordinal(level int) string {
 		return values[level-1]
 	}
 	return fmt.Sprintf("%dth", level)
-}
-
-func sortedKeys(values map[string]int) []string {
-	result := make([]string, 0, len(values))
-	for key := range values {
-		result = append(result, key)
-	}
-	sort.Strings(result)
-	return result
 }
 
 func firstObject(values ...any) Object {

@@ -217,9 +217,12 @@ func (client *Client) Repository(
 			if err != nil {
 				return nil, incompatible("rules-data record name is invalid")
 			}
-			normalized := strings.ToLower(name)
+			normalized := strings.ToLower(strings.TrimSpace(name))
 			if previous, duplicate := repository.names[kind][normalized]; duplicate && previous != record.ID {
-				return nil, incompatible("rules-data record names are ambiguous")
+				// Names are display labels, not identities. Keep every ID usable,
+				// but never guess which record an ambiguous name refers to.
+				repository.names[kind][normalized] = ""
+				continue
 			}
 			repository.names[kind][normalized] = record.ID
 		}
@@ -286,7 +289,7 @@ func (repository *Repository) GetByName(kind, name string) (Record, bool) {
 		return Record{}, false
 	}
 	id, exists := repository.names[kind][strings.ToLower(strings.TrimSpace(name))]
-	if !exists {
+	if !exists || id == "" {
 		return Record{}, false
 	}
 	return repository.Get(kind, id)

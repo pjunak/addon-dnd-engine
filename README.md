@@ -87,6 +87,13 @@ go vet ./...
 go test -race ./internal/rules ./internal/provider ./internal/engine
 ```
 
+The Go suite includes 144 complete hydration and Builder comparisons against
+the preserved v1 engine, using repository-owned synthetic records. Expected
+results retain the original v1 output; the reviewed class weapon-proficiency
+summary correction is explicit. To regenerate with Node.js 26 and the preserved
+Git history available locally, run `node tools/generate-v1-vectors.mjs`.
+See [`rules/README.md`](rules/README.md) for coverage and provenance.
+
 Build the worker binaries and deterministic install archive:
 
 ```text

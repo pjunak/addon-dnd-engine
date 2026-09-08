@@ -24,3 +24,32 @@ state.
 
 Run `go test ./...` and the focused race tests documented in the root README
 after any production rules change.
+
+## Preserved-engine comparisons
+
+`testdata/v1-parity.json` records full JSON results from the v1 engine at
+`b2ba2be2940d63fe6c7d769772773540748a6355`, together with hashes of its source
+and redistributable synthetic fixtures. `tools/generate-v1-vectors.mjs` reads
+only that pinned Git revision into a temporary directory, runs its 13 engine
+tests, and produces 144 vectors. Neither a current Go result nor production
+Compendium records generate the expected results. Normal Go tests need no
+Node runtime or archived checkout.
+
+The vectors compare both editions, class levels and feature unlocks, ordered
+multiclasses, pact and ordinary spell slots, species and lineage grants,
+armor and weapons, feat spell choices, mastery, ability caps, Builder plans,
+ability/feat changes, reconciliation, and the missing-provider fallback.
+The Go comparison also checks that evaluation leaves authored input unchanged.
+Hit-die resource order and absent optional Builder fields follow v1.
+
+One deliberate difference is recorded per affected vector: the Go sheet keeps
+class weapon proficiencies in its proficiency summary. V1 used those same
+tokens to compute weapon attacks but omitted them from the displayed/saved
+summary. The test checks the original empty v1 field before substituting the
+exact reviewed tokens; every other field is compared without filtering.
+
+The host's installed rules test additionally loads reviewed Engine, Sheets and
+Compendium ZIPs, hydrates every installed class, applies Builder choices,
+replaces a disposable provider with changed content, and verifies missing data
+and reactivation. This checks the service and package boundary separately from
+pure computation; sheet presentation remains the Sheets product gate.

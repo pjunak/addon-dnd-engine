@@ -13,7 +13,7 @@ var builderModeSuffix = regexp.MustCompile(`:(ability|feat|featability)$`)
 
 func BuilderPlan(decisions Object, records Records, ruleset Ruleset) Object {
 	modelBase, modelClasses := builderModel(decisions, records)
-	return Object{
+	plan := Object{
 		"schemaVersion": 1,
 		"edition":       ruleset.Edition,
 		"baseStats":     modelBase,
@@ -31,6 +31,17 @@ func BuilderPlan(decisions Object, records Records, ruleset Ruleset) Object {
 		"creationChoices":        collectCreationChoices(decisions, records),
 		"creationAbilityChoices": collectCreationAbilityChoices(decisions, records, ruleset),
 	}
+	for _, choice := range objects(plan["classChoices"]) {
+		if text(choice["kind"]) != "asiMode" {
+			continue
+		}
+		feat := object(choice["feat"])
+		selected := recordByID(records, "feat", text(object(decisions["featureChoices"])[text(feat["id"])]))
+		if object(object(selected["grants"])["abilityScoreIncrease"]) != nil {
+			feat["ability"] = findAbilityChoice(plan, text(object(feat["ability"])["id"]), decisions, records)
+		}
+	}
+	return plan
 }
 
 func NormalizeBuilderDecisions(decisions Object, records Records, ruleset Ruleset) Object {

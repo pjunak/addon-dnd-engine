@@ -122,6 +122,31 @@ func TestHandlerHydratesWithExactProviderIdentity(t *testing.T) {
 	}
 }
 
+func TestHandlerPlayChangeUsesOneEvaluationAndDoesNotInventMissingRules(t *testing.T) {
+	data := engineProvider{ruleset: engineRuleset(t)}
+	handler, _ := New(&data)
+	request := rpcRequest("apply-play-change", `{"contractVersion":"rules-engine-play-change.v1","decisions":{"hp":2,"tempHp":4,"notes":"retained"},"change":{"operation":"rest","rest":"long"}}`)
+	value, err := handler.HandleRPC(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := value.(playResponse)
+	if !result.Available || result.Identity == nil || result.Identity.ContentRevision != "fixture-1" || data.rulesetCalls != 1 || result.Decisions["tempHp"] != 0 || result.Decisions["notes"] != "retained" {
+		t.Fatalf("result = %+v, evaluations = %d", result, data.rulesetCalls)
+	}
+	_, err = handler.HandleRPC(context.Background(), rpcRequest("apply-play-change", `{"contractVersion":"rules-engine-play-change.v1","decisions":{},"change":{"operation":"rest","rest":"short","unexpected":true}}`))
+	assertRPCError(t, err, workerrpc.KindInvalidRequest)
+	data.rulesetError = workerrpc.NewRPCError(workerrpc.JSONRPCApplication, workerrpc.KindUnauthorized, "no provider", false, nil)
+	value, err = handler.HandleRPC(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result = value.(playResponse)
+	if result.Available || result.Identity != nil || result.Decisions["notes"] != "retained" || len(result.Sheet) != 0 {
+		t.Fatalf("missing result = %+v", result)
+	}
+}
+
 func TestHandlerHydrationDegradesWhenOptionalProviderIsMissing(t *testing.T) {
 	t.Parallel()
 	data := engineProvider{rulesetError: workerrpc.NewRPCError(

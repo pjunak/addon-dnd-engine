@@ -53,3 +53,11 @@ Compendium ZIPs, hydrates every installed class, applies Builder choices,
 replaces a disposable provider with changed content, and verifies missing data
 and reactivation. This checks the service and package boundary separately from
 pure computation; sheet presentation remains the Sheets product gate.
+
+`internal/rules/play.go` implements detached session decisions separately from
+hydration: rest recovery, average hit-die healing, feature exclusivity, class
+spell selection and standard/pact slot consumption. Synthetic play tests cover
+input immutability, preserved manual fields, missing/invalid choices, exhausted
+slots and the shared half-level multiclass recovery allowance. These new actions
+do not change the pinned v1 hydration results. Selected feat ability descriptors
+are enriched in Builder plans; budgets remain engine-owned.

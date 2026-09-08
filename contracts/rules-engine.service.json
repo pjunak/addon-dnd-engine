@@ -59,6 +59,13 @@
       "maxDeadlineMs": 15000,
       "idempotency": "none",
       "errors": ["INVALID_REQUEST", "UNAVAILABLE", "VALIDATION_FAILED", "STALE_BINDING"]
+    },
+    "apply-play-change": {
+      "requestSchema": "contracts/play-change.request.schema.json",
+      "responseSchema": "contracts/play-change.response.schema.json",
+      "maxDeadlineMs": 15000,
+      "idempotency": "none",
+      "errors": ["INVALID_REQUEST", "UNAVAILABLE", "VALIDATION_FAILED", "STALE_BINDING"]
     }
   }
 }

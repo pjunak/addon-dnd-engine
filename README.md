@@ -68,7 +68,9 @@ The v3 service exposes explicit, schema-validated worker calls:
 - `hydrate` turns detached character decisions into computed sheet state while
   preserving a provider-free universal fallback;
 - `builder-plan`, `apply-builder-choice`, and `reconcile-builder-decisions`
-  keep edition-specific creation choices explicit and reviewable.
+  keep edition-specific creation choices explicit and reviewable;
+- `apply-play-change` returns a detached rest, hit-die, activation or class-spell
+  change plus hydration from one provider evaluation. It never persists data.
 
 Every ruleset-backed response carries the provider package generation, content
 revision, ruleset ID, ruleset version, and edition. The worker can therefore

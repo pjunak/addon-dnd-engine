@@ -66,6 +66,32 @@ optional provider is unavailable. Hydration normalizes Builder choices before
 computing the sheet, so saved decisions and derived state follow one path.
 
 The engine owns no Store, character namespace, UI, routes, or persistence.
+
+`apply-play-change` uses `rules-engine-play-change.v1` requests and
+`rules-engine-play-result.v1` responses. Each operation accepts only its named
+fields: rest (`rest`), spend-hit-die (`key`), toggle-feature (`key`, `enabled`),
+select-spell (`classId`, `ref`, `selection`, `selected`), and cast-spell
+(`classId`, `ref`, `slot`). Selection is `cantrips`, `spellbook` or
+`preparedSpells`; a cantrip cast uses an empty slot. The service returns both
+decisions and the resulting sheet from one evaluation, with its exact identity.
+Unavailable rules return unchanged decisions and no computed sheet; invalid
+changes fail without a draft. Consumers own confirmation and revisioned writes.
+
+Class spells must belong to the class/expanded list and unlocked level; prepared
+spellbook spells must be learned first. Removing obsolete references remains
+possible. Books can record already learned or copied spells beyond class-level
+additions; this method does not charge currency or implement scribing.
+Standard/pact slot casting checks level and remaining uses. Granted-spell free
+casting and restricted feat slots are outside this operation.
+
+Rest recharge follows each computed resource declaration. Long rests include
+short-rest recovery, restore HP, clear temporary HP and end active features.
+Half-level hit-die recovery is shared across pools in stored class order; manual
+resources and unrelated authored fields remain unchanged. Hit-die spending uses
+the engine's average plus Constitution modifier with at least one HP recovered.
+Builder plans also expose the selected feat's ability budget and eligible scores
+in the existing nested ability descriptor so consumers need not infer them.
+
 Without rules data it exposes provider-neutral arithmetic and reports
 rules-data-dependent work as unavailable instead of selecting a hidden addon or
 applying a bundled edition profile.

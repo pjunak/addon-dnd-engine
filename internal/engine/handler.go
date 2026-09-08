@@ -117,6 +117,17 @@ type builderDecisionsResponse struct {
 	Errors          []string           `json:"errors"`
 }
 
+type playResponse struct {
+	ContractVersion string             `json:"contractVersion"`
+	Available       bool               `json:"available"`
+	Status          string             `json:"status"`
+	Decisions       rules.Object       `json:"decisions"`
+	Sheet           rules.Object       `json:"sheet"`
+	Warnings        []string           `json:"warnings"`
+	Identity        *provider.Identity `json:"identity,omitempty"`
+	Errors          []string           `json:"errors"`
+}
+
 func New(data RulesData) (*Handler, error) {
 	if data == nil {
 		return nil, errors.New("rules-data provider client is required")
@@ -204,6 +215,28 @@ func (handler *Handler) HandleRPC(ctx context.Context, request workerrpc.Request
 			ContractVersion: "rules-engine-hydrated.v1", Sheet: result.Sheet,
 			Warnings: result.Warnings, Identity: &identity,
 		}, nil
+	case methodPrefix + "apply-play-change":
+		input, decisions, err := decodeBuilderRequest(request.Params, "rules-engine-play-change.v1", true)
+		if err != nil {
+			return nil, err
+		}
+		change, valid := rules.DecodeObject(input.Change)
+		if !valid {
+			return nil, invalidRequest("rules engine play change is invalid")
+		}
+		identity, records, profile, evaluationErr := handler.provider.Evaluation(ctx, request.Meta)
+		if evaluationErr != nil {
+			current := provider.ContextForError(evaluationErr)
+			return playResponse{ContractVersion: "rules-engine-play-result.v1", Available: false, Status: current.Status,
+				Decisions: decisions, Sheet: rules.Object{}, Warnings: []string{}, Errors: current.Errors}, nil
+		}
+		changed, err := rules.ApplyPlayChange(decisions, change, records, profile)
+		if err != nil {
+			return nil, invalidRequest(err.Error())
+		}
+		hydrated := rules.Hydrate(changed, records, &profile)
+		return playResponse{ContractVersion: "rules-engine-play-result.v1", Available: true, Status: "ready",
+			Decisions: changed, Sheet: hydrated.Sheet, Warnings: hydrated.Warnings, Identity: &identity, Errors: []string{}}, nil
 	case methodPrefix + "builder-plan":
 		input, decisions, err := decodeBuilderRequest(request.Params, "rules-engine-builder-plan.v1", false)
 		if err != nil {

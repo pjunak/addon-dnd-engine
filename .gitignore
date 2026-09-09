@@ -22,3 +22,10 @@ Thumbs.db
 *.log
 .vscode/
 .idea/
+
+# Local agent state, verification output and branch recovery bundles
+.codex/
+.claude/
+test-results/
+playwright-report/
+*.bundle

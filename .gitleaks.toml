@@ -1,0 +1,12 @@
+[extend]
+useDefault = true
+
+[[rules]]
+id = "generic-api-key"
+
+[[rules.allowlists]]
+description = "Legacy parity fixture records the SHA-256 of rules/api.js, not an API credential"
+condition = "AND"
+paths = ['''(^|[/\\])testdata[/\\]v1-parity\.json$''']
+regexTarget = "match"
+regexes = ['''^api\.js":"[a-f0-9]{64}"$''']

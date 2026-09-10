@@ -16,6 +16,7 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
         with:
@@ -27,7 +28,9 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: addon-dnd-engine/go.mod
-          cache-dependency-path: addon-dnd-engine/go.sum
+          cache-dependency-path: |
+            addon-dnd-engine/go.sum
+            ttrpg-codex/go.sum
       - run: go test ./...
         working-directory: addon-dnd-engine
       - run: go vet ./...

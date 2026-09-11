@@ -40,13 +40,23 @@ jobs:
       - name: Build release package
         run: go run ./cmd/build-package
         working-directory: addon-dnd-engine
+      - name: Locate built package
+        id: package
+        shell: bash
+        run: |
+          archive="$(jq -er '"dist/\(.id)-\(.version).zip"' addon.json)"
+          test -f "$archive"
+          printf 'archive=%s/%s\n' "$PWD" "$archive" >> "$GITHUB_OUTPUT"
+        working-directory: addon-dnd-engine
       - name: Inspect release package with the host
-        run: go run ./cmd/codex-addon-inspect ../addon-dnd-engine/dist/dnd-engine-3.0.0.zip
+        env:
+          ADDON_ARCHIVE: ${{ steps.package.outputs.archive }}
+        run: go run ./cmd/codex-addon-inspect "$ADDON_ARCHIVE"
         working-directory: ttrpg-codex
 
       - uses: actions/upload-artifact@v7
         with:
           name: reviewed-package
-          path: addon-dnd-engine/dist/*.zip
+          path: ${{ steps.package.outputs.archive }}
           if-no-files-found: error
           retention-days: 14

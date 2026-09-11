@@ -139,6 +139,9 @@ func activeGrantModifiers(
 				"exclusiveGroup": nullableText(activation["exclusiveGroup"]),
 				"active":         enabled, "available": available,
 			})
+			if condition := text(activation["condition"]); condition != "" {
+				object(activations[len(activations)-1])["condition"] = condition
+			}
 			if enabled {
 				modifiers = append(modifiers, objects(activation["modifiers"])...)
 			}
@@ -193,6 +196,10 @@ func applyGenericGrants(
 		switch text(modifier["target"]) {
 		case "speed":
 			speedBonus += integer(modifier["add"], 0)
+		case "sense":
+			if key := text(modifier["key"]); key != "" {
+				senses[key] = max(integer(senses[key], 0), integer(modifier["value"], 0))
+			}
 		case "flySpeed":
 			candidate := integer(modifier["value"], 0)
 			if text(modifier["value"]) == "speed" {

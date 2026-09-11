@@ -1,0 +1,20 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "change": {
+      "maxProperties": 20,
+      "type": "object"
+    },
+    "contractVersion": {
+      "const": "rules-character.v1"
+    },
+    "inputs": {
+      "$ref": "character-inputs.schema.json"
+    }
+  },
+  "required": [
+    "contractVersion",
+    "inputs"
+  ],
+  "type": "object"
+}

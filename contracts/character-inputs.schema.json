@@ -1,0 +1,716 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "build": {
+      "additionalProperties": false,
+      "properties": {
+        "background": {
+          "maxLength": 30000,
+          "type": "string"
+        },
+        "baseScores": {
+          "additionalProperties": {
+            "maximum": 1000000,
+            "minimum": -1000000,
+            "type": "integer"
+          },
+          "maxProperties": 1000,
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "choices": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "maxLength": 30000,
+                "type": "string"
+              },
+              "slot": {
+                "maximum": 1000000,
+                "minimum": -1000000,
+                "type": "integer"
+              },
+              "value": {
+                "oneOf": [
+                  {
+                    "maxLength": 300,
+                    "type": "string"
+                  },
+                  {
+                    "additionalProperties": {
+                      "maximum": 30,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "maxProperties": 6,
+                    "type": "object"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "slot",
+              "value"
+            ],
+            "type": "object"
+          },
+          "maxItems": 500,
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "levels": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "classId": {
+                "maxLength": 30000,
+                "type": "string"
+              },
+              "hitPoints": {
+                "maximum": 1000000,
+                "minimum": -1000000,
+                "type": "integer"
+              },
+              "id": {
+                "maxLength": 30000,
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "classId"
+            ],
+            "type": "object"
+          },
+          "maxItems": 500,
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "lineage": {
+          "maxLength": 30000,
+          "type": "string"
+        },
+        "method": {
+          "maxLength": 30000,
+          "type": "string"
+        },
+        "rolls": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "ability": {
+                "maxLength": 30000,
+                "type": "string"
+              },
+              "dice": {
+                "items": {
+                  "maximum": 1000000,
+                  "minimum": -1000000,
+                  "type": "integer"
+                },
+                "maxItems": 500,
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "id": {
+                "maxLength": 30000,
+                "type": "string"
+              },
+              "kept": {
+                "items": {
+                  "maximum": 1000000,
+                  "minimum": -1000000,
+                  "type": "integer"
+                },
+                "maxItems": 500,
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "origin": {
+                "maxLength": 30000,
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "ability",
+              "dice",
+              "kept"
+            ],
+            "type": "object"
+          },
+          "maxItems": 500,
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "species": {
+          "maxLength": 30000,
+          "type": "string"
+        },
+        "spells": {
+          "additionalProperties": false,
+          "properties": {
+            "acquisitions": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "at": {
+                    "maxLength": 30000,
+                    "type": "string"
+                  },
+                  "classId": {
+                    "maxLength": 30000,
+                    "type": "string"
+                  },
+                  "costGp": {
+                    "maximum": 1000000000,
+                    "minimum": -1000000000,
+                    "type": "number"
+                  },
+                  "id": {
+                    "maxLength": 30000,
+                    "type": "string"
+                  },
+                  "level": {
+                    "maximum": 1000000,
+                    "minimum": -1000000,
+                    "type": "integer"
+                  },
+                  "origin": {
+                    "maxLength": 30000,
+                    "type": "string"
+                  },
+                  "scrollId": {
+                    "maxLength": 30000,
+                    "type": "string"
+                  },
+                  "spellId": {
+                    "maxLength": 30000,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "classId",
+                  "spellId",
+                  "level",
+                  "at",
+                  "costGp"
+                ],
+                "type": "object"
+              },
+              "maxItems": 500,
+              "type": [
+                "array",
+                "null"
+              ]
+            },
+            "cantrips": {
+              "additionalProperties": {
+                "items": {
+                  "maxLength": 30000,
+                  "type": "string"
+                },
+                "maxItems": 500,
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "maxProperties": 1000,
+              "type": [
+                "object",
+                "null"
+              ]
+            },
+            "castingAbilities": {
+              "additionalProperties": {
+                "maxLength": 30000,
+                "type": "string"
+              },
+              "maxProperties": 1000,
+              "type": [
+                "object",
+                "null"
+              ]
+            },
+            "grantChoices": {
+              "additionalProperties": {
+                "items": {
+                  "maxLength": 30000,
+                  "type": "string"
+                },
+                "maxItems": 500,
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "maxProperties": 1000,
+              "type": [
+                "object",
+                "null"
+              ]
+            },
+            "spellbook": {
+              "additionalProperties": {
+                "items": {
+                  "maxLength": 30000,
+                  "type": "string"
+                },
+                "maxItems": 500,
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "maxProperties": 1000,
+              "type": [
+                "object",
+                "null"
+              ]
+            },
+            "swaps": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "classId": {
+                    "maxLength": 30000,
+                    "type": "string"
+                  },
+                  "classLevel": {
+                    "maximum": 1000000,
+                    "minimum": -1000000,
+                    "type": "integer"
+                  },
+                  "in": {
+                    "maxLength": 30000,
+                    "type": "string"
+                  },
+                  "level": {
+                    "maximum": 1000000,
+                    "minimum": -1000000,
+                    "type": "integer"
+                  },
+                  "origin": {
+                    "maxLength": 30000,
+                    "type": "string"
+                  },
+                  "out": {
+                    "maxLength": 30000,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "level",
+                  "classLevel",
+                  "classId",
+                  "out",
+                  "in"
+                ],
+                "type": "object"
+              },
+              "maxItems": 500,
+              "type": [
+                "array",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "cantrips",
+            "spellbook",
+            "grantChoices",
+            "castingAbilities",
+            "swaps",
+            "acquisitions"
+          ],
+          "type": "object"
+        },
+        "subclasses": {
+          "additionalProperties": {
+            "maxLength": 30000,
+            "type": "string"
+          },
+          "maxProperties": 1000,
+          "type": [
+            "object",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "method",
+        "baseScores",
+        "rolls",
+        "species",
+        "lineage",
+        "background",
+        "levels",
+        "subclasses",
+        "choices",
+        "spells"
+      ],
+      "type": "object"
+    },
+    "grants": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "type": "boolean"
+          },
+          "actorId": {
+            "maxLength": 30000,
+            "type": "string"
+          },
+          "condition": {
+            "maxLength": 30000,
+            "type": "string"
+          },
+          "effectiveLevel": {
+            "maximum": 1000000,
+            "minimum": -1000000,
+            "type": "integer"
+          },
+          "effects": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "key": {
+                  "maxLength": 30000,
+                  "type": "string"
+                },
+                "mode": {
+                  "maxLength": 30000,
+                  "type": "string"
+                },
+                "target": {
+                  "maxLength": 30000,
+                  "type": "string"
+                },
+                "value": {
+                  "maximum": 1000000,
+                  "minimum": -1000000,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "target",
+                "mode",
+                "value"
+              ],
+              "type": "object"
+            },
+            "maxItems": 500,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "expiresAt": {
+            "maxLength": 30000,
+            "type": "string"
+          },
+          "feat": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "maxLength": 30000,
+                "type": "string"
+              },
+              "kind": {
+                "maxLength": 30000,
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "id"
+            ],
+            "type": "object"
+          },
+          "grantedAt": {
+            "maxLength": 30000,
+            "type": "string"
+          },
+          "id": {
+            "maxLength": 30000,
+            "type": "string"
+          },
+          "itemId": {
+            "maxLength": 30000,
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 30000,
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 30000,
+            "type": "string"
+          },
+          "waivers": {
+            "items": {
+              "maxLength": 30000,
+              "type": "string"
+            },
+            "maxItems": 500,
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "reason",
+          "actorId",
+          "grantedAt",
+          "active",
+          "effectiveLevel",
+          "condition",
+          "effects",
+          "waivers"
+        ],
+        "type": "object"
+      },
+      "maxItems": 500,
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "notes": {
+      "maxLength": 30000,
+      "type": "string"
+    },
+    "play": {
+      "additionalProperties": false,
+      "properties": {
+        "activeFeatures": {
+          "additionalProperties": {
+            "type": "boolean"
+          },
+          "maxProperties": 1000,
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "asOf": {
+          "maxLength": 30000,
+          "type": "string"
+        },
+        "currency": {
+          "additionalProperties": {
+            "maximum": 1000000000,
+            "minimum": -1000000000,
+            "type": "number"
+          },
+          "maxProperties": 1000,
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "hp": {
+          "maximum": 1000000,
+          "minimum": -1000000,
+          "type": "integer"
+        },
+        "inventory": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "acquisition": {
+                "maxLength": 30000,
+                "type": "string"
+              },
+              "attuned": {
+                "type": "boolean"
+              },
+              "grantId": {
+                "maxLength": 30000,
+                "type": "string"
+              },
+              "id": {
+                "maxLength": 30000,
+                "type": "string"
+              },
+              "location": {
+                "maxLength": 30000,
+                "type": "string"
+              },
+              "name": {
+                "maxLength": 30000,
+                "type": "string"
+              },
+              "notes": {
+                "maxLength": 30000,
+                "type": "string"
+              },
+              "quantity": {
+                "maximum": 1000000,
+                "minimum": -1000000,
+                "type": "integer"
+              },
+              "reference": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "maxLength": 30000,
+                    "type": "string"
+                  },
+                  "kind": {
+                    "maxLength": 30000,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "id"
+                ],
+                "type": "object"
+              },
+              "spellId": {
+                "maxLength": 30000,
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "quantity",
+              "location",
+              "attuned",
+              "acquisition",
+              "notes"
+            ],
+            "type": "object"
+          },
+          "maxItems": 500,
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "preparedSpells": {
+          "additionalProperties": {
+            "items": {
+              "maxLength": 30000,
+              "type": "string"
+            },
+            "maxItems": 500,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "maxProperties": 1000,
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "resourceUses": {
+          "additionalProperties": {
+            "maximum": 1000000,
+            "minimum": -1000000,
+            "type": "integer"
+          },
+          "maxProperties": 1000,
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "rolls": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "at": {
+                "maxLength": 30000,
+                "type": "string"
+              },
+              "die": {
+                "maximum": 1000000,
+                "minimum": -1000000,
+                "type": "integer"
+              },
+              "id": {
+                "maxLength": 30000,
+                "type": "string"
+              },
+              "origin": {
+                "maxLength": 30000,
+                "type": "string"
+              },
+              "resource": {
+                "maxLength": 30000,
+                "type": "string"
+              },
+              "result": {
+                "maximum": 1000000,
+                "minimum": -1000000,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "id",
+              "resource",
+              "die",
+              "result",
+              "at"
+            ],
+            "type": "object"
+          },
+          "maxItems": 500,
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "temporaryHp": {
+          "maximum": 1000000,
+          "minimum": -1000000,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "rolls",
+        "hp",
+        "temporaryHp",
+        "inventory",
+        "currency",
+        "resourceUses",
+        "activeFeatures",
+        "preparedSpells",
+        "asOf"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "build",
+    "play",
+    "grants",
+    "notes"
+  ],
+  "type": "object"
+}

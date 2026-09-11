@@ -3,7 +3,7 @@
   "packageFormat": 1,
   "id": "dnd-engine",
   "name": "D&D 5e Rules Engine",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "description": "Headless provider-neutral D&D rules computation for character-sheet add-ons.",
   "license": "MIT",
   "compatibility": {
@@ -12,7 +12,9 @@
     "workerProtocol": "^1.0.0"
   },
   "capabilities": {
-    "required": ["worker.native"],
+    "required": [
+      "worker.native"
+    ],
     "optional": []
   },
   "runtime": {
@@ -27,12 +29,17 @@
     }
   },
   "permissions": [],
-  "rules": { "supports": ["dnd-2014", "dnd-2024"] },
+  "rules": {
+    "supports": [
+      "dnd-2014",
+      "dnd-2024"
+    ]
+  },
   "services": {
     "provides": [
       {
         "contract": "dnd5e.rules-engine",
-        "version": "3.0.0",
+        "version": "4.0.0",
         "transport": "worker",
         "schema": "contracts/rules-engine.service.json"
       }

@@ -41,10 +41,8 @@ func advertisedMethods() map[string]string {
 		"get-record",
 		"query-records",
 		"derive",
-		"hydrate",
-		"builder-plan",
-		"apply-builder-choice",
-		"reconcile-builder-decisions",
+		"evaluate-character",
+		"character-play",
 	}
 	result := make(map[string]string, len(methods))
 	for _, method := range methods {

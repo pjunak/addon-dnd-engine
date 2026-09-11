@@ -51,6 +51,7 @@ type Context struct {
 }
 
 type Record struct {
+	SourceIdentity  Identity        `json:"-"`
 	ProviderAddonID string          `json:"providerAddonId,omitempty"`
 	Kind            string          `json:"kind"`
 	ID              string          `json:"id"`
@@ -89,7 +90,7 @@ type Repository struct {
 
 var engineKinds = [...]string{
 	"armor", "background", "class", "feat", "feature", "skill", "species",
-	"spell", "subclass", "tool", "weapon",
+	"spell", "subclass", "tool", "weapon", "magic-item", "gear",
 }
 
 func New(caller workerrpc.ServiceCaller, providerIDs ...string) (*Client, error) {
@@ -282,6 +283,9 @@ func (client *Client) loadKind(
 			return nil, incompatible("rules-data identity changed while loading records")
 		}
 		for _, record := range page.Records {
+			if record.SourceIdentity.ProviderGeneration == "" {
+				record.SourceIdentity = page.Identity
+			}
 			if _, duplicate := seenRecords[record.ID]; duplicate {
 				return nil, incompatible("rules-data query returned a duplicate record")
 			}
@@ -346,6 +350,11 @@ func (repository *Repository) List(kind string) []Record {
 func (repository *Repository) Value(kind, id string) (json.RawMessage, bool) {
 	record, exists := repository.Get(kind, id)
 	return record.Value, exists
+}
+
+func (repository *Repository) Provenance(kind, id string) rules.SourceIdentity {
+	identity := repository.records[kind][id].SourceIdentity
+	return rules.SourceIdentity{PackageID: identity.ProviderAddonID, PackageGeneration: identity.ProviderGeneration, ContentRevision: identity.ContentRevision}
 }
 
 func (repository *Repository) ValueByName(kind, name string) (json.RawMessage, bool) {

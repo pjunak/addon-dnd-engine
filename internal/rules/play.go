@@ -15,6 +15,14 @@ func ApplyPlayChange(decisions, change Object, records Records, profile Ruleset)
 	if integer(object(sheet["derived"])["maxHp"], 0) <= 0 && integer(decisions["maxHp"], 0) > 0 {
 		return nil, fmt.Errorf("Choose a valid class in Builder before calculating play changes. Saved values have been kept.")
 	}
+	return applyPlayWithSheet(decisions, change, records, profile, sheet)
+}
+
+func applyPlayWithSheet(decisions, change Object, records Records, profile Ruleset, sheet Object) (Object, error) {
+	if err := validatePlayChange(change); err != nil {
+		return nil, err
+	}
+	next := NormalizeBuilderDecisions(decisions, records, profile)
 	var err error
 	switch text(change["operation"]) {
 	case "rest":

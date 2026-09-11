@@ -3,20 +3,47 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "contractVersion", "engineContract", "engineContractVersion",
-    "available", "status", "identity", "errors"
+    "contractVersion",
+    "engineContract",
+    "engineContractVersion",
+    "available",
+    "status",
+    "identity",
+    "errors"
   ],
   "properties": {
-    "contractVersion": { "const": "rules-engine-context.v1" },
-    "engineContract": { "const": "dnd5e.rules-engine" },
-    "engineContractVersion": { "const": "3.0.0" },
-    "available": { "type": "boolean" },
-    "status": { "enum": ["ready", "missing", "unavailable", "incompatible", "stale"] },
-    "identity": { "$ref": "provider-identity.schema.json#/$defs/identity" },
+    "contractVersion": {
+      "const": "rules-engine-context.v1"
+    },
+    "engineContract": {
+      "const": "dnd5e.rules-engine"
+    },
+    "engineContractVersion": {
+      "const": "4.0.0"
+    },
+    "available": {
+      "type": "boolean"
+    },
+    "status": {
+      "enum": [
+        "ready",
+        "missing",
+        "unavailable",
+        "incompatible",
+        "stale"
+      ]
+    },
+    "identity": {
+      "$ref": "provider-identity.schema.json#/$defs/identity"
+    },
     "errors": {
       "type": "array",
       "maxItems": 32,
-      "items": { "type": "string", "minLength": 1, "maxLength": 300 }
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300
+      }
     }
   }
 }

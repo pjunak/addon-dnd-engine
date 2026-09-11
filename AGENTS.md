@@ -114,7 +114,7 @@ build the committed worker binaries and deterministic install archive with
 Inspect the resulting release archive from the host repository:
 
 ```text
-go run ./cmd/codex-addon-inspect ../addon-dnd-engine/dist/dnd-engine-3.0.0.zip
+go run ./cmd/codex-addon-inspect ../addon-dnd-engine/dist/dnd-engine-4.0.0.zip
 ```
 
 Source edits are not visible in the running app until the worker is rebuilt,

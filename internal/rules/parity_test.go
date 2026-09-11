@@ -102,6 +102,22 @@ func TestPreservedV1Parity(t *testing.T) {
 				}
 				proficiencies["weapons"] = vector.ClassWeaponProficiencies
 			}
+			// Wearing armor no longer offers the unarmored formula as a fallback.
+			// Keep the captured oracle unchanged; pin both deliberately corrected cases.
+			if vector.Name == "equipped" || vector.Name == "malformed-armor" {
+				sheet := object(object(vector.Expected)["sheet"])
+				ac := object(sheet["ac"])
+				candidates := values(ac["candidates"])
+				if len(candidates) != 2 || text(object(candidates[1])["id"]) != "unarmored" {
+					t.Fatal("armor correction no longer matches its captured baseline")
+				}
+				ac["candidates"] = candidates[:1]
+				if vector.Name == "malformed-armor" {
+					ac["base"] = "Broken Plate"
+					ac["value"] = float64(-5)
+					object(sheet["derived"])["armorClass"] = float64(-5)
+				}
+			}
 			if diff := parityDifference(vector.Expected, actual, "$"); diff != "" {
 				t.Error(diff)
 			}

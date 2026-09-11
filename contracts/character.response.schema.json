@@ -1,0 +1,27 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "contractVersion": {
+      "const": "rules-character-response.v1"
+    },
+    "evaluation": {
+      "$ref": "character-result.schema.json"
+    },
+    "identity": {
+      "$ref": "provider-identity.schema.json#/$defs/identity"
+    },
+    "policy": {
+      "type": [
+        "object",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "contractVersion",
+    "identity",
+    "evaluation",
+    "policy"
+  ],
+  "type": "object"
+}

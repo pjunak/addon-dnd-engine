@@ -18,7 +18,38 @@ type Ruleset struct {
 	Builder        BuilderPolicy       `json:"builder"`
 }
 
+type CharacterPolicy struct {
+	UniqueAttunement bool   `json:"uniqueAttunement"`
+	MaximumLevel     int    `json:"maximumLevel"`
+	MinimumHPGain    int    `json:"minimumHpGain"`
+	StandardArray    []int  `json:"standardArray"`
+	RollDice         int    `json:"rollDice"`
+	RollSides        int    `json:"rollSides"`
+	RollKeep         int    `json:"rollKeep"`
+	DistanceUnit     string `json:"distanceUnit"`
+}
+
+func (policy *CharacterPolicy) UnmarshalJSON(body []byte) error {
+	type plain CharacterPolicy
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(body, &fields); err != nil {
+		return err
+	}
+	for _, key := range []string{"uniqueAttunement", "maximumLevel", "minimumHpGain", "standardArray", "rollDice", "rollSides", "rollKeep", "distanceUnit"} {
+		if value, ok := fields[key]; !ok || string(value) == "null" {
+			return fmt.Errorf("character policy requires explicit %s", key)
+		}
+	}
+	var decoded plain
+	if err := json.Unmarshal(body, &decoded); err != nil {
+		return err
+	}
+	*policy = CharacterPolicy(decoded)
+	return nil
+}
+
 type RulesetConstants struct {
+	Character            *CharacterPolicy `json:"character,omitempty"`
 	AbilityCap           int              `json:"abilityCap"`
 	AbilityCapHard       int              `json:"abilityCapHard"`
 	AttunementLimit      int              `json:"attunementLimit"`
@@ -122,6 +153,16 @@ func (ruleset Ruleset) Validate() error {
 		return errors.New("ruleset identity is invalid")
 	}
 	constants := ruleset.Constants
+	if policy := constants.Character; policy != nil {
+		if policy.MaximumLevel < 1 || policy.MaximumLevel > 20 || policy.MinimumHPGain < 0 || policy.MinimumHPGain > 100 || len(policy.StandardArray) != 6 || policy.RollDice < 1 || policy.RollDice > 20 || policy.RollSides < 2 || policy.RollSides > 100 || policy.RollKeep < 1 || policy.RollKeep > policy.RollDice || strings.TrimSpace(policy.DistanceUnit) == "" || len(policy.DistanceUnit) > 30 {
+			return errors.New("character policy is invalid")
+		}
+		for _, score := range policy.StandardArray {
+			if score < 1 || score > constants.AbilityCapHard {
+				return errors.New("character standard array is invalid")
+			}
+		}
+	}
 	if constants.AbilityCap < 1 || constants.AbilityCapHard < constants.AbilityCap ||
 		constants.AttunementLimit < 0 || constants.ScrollCopyGPPerLevel < 0 {
 		return errors.New("ruleset numeric constants are invalid")

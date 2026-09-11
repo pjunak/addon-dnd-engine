@@ -180,6 +180,9 @@ func hydrateAbilities(decisions Object, sheet Object, mods map[string]int, rules
 				capValue = min(ruleset.Constants.AbilityCapHard, raised)
 			}
 		}
+		if cap, exists := object(decisions["scoreCaps"])[ability]; exists {
+			capValue = integer(cap, capValue)
+		}
 		baseScore := number(base[ability], 10)
 		score := math.Min(float64(capValue), baseScore+float64(bonus))
 		modifier := AbilityModifier(score)
@@ -406,7 +409,9 @@ func hydrateArmorClass(
 			}
 		}
 	}
-	candidates = append(candidates, Object{"id": "unarmored", "label": "Unarmored", "value": 10 + mods["DEX"]})
+	if bodyArmor == nil {
+		candidates = append(candidates, Object{"id": "unarmored", "label": "Unarmored", "value": 10 + mods["DEX"]})
+	}
 	best := object(candidates[0])
 	for _, candidate := range candidates[1:] {
 		if integer(object(candidate)["value"], 0) > integer(best["value"], 0) {

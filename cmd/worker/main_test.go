@@ -12,10 +12,8 @@ func TestAdvertisedMethodsMatchPublicService(t *testing.T) {
 		"get-record",
 		"query-records",
 		"derive",
-		"hydrate",
-		"builder-plan",
-		"apply-builder-choice",
-		"reconcile-builder-decisions",
+		"evaluate-character",
+		"character-play",
 	}
 	methods := advertisedMethods()
 	if len(methods) != len(want) {

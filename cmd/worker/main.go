@@ -22,7 +22,7 @@ func main() {
 		HandlerFactory: workerrpc.NativeWorkerHandlerFactoryFunc(func(
 			worker workerrpc.NativeWorkerContext,
 		) (workerrpc.RequestHandler, error) {
-			data, err := provider.New(worker.Peer)
+			data, err := provider.FromWorker(worker)
 			if err != nil {
 				return nil, err
 			}

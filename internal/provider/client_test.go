@@ -105,7 +105,7 @@ func TestRepositoryLoadsOneConsistentSnapshotAndReusesIt(t *testing.T) {
 	if again.Value[0] != '{' {
 		t.Fatal("repository returned mutable record storage")
 	}
-	if caller.methodCalls["catalog"] != 2 || caller.methodCalls["query:ruleset"] != 1 ||
+	if caller.methodCalls["catalog"] != 3 || caller.methodCalls["query:ruleset"] != 1 ||
 		caller.methodCalls["query:class"] != 1 {
 		t.Fatalf("method calls = %v", caller.methodCalls)
 	}

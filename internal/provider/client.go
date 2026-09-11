@@ -24,9 +24,13 @@ const (
 )
 
 type Client struct {
-	services *workerrpc.ServiceClient
-	cacheMu  sync.Mutex
-	cached   *Repository
+	services   *workerrpc.ServiceClient
+	providerID string
+	members    []*Client
+	queryMu    sync.Mutex
+	queryCache map[string]QueryResult
+	cacheMu    sync.Mutex
+	cached     *Repository
 }
 
 type Identity struct {
@@ -47,9 +51,10 @@ type Context struct {
 }
 
 type Record struct {
-	Kind  string          `json:"kind"`
-	ID    string          `json:"id"`
-	Value json.RawMessage `json:"value"`
+	ProviderAddonID string          `json:"providerAddonId,omitempty"`
+	Kind            string          `json:"kind"`
+	ID              string          `json:"id"`
+	Value           json.RawMessage `json:"value"`
 }
 
 type Query struct {
@@ -87,12 +92,28 @@ var engineKinds = [...]string{
 	"spell", "subclass", "tool", "weapon",
 }
 
-func New(caller workerrpc.ServiceCaller) (*Client, error) {
+func New(caller workerrpc.ServiceCaller, providerIDs ...string) (*Client, error) {
 	services, err := workerrpc.NewServiceClient(caller)
 	if err != nil {
 		return nil, err
 	}
-	return &Client{services: services}, nil
+	client := &Client{services: services}
+	ids := append([]string(nil), providerIDs...)
+	sort.Strings(ids)
+	for index, id := range ids {
+		if id == "" || index > 0 && ids[index-1] == id {
+			return nil, errors.New("rules-data provider identities must be unique")
+		}
+	}
+	if len(ids) == 1 {
+		client.providerID = ids[0]
+	}
+	if len(ids) > 1 {
+		for _, id := range ids {
+			client.members = append(client.members, &Client{services: services, providerID: id})
+		}
+	}
+	return client, nil
 }
 
 func (client *Client) Inspect(ctx context.Context, meta *workerrpc.Meta) Context {
@@ -138,6 +159,9 @@ func (client *Client) Catalog(
 	ctx context.Context,
 	meta *workerrpc.Meta,
 ) (CatalogResult, error) {
+	if len(client.members) > 0 {
+		return client.combinedCatalog(ctx, meta)
+	}
 	call, err := client.call(ctx, meta, "catalog", map[string]any{})
 	if err != nil {
 		return CatalogResult{}, err
@@ -226,6 +250,13 @@ func (client *Client) Repository(
 			}
 			repository.names[kind][normalized] = record.ID
 		}
+	}
+	confirmed, err := client.Catalog(ctx, meta)
+	if err != nil {
+		return nil, err
+	}
+	if !sameProviderContent(confirmed.Identity, repository.Identity) {
+		return nil, incompatible("rules-data identity changed while loading engine content")
 	}
 	client.cached = repository
 	return repository, nil
@@ -340,6 +371,18 @@ func (client *Client) Get(
 	if !validReference(kind, id) {
 		return Identity{}, Record{}, invalid("rules-data record reference is invalid")
 	}
+	if len(client.members) > 0 {
+		identity, records, err := client.combinedRecords(ctx, meta, kind)
+		if err != nil {
+			return Identity{}, Record{}, err
+		}
+		for _, record := range records {
+			if record.ID == id {
+				return identity, cloneRecord(record), nil
+			}
+		}
+		return Identity{}, Record{}, workerrpc.NewRPCError(workerrpc.JSONRPCInvalidParams, workerrpc.KindNotFound, "The rule record is not available in the selected sources.", false, nil)
+	}
 	call, err := client.call(ctx, meta, "get", map[string]any{
 		"setId": RulesSetID, "kind": kind, "id": id,
 	})
@@ -359,6 +402,7 @@ func (client *Client) Get(
 		return Identity{}, Record{}, incompatible("rules-data record response is invalid")
 	}
 	response.Record.Value = append(json.RawMessage(nil), response.Record.Value...)
+	response.Record.ProviderAddonID = call.ProviderAddonID
 	return identityOf(call, response.Revision), response.Record, nil
 }
 
@@ -369,6 +413,9 @@ func (client *Client) Query(
 ) (QueryResult, error) {
 	if !validKind(query.Kind) || query.Limit < 1 || query.Limit > 200 || len(query.Cursor) > 32 {
 		return QueryResult{}, invalid("rules-data query is invalid")
+	}
+	if len(client.members) > 0 {
+		return client.combinedQuery(ctx, meta, query)
 	}
 	params := map[string]any{"setId": RulesSetID, "kind": query.Kind, "limit": query.Limit}
 	if query.Cursor != "" {
@@ -395,6 +442,7 @@ func (client *Client) Query(
 			return QueryResult{}, incompatible("rules-data query record is invalid")
 		}
 		response.Records[index].Value = append(json.RawMessage(nil), response.Records[index].Value...)
+		response.Records[index].ProviderAddonID = call.ProviderAddonID
 	}
 	return QueryResult{
 		Identity: identityOf(call, response.Revision),
@@ -458,7 +506,7 @@ func (client *Client) call(
 		return workerrpc.ServiceResult{}, errors.New("rules-data client is unavailable")
 	}
 	return client.services.Call(ctx, meta, workerrpc.ServiceCall{
-		Contract: RulesDataContract, Method: method, Params: params,
+		Contract: RulesDataContract, ProviderAddonID: client.providerID, Method: method, Params: params,
 	})
 }
 
@@ -485,7 +533,7 @@ func cloneCounts(source map[string]int) map[string]int {
 }
 
 func validCatalogCounts(total int, kinds map[string]int) bool {
-	if total < 1 || len(kinds) == 0 {
+	if total < 0 || total > 100000 || total > 0 && len(kinds) == 0 {
 		return false
 	}
 	sum := 0

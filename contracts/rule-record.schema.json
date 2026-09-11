@@ -6,6 +6,7 @@
       "additionalProperties": false,
       "required": ["kind", "id", "value"],
       "properties": {
+        "providerAddonId": { "type": "string", "minLength": 1, "maxLength": 80 },
         "kind": { "type": "string", "minLength": 1, "maxLength": 100 },
         "id": { "type": "string", "minLength": 1, "maxLength": 200 },
         "value": {

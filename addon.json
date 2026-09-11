@@ -27,6 +27,7 @@
     }
   },
   "permissions": [],
+  "rules": { "supports": ["dnd-2014", "dnd-2024"] },
   "services": {
     "provides": [
       {
@@ -40,9 +41,9 @@
       {
         "contract": "dnd5e.rules-data",
         "range": "^3.0.0",
-        "cardinality": "one",
+        "cardinality": "many",
         "required": false,
-        "selection": "operator"
+        "selection": "all-compatible"
       }
     ]
   }

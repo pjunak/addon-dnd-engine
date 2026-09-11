@@ -14,7 +14,7 @@ official sheets so multiple sheet implementations can share the engine and a
 compatible replacement engine can be selected without changing those sheets.
 
 ```text
-rules-data provider (official or third-party)
+compatible rules-data providers (official and third-party)
                     |
                     v
           headless D&D engine
@@ -29,12 +29,15 @@ The official `addon-dnd-2024-compendium` is one rules-data provider. Provider an
 selection use generic versioned CodexHost services rather than recognized addon
 IDs:
 
-- consumes zero or one `dnd5e.rules-data` `^3.0.0` service;
+- consumes all compatible `dnd5e.rules-data` `^3.0.0` services;
 - provides `dnd5e.rules-engine` `3.0.0` through the host service broker.
 
 With no provider, universal arithmetic remains available and provider-dependent
-hydration reports its unavailable state. Multiple compatible providers are
-resolved explicitly by the host Add-on Manager.
+hydration reports its unavailable state. Compatible source packages combine
+automatically under the website's single ruleset. The host's sourcebook policy
+filters their records; the engine requires exactly one complete profile and
+rejects duplicate `(kind, id)` records across packages. Engine-provider choices
+remain explicit in the host Add-on Manager when several engines are installed.
 
 ## Boundaries
 

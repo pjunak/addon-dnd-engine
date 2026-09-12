@@ -21,12 +21,13 @@ unavailable; universal `derive` operations remain usable.
 
 See [the service contract](contract/README.md), [calculation ownership](rules/README.md)
 and [generated schemas](contracts/rules-engine.service.json). Version 4 replaces
-the previous public Builder/hydration/play handlers. Internal arithmetic helpers
-and their independent regression vectors remain implementation details.
+the previous public Builder/hydration/play handlers. Shared arithmetic helpers remain internal. Fixture-only play/reconciliation
+adapters live in test files and are excluded from the production package.
 
 ## Development and packaging
 
-Use Go 1.27.1 and the sibling host SDK declared in go.mod:
+Use Go from [go.mod](go.mod). Its local SDK replacement expects a compatible
+`ttrpg-codex` checkout beside this repository.
 
 ```text
 go test ./...

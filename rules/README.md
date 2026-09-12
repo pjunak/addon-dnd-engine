@@ -35,8 +35,8 @@ spent counters, attunement, item effects, conditional flight/senses, copying cos
 and level replacement budgets. Worker tests exercise the closed v4 boundary.
 
 The 144 pinned v1 arithmetic/Builder vectors remain an independent oracle for
-shared helpers. They are synthetic expected-result data, with no old runtime
-handler. Explicit tested corrections include class proficiency summaries and
+shared helpers. They are synthetic expected-result data. Adapters needed only
+by these fixtures live in `*_test.go` files, outside the production package. Explicit tested corrections include class proficiency summaries and
 excluding unarmored AC candidates while armor is worn. The installed suites
 exercise current v4 characters and package lifecycle separately.
 

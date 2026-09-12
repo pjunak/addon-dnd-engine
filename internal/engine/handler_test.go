@@ -220,24 +220,3 @@ func assertRPCError(t *testing.T, err error, kind string) {
 		t.Fatalf("error = %T %v", err, err)
 	}
 }
-
-func objectNumber(source rules.Object, path ...string) int {
-	var current any = source
-	for _, key := range path {
-		value, _ := current.(rules.Object)
-		if value == nil {
-			if raw, ok := current.(map[string]any); ok {
-				value = rules.Object(raw)
-			}
-		}
-		current = value[key]
-	}
-	switch value := current.(type) {
-	case int:
-		return value
-	case float64:
-		return int(value)
-	default:
-		return 0
-	}
-}

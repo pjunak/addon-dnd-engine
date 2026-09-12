@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"sort"
 	"strings"
 	"testing"
@@ -79,7 +80,7 @@ func TestPreservedV1Parity(t *testing.T) {
 			case "apply":
 				result = ApplyBuilderChoice(object(vector.Input["decisions"]), object(vector.Input["change"]), fixture.Records, profile)
 			case "reconcile":
-				result = ReconcileBuilderDecisions(vector.Input, fixture.Records, profile)
+				result = reconcileFixtureDecisions(vector.Input, fixture.Records, profile)
 			default:
 				t.Fatal("Unknown vector operation")
 			}
@@ -170,4 +171,41 @@ func parityDifference(expected, actual any, path string) string {
 		}
 	}
 	return fmt.Sprintf("%s: v1=%v Go=%v", path, expected, actual)
+}
+
+// Reconciliation is part of the pinned comparison fixture, not the current
+// character API, which retains invalid choices for explicit repair.
+func reconcileFixtureDecisions(decisions Object, records Records, ruleset Ruleset) Object {
+	copy := cloneObjectDeep(decisions)
+	plan := BuilderPlan(copy, records, ruleset)
+	valid := make(map[string]struct{})
+	for _, group := range []any{plan["classChoices"], plan["creationChoices"], plan["creationAbilityChoices"]} {
+		for _, choice := range objects(group) {
+			valid[text(choice["id"])] = struct{}{}
+		}
+	}
+	choices := object(copy["featureChoices"])
+	if choices == nil {
+		choices = Object{}
+	}
+	for key := range choices {
+		if _, exists := valid[fixtureChoiceID(key)]; !exists {
+			delete(choices, key)
+		}
+	}
+	copy["featureChoices"] = choices
+	grants := make([]any, 0)
+	for _, grant := range objects(copy["abilityGrants"]) {
+		if _, exists := valid[fixtureChoiceID(text(grant["id"]))]; exists {
+			grants = append(grants, grant)
+		}
+	}
+	copy["abilityGrants"] = grants
+	return copy
+}
+
+var fixtureSlotSuffix = regexp.MustCompile(`#\d+$`)
+
+func fixtureChoiceID(value string) string {
+	return builderModeSuffix.ReplaceAllString(fixtureSlotSuffix.ReplaceAllString(value, ""), "")
 }

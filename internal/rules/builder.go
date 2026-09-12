@@ -8,7 +8,6 @@ import (
 	"strings"
 )
 
-var builderSlotSuffix = regexp.MustCompile(`#\d+$`)
 var builderModeSuffix = regexp.MustCompile(`:(ability|feat|featability)$`)
 
 func BuilderPlan(decisions Object, records Records, ruleset Ruleset) Object {
@@ -57,35 +56,6 @@ func NormalizeBuilderDecisions(decisions Object, records Records, ruleset Rulese
 	for key, value := range resolveBuilderChoices(copy, plan, records) {
 		copy[key] = value
 	}
-	return copy
-}
-
-func ReconcileBuilderDecisions(decisions Object, records Records, ruleset Ruleset) Object {
-	copy := cloneObjectDeep(decisions)
-	plan := BuilderPlan(copy, records, ruleset)
-	valid := make(map[string]struct{})
-	for _, group := range []any{plan["classChoices"], plan["creationChoices"], plan["creationAbilityChoices"]} {
-		for _, choice := range objects(group) {
-			valid[text(choice["id"])] = struct{}{}
-		}
-	}
-	choices := object(copy["featureChoices"])
-	if choices == nil {
-		choices = Object{}
-	}
-	for key := range choices {
-		if _, exists := valid[builderBaseID(key)]; !exists {
-			delete(choices, key)
-		}
-	}
-	copy["featureChoices"] = choices
-	grants := make([]any, 0)
-	for _, grant := range objects(copy["abilityGrants"]) {
-		if _, exists := valid[builderBaseID(text(grant["id"]))]; exists {
-			grants = append(grants, grant)
-		}
-	}
-	copy["abilityGrants"] = grants
 	return copy
 }
 
@@ -688,10 +658,6 @@ func originGrantPolicy(body json.RawMessage) Object {
 	}
 	value, _ := DecodeObject(body)
 	return value
-}
-
-func builderBaseID(value string) string {
-	return builderModeSuffix.ReplaceAllString(builderSlotSuffix.ReplaceAllString(value, ""), "")
 }
 
 func appendResolved(result Object, key string, additions ...string) {

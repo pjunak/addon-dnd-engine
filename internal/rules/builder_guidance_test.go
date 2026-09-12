@@ -64,7 +64,7 @@ func TestPlayDoesNotPromoteDerivedFeatsToManualFeats(t *testing.T) {
 		if manual != nil {
 			state["feats"] = manual
 		}
-		next, err := ApplyPlayChange(state, Object{"operation": "rest", "rest": "short"}, records, profile)
+		next, err := applyPlayFixture(state, Object{"operation": "rest", "rest": "short"}, records, profile)
 		if err != nil {
 			t.Fatal(err)
 		}

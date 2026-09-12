@@ -2,6 +2,7 @@ package rules
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 )
 
@@ -10,21 +11,21 @@ func TestPlayRestAndHitDicePreserveAuthoredState(t *testing.T) {
 	decisions := Object{"classes": []any{Object{"classId": "wizard", "level": 5}}, "baseStats": Object{"CON": 14}, "hp": 2, "tempHp": 4,
 		"resourceUses": Object{"hit-dice-d6": 2, "slot-1": 0}, "notes": "Keep me", "resources": []any{Object{"id": "manual", "current": 0, "max": 3}}}
 	before, _ := json.Marshal(decisions)
-	spent, err := ApplyPlayChange(decisions, Object{"operation": "spend-hit-die", "key": "hit-dice-d6"}, syntheticRecords(), profile)
+	spent, err := applyPlayFixture(decisions, Object{"operation": "spend-hit-die", "key": "hit-dice-d6"}, syntheticRecords(), profile)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if integer(spent["hp"], 0) != 8 || integer(object(spent["resourceUses"])["hit-dice-d6"], 0) != 1 {
 		t.Fatalf("spent = %+v", spent)
 	}
-	short, err := ApplyPlayChange(spent, Object{"operation": "rest", "rest": "short"}, syntheticRecords(), profile)
+	short, err := applyPlayFixture(spent, Object{"operation": "rest", "rest": "short"}, syntheticRecords(), profile)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if integer(object(short["resourceUses"])["slot-1"], -1) != 0 || integer(short["hp"], 0) != 8 {
 		t.Fatalf("short = %+v", short)
 	}
-	long, err := ApplyPlayChange(short, Object{"operation": "rest", "rest": "long"}, syntheticRecords(), profile)
+	long, err := applyPlayFixture(short, Object{"operation": "rest", "rest": "long"}, syntheticRecords(), profile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,11 +38,11 @@ func TestPlayRestAndHitDicePreserveAuthoredState(t *testing.T) {
 	if string(before) != string(after) || string(manualBefore) != string(manualAfter) || text(long["notes"]) != "Keep me" {
 		t.Fatal("Play changes altered authored or input state")
 	}
-	_, err = ApplyPlayChange(decisions, Object{"operation": "spend-hit-die", "key": "slot-1"}, syntheticRecords(), profile)
+	_, err = applyPlayFixture(decisions, Object{"operation": "spend-hit-die", "key": "slot-1"}, syntheticRecords(), profile)
 	if err == nil {
 		t.Fatal("Accepted a spell slot as a hit die")
 	}
-	if _, err := ApplyPlayChange(Object{"maxHp": 32, "hp": 12}, Object{"operation": "rest", "rest": "long"}, syntheticRecords(), profile); err == nil {
+	if _, err := applyPlayFixture(Object{"maxHp": 32, "hp": 12}, Object{"operation": "rest", "rest": "long"}, syntheticRecords(), profile); err == nil {
 		t.Fatal("Replaced a hand-filled HP maximum without a valid class")
 	}
 }
@@ -76,7 +77,7 @@ func TestPlaySpellSelectionCastingAndRemoval(t *testing.T) {
 	}
 	decisions := Object{"classes": []any{Object{"classId": "wizard", "level": 5}}}
 	selectSpell := func(selection, ref string, selected bool) error {
-		next, err := ApplyPlayChange(decisions, Object{"operation": "select-spell", "classId": "wizard", "ref": ref, "selection": selection, "selected": selected}, records, profile)
+		next, err := applyPlayFixture(decisions, Object{"operation": "select-spell", "classId": "wizard", "ref": ref, "selection": selection, "selected": selected}, records, profile)
 		if err == nil {
 			decisions = next
 		}
@@ -93,7 +94,7 @@ func TestPlaySpellSelectionCastingAndRemoval(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	next, err := ApplyPlayChange(decisions, Object{"operation": "cast-spell", "classId": "wizard", "ref": "ward", "slot": "slot-2"}, records, profile)
+	next, err := applyPlayFixture(decisions, Object{"operation": "cast-spell", "classId": "wizard", "ref": "ward", "slot": "slot-2"}, records, profile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,13 +102,13 @@ func TestPlaySpellSelectionCastingAndRemoval(t *testing.T) {
 		t.Fatalf("slots = %+v", next["resourceUses"])
 	}
 	object(next["resourceUses"])["slot-2"] = 0
-	if _, err := ApplyPlayChange(next, Object{"operation": "cast-spell", "classId": "wizard", "ref": "ward", "slot": "slot-2"}, records, profile); err == nil {
+	if _, err := applyPlayFixture(next, Object{"operation": "cast-spell", "classId": "wizard", "ref": "ward", "slot": "slot-2"}, records, profile); err == nil {
 		t.Fatal("Cast with exhausted slots")
 	}
 	if err := selectSpell("cantrips", "spark", true); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := ApplyPlayChange(decisions, Object{"operation": "cast-spell", "classId": "wizard", "ref": "spark", "slot": ""}, records, profile); err != nil {
+	if _, err := applyPlayFixture(decisions, Object{"operation": "cast-spell", "classId": "wizard", "ref": "spark", "slot": ""}, records, profile); err != nil {
 		t.Fatal(err)
 	}
 	delete(records.byKind["spell"], "ward")
@@ -151,7 +152,7 @@ func TestPlayFeatureChangesRefreshModifiersAndPactRest(t *testing.T) {
 	decisions := Object{"classes": []any{Object{"classId": "warlock", "level": 5}}, "feats": []any{Object{"featId": "guardian"}}, "resourceUses": Object{"pact-slot": 0}, "hp": 2}
 	before := Hydrate(NormalizeBuilderDecisions(decisions, records, profile), records, &profile).Sheet
 	activation := objects(before["activations"])[0]
-	next, err := ApplyPlayChange(decisions, Object{"operation": "toggle-feature", "key": activation["key"], "enabled": true}, records, profile)
+	next, err := applyPlayFixture(decisions, Object{"operation": "toggle-feature", "key": activation["key"], "enabled": true}, records, profile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -159,15 +160,29 @@ func TestPlayFeatureChangesRefreshModifiersAndPactRest(t *testing.T) {
 	if integer(object(after["derived"])["armorClass"], 0) != integer(object(before["derived"])["armorClass"], 0)+1 {
 		t.Fatal("Activation did not affect armor class")
 	}
-	next, err = ApplyPlayChange(next, Object{"operation": "rest", "rest": "short"}, records, profile)
+	next, err = applyPlayFixture(next, Object{"operation": "rest", "rest": "short"}, records, profile)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if object(next["resourceUses"])["pact-slot"] != nil || !truth(object(next["activeFeatures"])[text(activation["key"])]) {
 		t.Fatalf("Short rest = %+v", next)
 	}
-	next, err = ApplyPlayChange(next, Object{"operation": "rest", "rest": "long"}, records, profile)
+	next, err = applyPlayFixture(next, Object{"operation": "rest", "rest": "long"}, records, profile)
 	if err != nil || len(object(next["activeFeatures"])) != 0 {
 		t.Fatalf("Long rest = %+v, %v", next, err)
 	}
+}
+
+// Compose low-level play regressions independently of the typed character
+// boundary; public command validation is covered by character tests.
+func applyPlayFixture(decisions, change Object, records Records, profile Ruleset) (Object, error) {
+	if err := validatePlayChange(change); err != nil {
+		return nil, err
+	}
+	next := NormalizeBuilderDecisions(decisions, records, profile)
+	sheet := Hydrate(next, records, &profile).Sheet
+	if integer(object(sheet["derived"])["maxHp"], 0) <= 0 && integer(decisions["maxHp"], 0) > 0 {
+		return nil, fmt.Errorf("Choose a valid class in Builder before calculating play changes. Saved values have been kept.")
+	}
+	return applyPlayWithSheet(decisions, change, records, profile, sheet)
 }

@@ -4,20 +4,6 @@ import (
 	"fmt"
 )
 
-// ApplyPlayChange returns a detached decision draft. The caller owns review and
-// persistence; neither an invalid choice nor a calculation mutates saved data.
-func ApplyPlayChange(decisions, change Object, records Records, profile Ruleset) (Object, error) {
-	if err := validatePlayChange(change); err != nil {
-		return nil, err
-	}
-	next := NormalizeBuilderDecisions(decisions, records, profile)
-	sheet := Hydrate(next, records, &profile).Sheet
-	if integer(object(sheet["derived"])["maxHp"], 0) <= 0 && integer(decisions["maxHp"], 0) > 0 {
-		return nil, fmt.Errorf("Choose a valid class in Builder before calculating play changes. Saved values have been kept.")
-	}
-	return applyPlayWithSheet(decisions, change, records, profile, sheet)
-}
-
 func applyPlayWithSheet(decisions, change Object, records Records, profile Ruleset, sheet Object) (Object, error) {
 	if err := validatePlayChange(change); err != nil {
 		return nil, err

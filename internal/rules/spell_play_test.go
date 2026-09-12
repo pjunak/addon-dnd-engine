@@ -35,7 +35,7 @@ func TestGrantedSpellsChooseAbilityAndUseFreeCast(t *testing.T) {
 	state := Object{"classes": []any{Object{"classId": "wizard", "level": 5}}, "feats": []any{Object{"featId": "gift"}}, "notes": "keep", "currency": Object{"gp": 100}}
 	apply := func(change Object) {
 		t.Helper()
-		next, err := ApplyPlayChange(state, change, records, profile)
+		next, err := applyPlayFixture(state, change, records, profile)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -55,7 +55,7 @@ func TestGrantedSpellsChooseAbilityAndUseFreeCast(t *testing.T) {
 		t.Fatalf("Uses = %+v", state["resourceUses"])
 	}
 	before, _ := json.Marshal(state)
-	if _, err := ApplyPlayChange(state, Object{"operation": "cast-granted-spell", "key": "feat:gift:ward", "slot": "charge-ward"}, records, profile); err == nil {
+	if _, err := applyPlayFixture(state, Object{"operation": "cast-granted-spell", "key": "feat:gift:ward", "slot": "charge-ward"}, records, profile); err == nil {
 		t.Fatal("Repeated an exhausted free cast")
 	}
 	after, _ := json.Marshal(state)
@@ -76,7 +76,7 @@ func TestGrantedSpellsChooseAbilityAndUseFreeCast(t *testing.T) {
 	if text(object(state["grantCastingAbilities"])["feat:gift:casting-ability"]) != "CHA" || text(state["notes"]) != "keep" {
 		t.Fatal("Lost authored state")
 	}
-	if _, err := ApplyPlayChange(state, Object{"operation": "select-casting-ability", "key": "feat:gift:casting-ability", "ability": "STR"}, records, profile); err == nil {
+	if _, err := applyPlayFixture(state, Object{"operation": "select-casting-ability", "key": "feat:gift:casting-ability", "ability": "STR"}, records, profile); err == nil {
 		t.Fatal("Accepted unavailable casting ability")
 	}
 }
@@ -86,7 +86,7 @@ func TestCopyingSpellsAndRitualsAreAtomicAndPreserveInventory(t *testing.T) {
 	cost := ScrollCopyCost(1, profile)
 	state := Object{"classes": []any{Object{"classId": "wizard", "level": 5}}, "currency": Object{"gp": cost + 7, "sp": 11}, "inventory": []any{Object{"id": "scroll", "name": "Scroll of Find Path", "qty": 2, "notes": "retain"}, Object{"id": "other", "name": "Ward shield", "qty": 1}}}
 	change := Object{"operation": "copy-spell", "classId": "wizard", "ref": "find-path", "scrollId": "scroll"}
-	next, err := ApplyPlayChange(state, change, records, profile)
+	next, err := applyPlayFixture(state, change, records, profile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,10 +96,10 @@ func TestCopyingSpellsAndRitualsAreAtomicAndPreserveInventory(t *testing.T) {
 	if integer(objects(state["inventory"])[0]["qty"], 0) != 2 || text(objects(next["inventory"])[0]["notes"]) != "retain" {
 		t.Fatal("Changed input or scroll notes")
 	}
-	if _, err = ApplyPlayChange(next, change, records, profile); err == nil {
+	if _, err = applyPlayFixture(next, change, records, profile); err == nil {
 		t.Fatal("Charged twice for an already learned spell")
 	}
-	ritual, err := ApplyPlayChange(next, Object{"operation": "cast-ritual", "classId": "wizard", "ref": "find-path"}, records, profile)
+	ritual, err := applyPlayFixture(next, Object{"operation": "cast-ritual", "classId": "wizard", "ref": "find-path"}, records, profile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -111,13 +111,13 @@ func TestCopyingSpellsAndRitualsAreAtomicAndPreserveInventory(t *testing.T) {
 		{"operation": "copy-spell", "classId": "wizard", "ref": "other", "scrollId": ""},
 		{"operation": "cast-ritual", "classId": "wizard", "ref": "ward"},
 	} {
-		if _, err := ApplyPlayChange(state, change, records, profile); err == nil {
+		if _, err := applyPlayFixture(state, change, records, profile); err == nil {
 			t.Fatalf("Accepted %+v", change)
 		}
 	}
 	poor := cloneObjectDeep(state)
 	object(poor["currency"])["gp"] = cost - 1
-	if _, err = ApplyPlayChange(poor, change, records, profile); err == nil {
+	if _, err = applyPlayFixture(poor, change, records, profile); err == nil {
 		t.Fatal("Allowed copying without enough GP")
 	}
 }
@@ -125,7 +125,7 @@ func TestCopyingSpellsAndRitualsAreAtomicAndPreserveInventory(t *testing.T) {
 func TestLevelUpSpellSwapAndRestrictedSlots(t *testing.T) {
 	records, profile := spellPlayRecords(), syntheticRuleset(t)
 	state := Object{"classes": []any{Object{"classId": "warlock", "level": 5}}, "preparedSpells": Object{"warlock": []any{"ward"}}, "notes": "retained"}
-	next, err := ApplyPlayChange(state, Object{"operation": "swap-spell", "classId": "warlock", "out": "ward", "ref": "find-path"}, records, profile)
+	next, err := applyPlayFixture(state, Object{"operation": "swap-spell", "classId": "warlock", "out": "ward", "ref": "find-path"}, records, profile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -133,7 +133,7 @@ func TestLevelUpSpellSwapAndRestrictedSlots(t *testing.T) {
 	if text(swap["out"]) != "ward" || text(swap["in"]) != "find-path" || integer(swap["classLevel"], 0) != 5 || !contains(stringsOf(object(next["preparedSpells"])["warlock"]), "find-path") {
 		t.Fatalf("Swap = %+v", next)
 	}
-	if _, err = ApplyPlayChange(state, Object{"operation": "swap-spell", "classId": "warlock", "out": "ward", "ref": "other"}, records, profile); err == nil {
+	if _, err = applyPlayFixture(state, Object{"operation": "swap-spell", "classId": "warlock", "out": "ward", "ref": "other"}, records, profile); err == nil {
 		t.Fatal("Accepted ineligible swap")
 	}
 	state["feats"] = []any{Object{"featId": "marked"}, Object{"featId": "special-slot"}}
@@ -141,7 +141,7 @@ func TestLevelUpSpellSwapAndRestrictedSlots(t *testing.T) {
 	if !contains(spellSlotKeys(state, sheet, records, "ward", 1), "feat-slot-special-slot") || contains(spellSlotKeys(state, sheet, records, "find-path", 1), "feat-slot-special-slot") {
 		t.Fatal("Restricted slot did not follow feat spell list")
 	}
-	if _, err = ApplyPlayChange(state, Object{"operation": "cast-spell", "classId": "warlock", "ref": "ward", "slot": "feat-slot-special-slot"}, records, profile); err != nil {
+	if _, err = applyPlayFixture(state, Object{"operation": "cast-spell", "classId": "warlock", "ref": "ward", "slot": "feat-slot-special-slot"}, records, profile); err != nil {
 		t.Fatal(err)
 	}
 }

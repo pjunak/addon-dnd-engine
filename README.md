@@ -45,3 +45,23 @@ The host's installed rules suite evaluates every packaged class at levels 1, 5
 and 20, changes content and source policy, and exercises provider loss/recovery.
 The installed character suite checks the coordinating worker and sheet UI.
 These are separate from the pure arithmetic regression vectors.
+
+
+## Install and update from tested commits
+
+Successful main builds publish the inspected ZIP to a permanent
+[commit release](https://github.com/pjunak/addon-dnd-engine/releases). Each release identifies
+the source commit even when the package version is unchanged. CI uses GitHub's
+automatic repository token; it does not deploy to anyone's server.
+
+In your website, open **Settings → Add-ons → Add add-on → GitHub**, enter
+`pjunak/addon-dnd-engine` and use **Latest published package**. For an installed ZIP, use
+**Update source** to link the same repository. **Check for updates** offers the
+latest tested package; **Download and review** leads to explicit permission and
+compatibility review before **Approve and activate**. Publishing never forces
+an update on an installation.
+
+Public release downloads do not require a GitHub token.
+
+Existing Actions-build sources remain supported, but their artifacts expire.
+Switch an existing source to **Latest published package** to use durable releases.

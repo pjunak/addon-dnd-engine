@@ -11,7 +11,8 @@ permissions:
 
 concurrency:
   group: tests-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  queue: max
 
 jobs:
   test:
@@ -60,3 +61,15 @@ jobs:
           path: ${{ steps.package.outputs.archive }}
           if-no-files-found: error
           retention-days: 14
+
+
+  publish:
+    name: Publish tested commit
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: pjunak/ttrpg-codex/.github/actions/publish-addon@b9eed4ef7664c561ee7e78117a1982f5577e92a4

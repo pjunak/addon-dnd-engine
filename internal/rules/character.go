@@ -80,6 +80,7 @@ func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset)
 		result.Sheet = map[string]any{"status": "needs-choices"}
 		result.Explanations = map[string]character.Explanation{"status": {Label: "Calculated values need choices", Formula: "Choose base abilities, species, background and the first class level to calculate the character.", Value: nil, Terms: []character.Term{}, Sources: []character.Reference{}}}
 	}
+	characterEditorGuidance(input, records, profile, &result)
 	return result
 }
 

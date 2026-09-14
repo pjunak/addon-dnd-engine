@@ -68,7 +68,7 @@ func validateCharacter(input character.Inputs, decisions Object, records Records
 		plan := Object(result.Plan)
 		descriptor := findCharacterChoice(plan, choice.ID, decisions, records, profile)
 		if descriptor == nil {
-			block("unavailable-choice:"+key, choice.ID, "This earlier selection is no longer granted. Remove it or choose a replacement; it remains in history.")
+			block("unavailable-choice:"+key, choice.ID, "This earlier selection is no longer granted. Remove it or choose a replacement.")
 			continue
 		}
 		count := max(1, integer(descriptor["count"], 1))

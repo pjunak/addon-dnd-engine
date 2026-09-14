@@ -23,6 +23,12 @@ The result includes inputs, projection, decision plan, labeled guidance, spell
 options, issues, source evidence and explanations. `ready` means the declared
 choices and supported mechanical constraints pass. Incomplete foundations
 produce an explicit unknown projection rather than plausible zero statistics.
+Per-item `equipment` guidance supplies equip/attune eligibility and exclusive armor slots.
+The guidance includes `canSave` for legal incomplete builds and `classOptions`
+for eligible next classes. `ready` remains the completion gate for play. Choice
+options include prerequisites and descriptions; the plan supplies point-buy
+costs and bounds.
+
 Unsupported prerequisites require an exact issue-ID waiver from an authorized
 DM. Narrative content and encounter effects remain visible source facts.
 
@@ -65,7 +71,7 @@ adjudication. Reusable homebrew belongs in a compatible versioned source package
 
 The engine evaluates grant facts but cannot authenticate their origin. The
 coordinator must verify editor/DM roles, stamp grant authority, review imports,
-preserve history, and commit the exact accepted result atomically. Engine output
+and commit the exact accepted result atomically. Engine output
 never grants persistence authority to a browser.
 
 Evidence identifies each contributing record, book, content hash, bounded

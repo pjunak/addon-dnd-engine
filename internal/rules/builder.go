@@ -12,6 +12,7 @@ var builderModeSuffix = regexp.MustCompile(`:(ability|feat|featability)$`)
 
 func BuilderPlan(decisions Object, records Records, ruleset Ruleset) Object {
 	modelBase, modelClasses := builderModel(decisions, records)
+	classChoices := collectClassChoices(modelClasses, records, ruleset)
 	plan := Object{
 		"schemaVersion": 1,
 		"edition":       ruleset.Edition,
@@ -26,8 +27,8 @@ func BuilderPlan(decisions Object, records Records, ruleset Ruleset) Object {
 		"abilityScoreRange": Object{
 			"min": 1, "max": ruleset.Constants.AbilityCapHard,
 		},
-		"classChoices":           collectClassChoices(modelClasses, records, ruleset),
-		"creationChoices":        collectCreationChoices(decisions, records),
+		"classChoices":           classChoices,
+		"creationChoices":        collectCreationChoices(decisions, records, classChoices),
 		"creationAbilityChoices": collectCreationAbilityChoices(decisions, records, ruleset),
 	}
 	for _, choice := range objects(plan["classChoices"]) {
@@ -65,12 +66,15 @@ func ApplyBuilderChoice(
 	records Records,
 	ruleset Ruleset,
 ) Object {
+	return applyBuilderChoiceWithPlan(decisions, change, records, BuilderPlan(decisions, records, ruleset))
+}
+
+func applyBuilderChoiceWithPlan(decisions, change Object, records Records, plan Object) Object {
 	copy := cloneObjectDeep(decisions)
 	choiceID := text(change["choiceId"])
 	if choiceID == "" {
 		return copy
 	}
-	plan := BuilderPlan(copy, records, ruleset)
 	if object(copy["featureChoices"]) == nil {
 		copy["featureChoices"] = Object{}
 	}
@@ -306,7 +310,7 @@ func copyChoiceFields(descriptor, choice Object) {
 	}
 }
 
-func collectCreationChoices(source Object, records Records) []any {
+func collectOriginChoices(source Object, records Records) []any {
 	result := make([]any, 0)
 	appendChoice := func(choice Object, owner string, recordSource Object) {
 		if text(choice["id"]) == "" {
@@ -338,10 +342,18 @@ func collectCreationChoices(source Object, records Records) []any {
 			appendChoice(choice, typeID+":"+text(record["id"]), object(origin["source"]))
 		}
 	}
-	for _, featID := range selectedFeatIDs(source, records) {
-		feat := recordByID(records, "feat", featID)
-		for _, choice := range objects(object(feat["grants"])["choices"]) {
-			appendChoice(choice, "feat:"+featID, Object{"type": "feat", "id": featID, "level": 1})
+	return result
+}
+
+func collectCreationChoices(source Object, records Records, classChoices []any) []any {
+	result := collectOriginChoices(source, records)
+	seen := map[string]bool{}
+	for _, acquired := range selectedFeatAcquisitions(source, records, classChoices) {
+		for _, choice := range objects(featChoices(acquired, recordByID(records, "feat", acquired.featID))) {
+			if id := text(choice["id"]); !seen[id] {
+				seen[id] = true
+				result = append(result, choice)
+			}
 		}
 	}
 	return result
@@ -390,29 +402,6 @@ func selectedOrigins(source Object, records Records) []Object {
 		}
 	}
 	return result
-}
-
-func selectedFeatIDs(source Object, records Records) []string {
-	ids := make([]string, 0)
-	for _, origin := range selectedOrigins(source, records) {
-		ids = append(ids, text(object(origin["record"])["originFeat"]))
-	}
-	for _, raw := range values(source["feats"]) {
-		if id, ok := raw.(string); ok {
-			ids = append(ids, id)
-		} else {
-			ids = append(ids, firstText(object(raw)["featId"], object(raw)["id"]))
-		}
-	}
-	for _, feat := range objects(source["extraFeats"]) {
-		ids = append(ids, text(feat["featId"]))
-	}
-	for key, value := range object(source["featureChoices"]) {
-		if strings.HasSuffix(key, ":feat") {
-			ids = append(ids, text(value))
-		}
-	}
-	return unique(ids)
 }
 
 func resolveBuilderChoices(source, plan Object, records Records) Object {

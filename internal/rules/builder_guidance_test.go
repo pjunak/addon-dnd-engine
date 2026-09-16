@@ -75,7 +75,7 @@ func TestPlayDoesNotPromoteDerivedFeatsToManualFeats(t *testing.T) {
 		}
 		next["extraFeats"] = []any{}
 		normalized := NormalizeBuilderDecisions(next, records, profile)
-		if contains(selectedFeatIDs(normalized, records), "guardian") {
+		if findFeat(values(normalized["feats"]), "guardian") != nil {
 			t.Fatal("Removed reward survived through calculated feat cache")
 		}
 	}

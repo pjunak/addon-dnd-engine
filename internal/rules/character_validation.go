@@ -68,6 +68,10 @@ func validateCharacter(input character.Inputs, decisions Object, records Records
 		plan := Object(result.Plan)
 		descriptor := findCharacterChoice(plan, choice.ID, decisions, records, profile)
 		if descriptor == nil {
+			if ambiguousCharacterFeatChoice(Object(result.Plan), choice.ID) {
+				block("ambiguous-feat-choice:"+key, choice.ID, "This saved feat choice has more than one granting source. Assign it to a specific acquisition before saving.")
+				continue
+			}
 			block("unavailable-choice:"+key, choice.ID, "This earlier selection is no longer granted. Remove it or choose a replacement.")
 			continue
 		}
@@ -104,7 +108,7 @@ func validateCharacter(input character.Inputs, decisions Object, records Records
 				choiceValues[valueKey] = true
 			}
 			options := builderChoiceOptions(descriptor, Object(result.Sheet), records)
-			if kind := text(descriptor["kind"]); kind == "expertise" || kind == "skillExpertise" {
+			if kind := text(descriptor["kind"]); kind == "expertise" || kind == "skillExpertise" || kind == "proficiencies" {
 				options = values(object(object(result.Guidance["choices"])[choice.ID])["options"])
 			}
 			valid := text(descriptor["kind"]) == "asiMode" && (selected == "asi" || selected == "feat")
@@ -304,11 +308,14 @@ func findCharacterChoice(plan Object, id string, decisions Object, records Recor
 func validateCharacterProgression(input character.Inputs, records Records, profile Ruleset, result *character.Result) {
 	seenClasses := map[string]bool{}
 	seenFeats := map[string]bool{}
+	seenAcquisitions := map[string]bool{}
 	for index, level := range input.Build.Levels {
 		prefix := cloneCharacter(input)
 		prefix.Build.Levels = prefix.Build.Levels[:index+1]
 		detached := character.Result{Issues: []character.Issue{}}
-		decisions := NormalizeBuilderDecisions(characterDecisions(prefix, records, profile, &detached), records, profile)
+		authored := characterDecisions(prefix, records, profile, &detached)
+		acquisitions := selectedFeatAcquisitions(authored, records, collectClassChoices(values(authored["classes"]), records, profile))
+		decisions := NormalizeBuilderDecisions(authored, records, profile)
 		if index > 0 && !seenClasses[level.ClassID] {
 			classIDs := []string{level.ClassID}
 			for id := range seenClasses {
@@ -349,13 +356,17 @@ func validateCharacterProgression(input character.Inputs, records Records, profi
 			}
 		}
 		plan := BuilderPlan(decisions, records, profile)
-		for _, feat := range objects(decisions["feats"]) {
-			id := text(feat["featId"])
-			if seenFeats[id] {
+		for _, acquired := range acquisitions {
+			id := acquired.featID
+			if seenAcquisitions[acquired.id] {
 				continue
 			}
-			seenFeats[id] = true
+			seenAcquisitions[acquired.id] = true
 			record := recordByID(records, "feat", id)
+			if seenFeats[id] && !truth(record["repeatable"]) && object(record["repeatable"]) == nil {
+				addCharacterIssue(result, "feat:"+id, "choices", "This feat cannot be acquired more than once.", "blocker", &character.Reference{Kind: "feat", ID: id})
+			}
+			seenFeats[id] = true
 			prior := cloneObjectDeep(decisions)
 			remaining := []any{}
 			for _, current := range objects(prior["feats"]) {
@@ -366,7 +377,7 @@ func validateCharacterProgression(input character.Inputs, records Records, profi
 			prior["feats"] = remaining
 			grants := []any{}
 			for _, grant := range objects(prior["abilityGrants"]) {
-				remove := false
+				remove := strings.HasSuffix(acquired.id, ":feat") && text(grant["id"]) == strings.TrimSuffix(acquired.id, ":feat")+":featability"
 				for featID := range newFeats {
 					remove = remove || characterGrantFromFeat(grant, featID, plan, decisions)
 				}

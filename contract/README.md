@@ -43,6 +43,27 @@ use the same option pool, and invalid slots retain exact
 `invalid-option:<choice-id>#<slot>` identities for the coordinator's existing
 slot repair behavior.
 
+Repeatable feats supply separate `grants.choices` descriptors per granting
+background/species, choice slot, advancement or DM grant. IDs have the shape
+`feat:<feat-id>@<query-escaped-acquisition-id>:<local-choice-id>`; deleting one
+source never renumbers another. Nonrepeatable feat IDs remain unchanged.
+Acquisitions are discovered from declared choices, never arbitrary input-key
+suffixes. Parents resolve before dependent selections. Guidance labels retain
+the granting source, and each acquisition is checked for prerequisites;
+nonrepeatable duplicates are rejected.
+
+Mixed skill/tool proficiency options exclude fixed proficiencies and earlier
+valid selections at acquisition time. The current acquisition keeps its own
+choices; duplicate slots and later repeated selections block saving.
+Individual tools and instrument/game variants remain provider-owned IDs.
+
+A single historical unscoped repeatable choice normalizes to its sole owner in
+the detached `evaluation.inputs`. Ambiguous ownership produces
+`ambiguous-feat-choice:<id>#<slot>` and retains the original input for explicit
+assignment. Consumers must not treat this issue as automatic withdrawal.
+This covers declared Builder choices; it does not expand repeated spell,
+resource or conditional-repeat mechanics into new contract promises.
+
 Builder sections count required decisions, including the first class and class
 cantrips/spellbook selections. Their issues carry a stable `id` target and `tab`.
 Invalid existing foundation/advancement choices have `repair: true` and do not

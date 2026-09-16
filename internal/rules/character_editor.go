@@ -10,7 +10,7 @@ import (
 
 // Completion is distinct from legality: an unfinished, bounded build can be
 // persisted while remaining unavailable for rules-dependent play commands.
-func characterEditorGuidance(input character.Inputs, records Records, profile Ruleset, result *character.Result) {
+func characterEditorGuidance(input character.Inputs, decisions Object, records Records, profile Ruleset, result *character.Result) {
 	saveIssues := []character.Issue{}
 	unknown := []string{}
 	for ability := range input.Build.BaseScores {
@@ -58,8 +58,12 @@ func characterEditorGuidance(input character.Inputs, records Records, profile Ru
 	for _, class := range objects(result.Guidance["classes"]) {
 		class["hitDieMax"] = hitDieSize(text(recordByID(records, "class", text(class["classId"]))["hitDie"]))
 	}
-	// Check prerequisites at the level granting the choice, including existing
-	// classes' prerequisites when introducing a new class.
+	// Check prerequisites at acquisition, including ordered multiclass levels.
+	simpleLevels := len(input.Build.Levels) > 0 && len(input.Build.Levels) <= profile.Constants.Character.MaximumLevel
+	for _, selected := range objects(decisions["classes"]) {
+		simpleLevels = simpleLevels && recordByID(records, "class", text(selected["classId"])) != nil
+	}
+	acquisitions := selectedFeatAcquisitions(decisions, records, values(result.Plan["classChoices"]))
 	for _, group := range []string{"creationChoices", "classChoices"} {
 		for _, descriptor := range objects(result.Plan[group]) {
 			entry := object(object(result.Guidance["choices"])[text(descriptor["id"])])
@@ -73,6 +77,15 @@ func characterEditorGuidance(input character.Inputs, records Records, profile Ru
 			}
 			filtered := []any{}
 			for _, option := range objects(entry[key]) {
+				if simpleLevels {
+					feat := recordByID(records, "feat", text(option["id"]))
+					if allowed, handled := simpleFeatOptionAllowed(input, descriptor, choice, feat, acquisitions); handled {
+						if allowed {
+							filtered = append(filtered, option)
+						}
+						continue
+					}
+				}
 				candidate := cloneCharacter(input)
 				choices := []character.Choice{}
 				for _, existing := range candidate.Build.Choices {

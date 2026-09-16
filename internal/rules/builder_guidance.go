@@ -139,6 +139,21 @@ func builderChoiceGuidance(decisions, choice, sheet Object, records Records, opt
 	kind, id := text(choice["kind"]), text(choice["id"])
 	label := firstText(choice["prompt"], guidanceLabel(id))
 	args := []any{}
+	if acquired := object(choice["acquisition"]); acquired != nil {
+		label = "{0} · {1} · {2}"
+		args = []any{choice["name"], choice["choiceName"], acquired["name"]}
+		if text(choice["choiceName"]) == "" {
+			label = "{0} · {1}"
+			args = []any{choice["name"], acquired["name"]}
+		}
+		if text(acquired["classId"]) != "" {
+			label = "{0} · {1} level {2}"
+			if len(args) == 3 {
+				label = "{0} · {1} · {2} level {3}"
+			}
+			args = append(args, acquired["level"])
+		}
+	}
 	if kind == "asiMode" {
 		label = "{0} level {1} advancement"
 		args = []any{guidanceLabel(text(choice["classId"])), integer(choice["level"], 1)}

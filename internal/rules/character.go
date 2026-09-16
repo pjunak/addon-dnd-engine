@@ -19,6 +19,8 @@ func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset)
 		addCharacterIssue(&result, "character-policy", "rules", "The rules profile does not define character creation policy.", "blocker", nil)
 		return result
 	}
+	normalizeCharacterFeatChoices(&input, records, profile, &result)
+	result.Inputs = input
 	tracked := newCharacterRecords(records)
 	decisions := characterDecisions(input, tracked, profile, &result)
 	normalized := NormalizeBuilderDecisions(decisions, tracked, profile)
@@ -37,6 +39,9 @@ func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset)
 	untracked := records
 	result.Plan = BuilderPlan(decisions, untracked, profile)
 	choiceOptions := characterExpertiseOptions(input, Object(result.Plan), untracked, profile)
+	for id, options := range characterProficiencyOptions(input, Object(result.Plan), untracked, profile) {
+		choiceOptions[id] = options
+	}
 	result.Guidance = builderGuidance(decisions, Object(result.Plan), untracked, profile, choiceOptions)
 	result.SpellOptions = SpellOptions(normalized, hydrated.Sheet, untracked, profile)
 	for _, caster := range objects(result.SpellOptions["classes"]) {
@@ -82,7 +87,7 @@ func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset)
 		result.Sheet = map[string]any{"status": "needs-choices"}
 		result.Explanations = map[string]character.Explanation{"status": {Label: "Calculated values need choices", Formula: "Choose base abilities, species, background and the first class level to calculate the character.", Value: nil, Terms: []character.Term{}, Sources: []character.Reference{}}}
 	}
-	characterEditorGuidance(input, records, profile, &result)
+	characterEditorGuidance(input, decisions, records, profile, &result)
 	return result
 }
 
@@ -109,7 +114,7 @@ func characterDecisions(input character.Inputs, records Records, profile Ruleset
 			continue
 		}
 		if grant.Feat != nil {
-			decisions["extraFeats"] = append(values(decisions["extraFeats"]), Object{"id": grant.ID, "featId": grant.Feat.ID, "name": grant.Name})
+			decisions["extraFeats"] = append(values(decisions["extraFeats"]), Object{"id": grant.ID, "featId": grant.Feat.ID, "name": grant.Name, "level": grant.EffectiveLevel})
 		}
 	}
 	choices := append([]character.Choice(nil), build.Choices...)
@@ -119,21 +124,40 @@ func characterDecisions(input character.Inputs, records Records, profile Ruleset
 		}
 		return choices[i].ID < choices[j].ID
 	})
-	for _, choice := range choices {
-		var value any
-		if json.Unmarshal(choice.Value, &value) != nil {
-			addCharacterIssue(result, "invalid-choice:"+choice.ID, choice.ID, "Choice value is invalid.", "blocker", nil)
-			continue
-		}
-		if assignment := object(value); assignment != nil {
-			for _, ability := range Abilities {
-				if amount, exists := assignment[ability]; exists {
-					decisions = ApplyBuilderChoice(decisions, Object{"choiceId": choice.ID, "value": Object{"ability": ability, "amount": amount}}, records, profile)
+	// Parents may sort after their children (for example a species feat and
+	// its selections). Apply each available decision once, in dependency order.
+	// Only feat/mode selections change the available descriptors.
+	plan := BuilderPlan(decisions, records, profile)
+	for len(choices) > 0 {
+		pending := []character.Choice{}
+		for _, choice := range choices {
+			var value any
+			if json.Unmarshal(choice.Value, &value) != nil {
+				addCharacterIssue(result, "invalid-choice:"+choice.ID, choice.ID, "Choice value is invalid.", "blocker", nil)
+				continue
+			}
+			descriptor := findCharacterChoice(plan, choice.ID, decisions, records, profile)
+			if descriptor == nil {
+				pending = append(pending, choice)
+				continue
+			}
+			if assignment := object(value); assignment != nil {
+				for _, ability := range Abilities {
+					if amount, exists := assignment[ability]; exists {
+						decisions = applyBuilderChoiceWithPlan(decisions, Object{"choiceId": choice.ID, "value": Object{"ability": ability, "amount": amount}}, records, plan)
+					}
+				}
+			} else {
+				decisions = applyBuilderChoiceWithPlan(decisions, Object{"choiceId": choice.ID, "slot": choice.Slot, "value": value}, records, plan)
+				if kind := text(descriptor["kind"]); kind == "feat" || kind == "asiMode" {
+					plan = BuilderPlan(decisions, records, profile)
 				}
 			}
-		} else {
-			decisions = ApplyBuilderChoice(decisions, Object{"choiceId": choice.ID, "slot": choice.Slot, "value": value}, records, profile)
 		}
+		if len(pending) == len(choices) {
+			break
+		}
+		choices = pending
 	}
 	for _, item := range play.Inventory {
 		if item.Quantity < 1 {

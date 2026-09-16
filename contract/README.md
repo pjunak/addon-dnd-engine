@@ -24,8 +24,11 @@ options, issues, source evidence and explanations. `ready` means the declared
 choices and supported mechanical constraints pass. Incomplete foundations
 produce an explicit unknown projection rather than plausible zero statistics.
 Per-item `equipment` guidance supplies equip/attune eligibility and exclusive armor slots.
-The guidance includes `canSave` for legal incomplete builds and `classOptions`
-for eligible next classes. `ready` remains the completion gate for play. Choice
+The guidance includes `canSave` for legal incomplete builds and `saveIssues`,
+an ordered array of issue objects explaining values that prevent saving. Required
+choices that may legally remain unfinished are excluded from `saveIssues`;
+`ready` still requires completion for play. `classOptions` supplies eligible
+next classes. Choice
 options include prerequisites and descriptions; the plan supplies point-buy
 costs and bounds.
 

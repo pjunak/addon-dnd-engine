@@ -123,10 +123,18 @@ func validateCharacter(input character.Inputs, decisions Object, records Records
 		if item.Quantity < 0 {
 			block("quantity:"+item.ID, "inventory", "Item quantity cannot be negative.")
 		}
+		if item.Quantity < 1 {
+			if item.Location == "equipped" {
+				block("equipped-empty:"+item.ID, "inventory", "An absent item cannot remain equipped.")
+			}
+			if item.Attuned {
+				block("attunement-empty:"+item.ID, "inventory", "An absent item cannot remain attuned.")
+			}
+		}
 		if item.Reference == nil {
 			mechanics := false
 			for _, grant := range input.Grants {
-				mechanics = mechanics || grant.ID == item.GrantID && grant.ItemID == item.ID && grant.Active && len(grant.Effects) > 0
+				mechanics = mechanics || grant.ID == item.GrantID && grant.ItemID == item.ID && characterGrantActive(grant, input) && len(grant.Effects) > 0
 			}
 			if (item.Attuned || item.Location == "equipped") && !mechanics {
 				block("custom-item:"+item.ID, "inventory", "A narrative item needs a catalog definition or explicit DM mechanics before it can be equipped or attuned.")
@@ -145,9 +153,6 @@ func validateCharacter(input character.Inputs, decisions Object, records Records
 				block("attunement-duplicate:"+item.ID, "inventory", "Only one copy of this item can be attuned.")
 			}
 			seen[identity] = true
-			if item.Quantity < 1 {
-				block("attunement-empty:"+item.ID, "inventory", "An absent item cannot remain attuned.")
-			}
 			if !truth(record["attunement"]) {
 				block("attunement-ineligible:"+item.ID, "inventory", "This item does not declare an attunement requirement.")
 			}

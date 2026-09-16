@@ -2,30 +2,38 @@ package rules
 
 import (
 	"encoding/json"
-	"github.com/pjunak/addon-dnd-engine/character"
+	"sort"
 	"strings"
+
+	"github.com/pjunak/addon-dnd-engine/character"
 )
 
 // Completion is distinct from legality: an unfinished, bounded build can be
 // persisted while remaining unavailable for rules-dependent play commands.
 func characterEditorGuidance(input character.Inputs, records Records, profile Ruleset, result *character.Result) {
-	canSave := true
+	saveIssues := []character.Issue{}
+	unknown := []string{}
 	for ability := range input.Build.BaseScores {
 		if !contains(Abilities[:], ability) {
-			canSave = false
+			unknown = append(unknown, ability)
 		}
 	}
-	for kind, id := range map[string]string{"species": input.Build.Species, "background": input.Build.Background} {
-		if id != "" && recordByID(records, kind, id) == nil {
-			canSave = false
+	sort.Strings(unknown)
+	for _, ability := range unknown {
+		saveIssues = append(saveIssues, character.Issue{ID: "unknown-ability:" + ability, Target: "abilities", Message: "Choose a supported base ability.", Severity: "blocker"})
+	}
+	for _, origin := range []struct{ kind, id string }{{"species", input.Build.Species}, {"background", input.Build.Background}} {
+		if origin.id != "" && recordByID(records, origin.kind, origin.id) == nil {
+			saveIssues = append(saveIssues, character.Issue{ID: "unavailable-" + origin.kind, Target: origin.kind, Message: "Choose an available " + origin.kind + ".", Severity: "blocker"})
 		}
 	}
 	for _, issue := range result.Issues {
 		if issue.Severity == "blocker" && !incompleteCharacterChoice(issue, input, profile, result) {
-			canSave = false
+			saveIssues = append(saveIssues, issue)
 		}
 	}
-	result.Guidance["canSave"] = canSave
+	result.Guidance["canSave"] = len(saveIssues) == 0
+	result.Guidance["saveIssues"] = saveIssues
 	result.Guidance["equipment"] = characterEquipmentOptions(input, records, profile, result)
 	options := []any{}
 	if len(input.Build.Levels) < profile.Constants.Character.MaximumLevel {
@@ -181,14 +189,21 @@ func findAbilityDescriptor(plan Object, id string) Object {
 func characterEquipmentOptions(input character.Inputs, records Records, profile Ruleset, result *character.Result) Object {
 	options := Object{}
 	attunement := object(result.Sheet["attunement"])
-	for _, item := range input.Play.Inventory {
+	for index, item := range input.Play.Inventory {
 		entry := Object{"canEquip": false, "canAttune": false, "slot": "worn"}
 		options[item.ID] = entry
 		if item.Quantity < 1 {
 			continue
 		}
+		candidate := item
+		candidate.Location = "equipped"
+		// Eligibility tests the requested state, so an equipped-only grant can
+		// authorize equipping without changing the caller's inventory.
+		proposed := input
+		proposed.Play.Inventory = append([]character.Item(nil), input.Play.Inventory...)
+		proposed.Play.Inventory[index] = candidate
 		if item.Reference == nil {
-			for _, grant := range activeCharacterGrants(input) {
+			for _, grant := range activeCharacterGrants(proposed) {
 				if grant.ID == item.GrantID && grant.ItemID == item.ID && len(grant.Effects) > 0 {
 					entry["canEquip"] = true
 				}
@@ -205,10 +220,8 @@ func characterEquipmentOptions(input character.Inputs, records Records, profile 
 				entry["slot"] = "shield"
 			}
 		}
-		candidate := item
-		candidate.Location = "equipped"
 		check := character.Result{Issues: []character.Issue{}}
-		validateCharacterItemMechanics(candidate, record, input, &check)
+		validateCharacterItemMechanics(candidate, record, proposed, &check)
 		if len(check.Issues) > 0 {
 			continue
 		}

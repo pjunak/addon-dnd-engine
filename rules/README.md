@@ -18,7 +18,11 @@ cannot reuse an earlier calculation's records. Character lookups use IDs only. O
 minimum/set effects, and explicitly raised ability caps affect normal increases.
 Movement that depends on walking speed is recomputed after item/DM bonuses.
 Sense ranges use their greatest applicable contribution, with explicit typed
-adjustments afterwards. Armor candidates obey worn-armor eligibility.
+adjustments afterwards. Armor candidates obey worn-armor eligibility. Empty inventory instances may
+remain carried or stored, but cannot stay equipped or attuned. Custom equipment
+requires matching active DM mechanics at the current level and evaluation time.
+Equip guidance evaluates the proposed equipped state, including equipped-only
+grant conditions, without changing the caller's inventory.
 
 Progression checks each acquired class/feat against its earlier state. Normalized
 feat references retain their IDs through these checks and option filtering. A feat

@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"fmt"
 	"github.com/pjunak/addon-dnd-engine/character"
 	"testing"
 )
@@ -11,6 +12,10 @@ func TestIncrementalBuildCanSaveWithoutAllowingInvalidValues(t *testing.T) {
 	check := func(want bool) {
 		t.Helper()
 		result := EvaluateCharacter(input, records, profile)
+		issues, ok := result.Guidance["saveIssues"].([]character.Issue)
+		if !ok || (len(issues) == 0) != want {
+			t.Fatalf("save issues do not match save eligibility: %+v", result.Guidance)
+		}
 		if truth(result.Guidance["canSave"]) != want {
 			t.Fatalf("canSave=%v; issues=%+v", result.Guidance["canSave"], result.Issues)
 		}
@@ -89,5 +94,38 @@ func TestEquipmentControlsRespectAvailabilityAndAttunement(t *testing.T) {
 	result.Sheet["attunement"] = Object{"count": 3, "limit": 3}
 	if truth(object(characterEquipmentOptions(input, records, profile, &result)["second"])["canAttune"]) {
 		t.Fatal("offered attunement beyond capacity")
+	}
+}
+
+func TestSaveBlockersIncludeUnknownScoresAndUnavailableOrigins(t *testing.T) {
+	for _, partial := range []bool{false, true} {
+		for _, field := range []string{"ability", "species", "background"} {
+			t.Run(fmt.Sprintf("%s/partial=%t", field, partial), func(t *testing.T) {
+				input, records, profile := characterFixture(t)
+				if partial {
+					input = character.Blank()
+				}
+				var id string
+				switch field {
+				case "ability":
+					input.Build.BaseScores["LUCK"] = 10
+					id = "unknown-ability:LUCK"
+				case "species":
+					input.Build.Species = "unavailable"
+					id = "unavailable-species"
+				case "background":
+					input.Build.Background = "unavailable"
+					id = "unavailable-background"
+				}
+				result := EvaluateCharacter(input, records, profile)
+				found := false
+				for _, issue := range result.Guidance["saveIssues"].([]character.Issue) {
+					found = found || issue.ID == id
+				}
+				if result.Ready || truth(result.Guidance["canSave"]) || !found {
+					t.Fatal("invalid supplied value must block both saving and play with a reason", result.Ready, result.Issues, result.Guidance["saveIssues"])
+				}
+			})
+		}
 	}
 }

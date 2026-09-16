@@ -32,6 +32,17 @@ next classes. Choice
 options include prerequisites and descriptions; the plan supplies point-buy
 costs and bounds.
 
+Expertise options use the proficiencies available at the granting character
+level, including ordered multiclass acquisition and active DM proficiency
+grants. Fixed Expertise and valid earlier selections exclude duplicate skills;
+the current grant does not invalidate itself. Same-level creation choices
+precede class choices, with stable ID order within each group. A declared
+`changeOn` replacement may use current proficiencies. Combined
+`skillExpertise` grants supply proficiency themselves. Guidance and validation
+use the same option pool, and invalid slots retain exact
+`invalid-option:<choice-id>#<slot>` identities for the coordinator's existing
+slot repair behavior.
+
 Builder sections count required decisions, including the first class and class
 cantrips/spellbook selections. Their issues carry a stable `id` target and `tab`.
 Invalid existing foundation/advancement choices have `repair: true` and do not

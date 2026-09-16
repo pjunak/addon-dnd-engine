@@ -9,6 +9,10 @@ import (
 // BuilderGuidance is a read-only companion to the stable Builder plan. It keeps
 // completion and option policy out of UI consumers without changing decisions.
 func BuilderGuidance(decisions, plan Object, records Records, profile Ruleset) Object {
+	return builderGuidance(decisions, plan, records, profile, nil)
+}
+
+func builderGuidance(decisions, plan Object, records Records, profile Ruleset, choiceOptions map[string][]any) Object {
 	normalized := NormalizeBuilderDecisions(decisions, records, profile)
 	hydrated := Hydrate(normalized, records, &profile)
 	choices, classes := Object{}, []any{}
@@ -49,7 +53,7 @@ func BuilderGuidance(decisions, plan Object, records Records, profile Ruleset) O
 	}
 	for groupIndex, group := range []any{plan["creationChoices"], plan["creationAbilityChoices"], plan["classChoices"]} {
 		for _, choice := range objects(group) {
-			entry := builderChoiceGuidance(decisions, choice, hydrated.Sheet, records)
+			entry := builderChoiceGuidance(decisions, choice, hydrated.Sheet, records, choiceOptions[text(choice["id"])])
 			choices[text(choice["id"])] = entry
 			section, tab := 0, "character"
 			if groupIndex == 2 {
@@ -131,7 +135,7 @@ func BuilderGuidance(decisions, plan Object, records Records, profile Ruleset) O
 	return Object{"choices": choices, "classes": classes, "sections": sectionValues, "total": total, "complete": complete, "ready": total == complete, "derived": hydrated.Sheet["derived"], "warnings": anyStrings(hydrated.Warnings)}
 }
 
-func builderChoiceGuidance(decisions, choice, sheet Object, records Records) Object {
+func builderChoiceGuidance(decisions, choice, sheet Object, records Records, options []any) Object {
 	kind, id := text(choice["kind"]), text(choice["id"])
 	label := firstText(choice["prompt"], guidanceLabel(id))
 	args := []any{}
@@ -142,7 +146,9 @@ func builderChoiceGuidance(decisions, choice, sheet Object, records Records) Obj
 	if kind == "abilityBudget" {
 		label = "Assign origin ability points"
 	}
-	options := builderChoiceOptions(choice, sheet, records)
+	if options == nil {
+		options = builderChoiceOptions(choice, sheet, records)
+	}
 	entry := builderGuidanceText(label, args...)
 	entry["id"], entry["options"], entry["picked"], entry["required"], entry["done"] = id, options, 0, max(1, integer(choice["count"], 1)), false
 	if kind == "abilityBudget" {

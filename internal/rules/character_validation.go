@@ -104,6 +104,9 @@ func validateCharacter(input character.Inputs, decisions Object, records Records
 				choiceValues[valueKey] = true
 			}
 			options := builderChoiceOptions(descriptor, Object(result.Sheet), records)
+			if kind := text(descriptor["kind"]); kind == "expertise" || kind == "skillExpertise" {
+				options = values(object(object(result.Guidance["choices"])[choice.ID])["options"])
+			}
 			valid := text(descriptor["kind"]) == "asiMode" && (selected == "asi" || selected == "feat")
 			for _, option := range objects(options) {
 				if text(option["id"]) == selected {

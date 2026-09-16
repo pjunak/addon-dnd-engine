@@ -1,6 +1,9 @@
 package rules
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"sort"
+)
 
 // A character evaluation owns this cache. Source identity and policy are supplied
 // by its provider snapshot; no decoded values survive into a later evaluation.
@@ -58,6 +61,8 @@ func (records *characterRecordSnapshot) recordCatalog(kind string) []Object {
 				list = append(list, value)
 			}
 		}
+		// Provider enumeration order is not an authored decision order.
+		sort.Slice(list, func(i, j int) bool { return text(list[i]["id"]) < text(list[j]["id"]) })
 		records.lists[kind] = list
 	}
 	return append([]Object(nil), list...)

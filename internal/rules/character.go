@@ -36,7 +36,8 @@ func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset)
 	// option as character evidence. The calculation reads above are retained.
 	untracked := records
 	result.Plan = BuilderPlan(decisions, untracked, profile)
-	result.Guidance = BuilderGuidance(decisions, Object(result.Plan), untracked, profile)
+	choiceOptions := characterExpertiseOptions(input, Object(result.Plan), untracked, profile)
+	result.Guidance = builderGuidance(decisions, Object(result.Plan), untracked, profile, choiceOptions)
 	result.SpellOptions = SpellOptions(normalized, hydrated.Sheet, untracked, profile)
 	for _, caster := range objects(result.SpellOptions["classes"]) {
 		remaining := characterSpellReplacements(input, untracked, text(caster["classId"]))

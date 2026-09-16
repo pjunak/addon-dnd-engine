@@ -1,7 +1,6 @@
 package rules
 
 import (
-	"fmt"
 	"sort"
 	"strings"
 	"unicode"
@@ -14,14 +13,16 @@ func BuilderGuidance(decisions, plan Object, records Records, profile Ruleset) O
 	hydrated := Hydrate(normalized, records, &profile)
 	choices, classes := Object{}, []any{}
 	sections := []Object{{"id": "foundation", "total": 0, "complete": 0, "issues": []any{}}, {"id": "progression", "total": 0, "complete": 0, "issues": []any{}}, {"id": "spells", "total": 0, "complete": 0, "issues": []any{}}}
-	add := func(group int, done bool, id, label, tab string, level int) {
+	add := func(group int, done bool, id, label, tab string, level int, args ...any) {
 		section := sections[group]
 		section["total"] = integer(section["total"], 0) + 1
 		if done {
 			section["complete"] = integer(section["complete"], 0) + 1
 			return
 		}
-		section["issues"] = append(values(section["issues"]), Object{"id": id, "label": label, "tab": tab, "level": level})
+		issue := builderGuidanceText(label, args...)
+		issue["id"], issue["tab"], issue["level"] = id, tab, level
+		section["issues"] = append(values(section["issues"]), issue)
 	}
 	base := object(plan["baseStats"])
 	scoresValid, spent := true, 0
@@ -54,13 +55,20 @@ func BuilderGuidance(decisions, plan Object, records Records, profile Ruleset) O
 			if groupIndex == 2 {
 				section, tab = 1, text(choice["classId"])
 			}
-			add(section, truth(entry["done"]), text(choice["id"]), text(entry["label"]), tab, integer(object(choice["source"])["level"], 1))
+			add(section, truth(entry["done"]), text(choice["id"]), text(entry["labelKey"]), tab, integer(object(choice["source"])["level"], 1), values(entry["labelArgs"])...)
 		}
 	}
-	for index, selected := range objects(plan["classes"]) {
+	if len(objects(plan["classes"])) == 0 {
+		add(1, false, "add-class", "Choose first class", "add-class", 0)
+	}
+	for _, selected := range objects(plan["classes"]) {
 		id := text(selected["classId"])
+		if id == "" {
+			add(1, false, "add-class", "Choose first class", "add-class", 0)
+			continue
+		}
 		class := recordByID(records, "class", id)
-		add(1, class != nil, fmt.Sprintf("class-%d", index), "Choose class", "character", 0)
+		add(1, class != nil, "class:"+id, "Review {0} levels", "levels", 0, firstText(class["name"], id))
 		if class == nil {
 			continue
 		}
@@ -77,7 +85,7 @@ func BuilderGuidance(decisions, plan Object, records Records, profile Ruleset) O
 			for _, sub := range objects(subclasses) {
 				valid = valid || text(sub["id"]) == text(selected["subclass"])
 			}
-			add(1, valid, "subclass:"+id, "Choose "+firstText(class["name"], id)+" subclass", id, subclassLevel)
+			add(1, valid, "subclass:"+id, "Choose {0} subclass", id, subclassLevel, firstText(class["name"], id))
 		}
 		levels := []any{}
 		for at := 1; at <= min(level, 20); at++ {
@@ -98,11 +106,21 @@ func BuilderGuidance(decisions, plan Object, records Records, profile Ruleset) O
 		classes = append(classes, Object{"classId": id, "name": firstText(class["name"], id), "level": level, "subclassLevel": subclassLevel, "subclasses": subclasses, "levels": levels})
 	}
 	casting := object(hydrated.Sheet["spellcasting"])
+	for _, caster := range objects(casting["perClass"]) {
+		id := text(caster["classId"])
+		name := firstText(recordByID(records, "class", id)["name"], id)
+		if required := integer(caster["cantripsKnown"], 0); required > 0 {
+			add(2, len(unique(stringsOf(object(decisions["cantrips"])[id]))) == required, "cantrips:"+id, "Choose {0} cantrips", "spells", 0, name)
+		}
+		if text(caster["prepares"]) == "spellbook" && integer(caster["spellbookKnown"], 0) > 0 {
+			add(2, len(unique(stringsOf(object(decisions["spellbook"])[id]))) >= integer(caster["spellbookKnown"], 0), "spellbook:"+id, "Choose {0} spellbook spells", "spells", 0, name)
+		}
+	}
 	for _, choice := range objects(casting["pendingChoices"]) {
-		add(2, len(unique(stringsOf(choice["picked"]))) >= max(1, integer(choice["choose"], 1)), text(choice["key"]), "Choose spells: "+guidanceLabel(text(object(choice["source"])["id"])), "spells", 0)
+		add(2, len(unique(stringsOf(choice["picked"]))) >= max(1, integer(choice["choose"], 1)), text(choice["key"]), "Choose spells: {0}", "spells", 0, guidanceLabel(text(object(choice["source"])["id"])))
 	}
 	for _, choice := range objects(casting["castingAbilityChoices"]) {
-		add(2, text(choice["selected"]) != "", text(choice["key"]), "Choose casting ability: "+guidanceLabel(text(object(choice["source"])["id"])), "spells", 0)
+		add(2, text(choice["selected"]) != "", text(choice["key"]), "Choose casting ability: {0}", "spells", 0, guidanceLabel(text(object(choice["source"])["id"])))
 	}
 	total, complete, sectionValues := 0, 0, []any{}
 	for _, section := range sections {
@@ -116,14 +134,17 @@ func BuilderGuidance(decisions, plan Object, records Records, profile Ruleset) O
 func builderChoiceGuidance(decisions, choice, sheet Object, records Records) Object {
 	kind, id := text(choice["kind"]), text(choice["id"])
 	label := firstText(choice["prompt"], guidanceLabel(id))
+	args := []any{}
 	if kind == "asiMode" {
-		label = fmt.Sprintf("%s level %d advancement", guidanceLabel(text(choice["classId"])), integer(choice["level"], 1))
+		label = "{0} level {1} advancement"
+		args = []any{guidanceLabel(text(choice["classId"])), integer(choice["level"], 1)}
 	}
 	if kind == "abilityBudget" {
 		label = "Assign origin ability points"
 	}
 	options := builderChoiceOptions(choice, sheet, records)
-	entry := Object{"id": id, "label": label, "options": options, "picked": 0, "required": max(1, integer(choice["count"], 1)), "done": false}
+	entry := builderGuidanceText(label, args...)
+	entry["id"], entry["options"], entry["picked"], entry["required"], entry["done"] = id, options, 0, max(1, integer(choice["count"], 1)), false
 	if kind == "abilityBudget" {
 		picked, required, valid := guidanceAbility(decisions, choice)
 		entry["picked"], entry["required"], entry["done"] = picked, required, valid

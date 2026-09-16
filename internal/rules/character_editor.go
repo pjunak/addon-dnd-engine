@@ -100,6 +100,7 @@ func characterEditorGuidance(input character.Inputs, records Records, profile Ru
 			entry[key] = filtered
 		}
 	}
+	characterBuilderRepairs(input, result)
 }
 
 func incompleteCharacterChoice(issue character.Issue, input character.Inputs, profile Ruleset, result *character.Result) bool {

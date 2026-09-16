@@ -32,6 +32,19 @@ next classes. Choice
 options include prerequisites and descriptions; the plan supplies point-buy
 costs and bounds.
 
+Builder sections count required decisions, including the first class and class
+cantrips/spellbook selections. Their issues carry a stable `id` target and `tab`.
+Invalid existing foundation/advancement choices have `repair: true` and do not
+count as complete. This does not remove the input or make a rejected choice
+saveable. Labels retain readable `label` text; additive `labelKey` templates
+and ordered `labelArgs` let clients translate Engine UI wording while preserving
+authored record names. Clients may fall back to `label`.
+
+Choice validation issues use `<kind>:<choice ID>#<slot>` identities. In particular,
+`unavailable-choice`, `invalid-option` and `choice-count` identify the exact
+withdrawn selection. The `target` is the choice group, not permission to remove
+every slot in that group.
+
 Unsupported prerequisites require an exact issue-ID waiver from an authorized
 DM. Narrative content and encounter effects remain visible source facts.
 

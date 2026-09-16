@@ -99,3 +99,19 @@ func TestBuilderSkillSpellingsCalculateWithoutRewritingAuthoredKeys(t *testing.T
 		t.Fatal("Skill calculation changed input")
 	}
 }
+
+func TestBuilderGuidanceIncludesRequiredClassSpellSelections(t *testing.T) {
+	records, profile := syntheticRecords(), syntheticRuleset(t)
+	state := Object{"classes": []any{Object{"classId": "wizard", "level": 5}}}
+	result := BuilderGuidance(state, BuilderPlan(state, records, profile), records, profile)
+	targets := map[string]Object{}
+	for _, issue := range objects(objects(result["sections"])[2]["issues"]) {
+		targets[text(issue["id"])] = issue
+	}
+	for _, id := range []string{"cantrips:wizard", "spellbook:wizard"} {
+		issue := targets[id]
+		if issue == nil || text(issue["tab"]) != "spells" || len(values(issue["labelArgs"])) != 1 {
+			t.Fatal("required class spells have no translated navigation target", id, result)
+		}
+	}
+}

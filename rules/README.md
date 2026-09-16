@@ -11,7 +11,10 @@ level bounds, HP minimum, ability caps, attunement policy, movement units,
 spell slots and recovery. Class/source facts supply specific progression,
 prerequisites, choices, activations and effects. No book/add-on ID selects math.
 
-Every evaluation builds fresh output. Ordinary source bonuses precede typed
+Every evaluation builds fresh output. A request-local decoded record cache reuses
+immutable feature catalogs for read-only scans; mutable lookups remain detached.
+The cache is discarded after evaluation, so provider and source-policy changes
+cannot reuse an earlier calculation's records. Character lookups use IDs only. Ordinary source bonuses precede typed
 minimum/set effects, and explicitly raised ability caps affect normal increases.
 Movement that depends on walking speed is recomputed after item/DM bonuses.
 Sense ranges use their greatest applicable contribution, with explicit typed

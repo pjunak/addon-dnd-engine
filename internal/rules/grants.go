@@ -28,7 +28,7 @@ func collectGrantSources(
 			Record: record, Grants: object(record["grants"]), Source: source, Level: level,
 		})
 	}
-	features := recordList(records, "feature")
+	features := recordCatalog(records, "feature")
 	for _, current := range classes {
 		add(current.Record, Object{"type": "class", "id": current.ID}, current.Level)
 		subclass := recordByID(records, "subclass", current.Subclass)

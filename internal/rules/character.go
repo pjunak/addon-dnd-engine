@@ -12,6 +12,7 @@ import (
 // EvaluateCharacter evaluates detached decisions. Completion, eligibility and
 // numerical constraints all belong here, never in the persistence or UI layer.
 func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset) character.Result {
+	records = newCharacterRecordSnapshot(records)
 	input = cloneCharacter(input)
 	result := character.Result{ContractVersion: character.ContractVersion, Inputs: input, Sheet: map[string]any{}, Guidance: map[string]any{}, Plan: map[string]any{}, SpellOptions: map[string]any{}, Explanations: map[string]character.Explanation{}, Evidence: []character.Evidence{}, Issues: []character.Issue{}}
 	if profile.Constants.Character == nil {
@@ -33,7 +34,7 @@ func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset)
 	normalized["resourceUses"] = characterRemainingResources(input, hydrated.Sheet)
 	// Catalog discovery and legality checks must not retain every unselected
 	// option as character evidence. The calculation reads above are retained.
-	untracked := newCharacterRecords(records)
+	untracked := records
 	result.Plan = BuilderPlan(decisions, untracked, profile)
 	result.Guidance = BuilderGuidance(decisions, Object(result.Plan), untracked, profile)
 	result.SpellOptions = SpellOptions(normalized, hydrated.Sheet, untracked, profile)

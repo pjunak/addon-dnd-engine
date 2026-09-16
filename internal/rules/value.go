@@ -26,6 +26,9 @@ func recordByID(records Records, kind, id string) Object {
 	if records == nil || id == "" {
 		return nil
 	}
+	if cached, ok := records.(interface{ recordObject(string, string) Object }); ok {
+		return cached.recordObject(kind, id)
+	}
 	body, exists := records.Value(kind, id)
 	if !exists {
 		return nil
@@ -57,6 +60,15 @@ func recordList(records Records, kind string) []Object {
 		}
 	}
 	return result
+}
+
+// recordCatalog lends read-only records for catalog scans. Callers construct
+// their own decisions/results; mutable records still use recordByID/recordList.
+func recordCatalog(records Records, kind string) []Object {
+	if cached, ok := records.(interface{ recordCatalog(string) []Object }); ok {
+		return cached.recordCatalog(kind)
+	}
+	return recordList(records, kind)
 }
 
 func object(value any) Object {

@@ -7,7 +7,7 @@ import (
 
 func hydrateFeatures(sheet Object, classes []resolvedClass, records Records) {
 	features := make([]any, 0)
-	allRecords := recordList(records, "feature")
+	allRecords := recordCatalog(records, "feature")
 	for _, current := range classes {
 		ownedNames := make(map[string]struct{})
 		recordsAt := make(map[int][]Object)

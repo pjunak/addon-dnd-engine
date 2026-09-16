@@ -186,7 +186,7 @@ func collectClassChoices(classes []any, records Records, ruleset Ruleset) []any 
 			fallbackLevel: integer(subclass["subclassLevel"], 3), records: records, masteryEnabled: masteryEnabled,
 		}
 		appendRecordChoices(&result, subclass["grants"], context)
-		for _, feature := range recordList(records, "feature") {
+		for _, feature := range recordCatalog(records, "feature") {
 			if text(feature["classId"]) != classID || integer(feature["level"], 0) > classLevel ||
 				text(feature["subclassId"]) != "" && text(feature["subclassId"]) != subclassID {
 				continue
@@ -265,7 +265,7 @@ func appendRecordChoices(result *[]any, rawGrants any, context choiceContext) {
 		from := choice["from"]
 		if values(from) == nil && text(choice["fromCategory"]) != "" {
 			ids := make([]string, 0)
-			for _, option := range recordList(context.records, "feature") {
+			for _, option := range recordCatalog(context.records, "feature") {
 				if text(option["category"]) == text(choice["fromCategory"]) {
 					ids = append(ids, text(option["id"]))
 				}

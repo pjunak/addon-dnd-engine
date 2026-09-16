@@ -52,6 +52,9 @@ func (records *characterRecords) ValueByName(kind, name string) (json.RawMessage
 func (records *characterRecords) Values(kind string) []json.RawMessage {
 	return records.source.Values(kind)
 }
+func (records *characterRecords) recordCatalog(kind string) []Object {
+	return recordCatalog(records.source, kind)
+}
 func (records *characterRecords) evidence() []character.Evidence {
 	keys := make([]string, 0, len(records.selected))
 	for key := range records.selected {

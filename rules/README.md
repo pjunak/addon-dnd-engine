@@ -20,7 +20,8 @@ Movement that depends on walking speed is recomputed after item/DM bonuses.
 Sense ranges use their greatest applicable contribution, with explicit typed
 adjustments afterwards. Armor candidates obey worn-armor eligibility.
 
-Progression checks each acquired class/feat against its earlier state. A feat
+Progression checks each acquired class/feat against its earlier state. Normalized
+feat references retain their IDs through these checks and option filtering. A feat
 cannot qualify itself using its own ability increase. Structured all/any,
 ability, level and feature predicates are evaluated; unsupported prose requires
 a specific recorded DM waiver. Invalid later choices remain available for repair.

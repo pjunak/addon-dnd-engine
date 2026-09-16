@@ -334,13 +334,15 @@ func validateCharacterProgression(input character.Inputs, records Records, profi
 		}
 		seenClasses[level.ClassID] = true
 		newFeats := map[string]bool{}
-		for _, id := range stringsOf(decisions["feats"]) {
+		for _, feat := range objects(decisions["feats"]) {
+			id := text(feat["featId"])
 			if !seenFeats[id] {
 				newFeats[id] = true
 			}
 		}
 		plan := BuilderPlan(decisions, records, profile)
-		for _, id := range stringsOf(decisions["feats"]) {
+		for _, feat := range objects(decisions["feats"]) {
+			id := text(feat["featId"])
 			if seenFeats[id] {
 				continue
 			}
@@ -348,8 +350,8 @@ func validateCharacterProgression(input character.Inputs, records Records, profi
 			record := recordByID(records, "feat", id)
 			prior := cloneObjectDeep(decisions)
 			remaining := []any{}
-			for _, current := range stringsOf(prior["feats"]) {
-				if !newFeats[current] {
+			for _, current := range objects(prior["feats"]) {
+				if !newFeats[text(current["featId"])] {
 					remaining = append(remaining, current)
 				}
 			}

@@ -52,10 +52,14 @@ suffixes. Parents resolve before dependent selections. Guidance labels retain
 the granting source, and each acquisition is checked for prerequisites;
 nonrepeatable duplicates are rejected.
 
-Mixed skill/tool proficiency options exclude fixed proficiencies and earlier
-valid selections at acquisition time. The current acquisition keeps its own
-choices; duplicate slots and later repeated selections block saving.
-Individual tools and instrument/game variants remain provider-owned IDs.
+Typed skill/tool and mixed proficiency options share canonical eligibility.
+Fixed proficiencies and earlier valid selections are excluded at acquisition
+time. Within a level, class choices and direct origin choices precede granted
+feat choices. The current acquisition keeps its own selections; duplicate slots
+and later repeated selections block saving. Combined skill/Expertise training
+can improve an existing proficiency. Source-declared replaceable training uses
+current proficiencies after permanent choices. Individual tools and
+instrument/game variants remain provider-owned IDs.
 
 A single historical unscoped repeatable choice normalizes to its sole owner in
 the detached `evaluation.inputs`. Ambiguous ownership produces

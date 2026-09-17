@@ -84,6 +84,31 @@ every slot in that group.
 Unsupported prerequisites require an exact issue-ID waiver from an authorized
 DM. Narrative content and encounter effects remain visible source facts.
 
+## Equipment eligibility
+
+`guidance.equipment` is keyed by inventory instance ID. Each entry exposes
+`slot` (`armor`, `shield` or `worn`), `canEquip` and `canAttune`.
+A rejected action includes `equipReason` or `attuneReason`: `empty`,
+`source`, `mechanics`, `not-required`, `build`, `capacity`, `duplicate`
+or `prerequisite`. These are stable translation codes, not instructions to
+delete items. `sheet.equipment[id].slot` retains the same source-declared slot
+for provider-free display; it does not retain permission to perform an action.
+
+Armor types declare exclusive armor/shield occupancy independently of catalog
+kind or record ID. Other worn items coexist. Equipping a replacement requires
+an explicit client edit of the occupied slot; the Engine rejects conflicting
+equipment and never moves stored items itself. Capacity includes all existing
+attuned instances, including carried/stored items, and uses the final class,
+item and authorized DM limit. Duplicate attunement has its own rejection.
+
+Equipment and custom-item eligibility evaluate the requested state, including
+equipped/attuned grant conditions. Attunement prerequisites are checked without
+the candidate's own attunement effects or attunement-conditioned grants and
+waivers. Independent active grants can qualify it. A lost prerequisite blocks
+saving until explicitly repaired; evaluation never silently unattunes an item.
+Unknown predicates still need an exact authorized waiver. This does not add
+class/spellcaster predicate vocabulary, rest timing, distance or death tracking.
+
 ## Play commands
 
 Commands include damage, healing, direct HP, temporary HP, short/long rests,

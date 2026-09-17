@@ -744,7 +744,7 @@ func hydrateWeaponsAndAttunement(
 	}
 	sheet["attunement"] = Object{"count": attuned, "limit": limit, "over": attuned > limit}
 	if attuned > limit {
-		warn(fmt.Sprintf("Attuned to more than %d magic items (limit %d)", limit, limit))
+		warn(attunementCapacityWarning(limit))
 	}
 }
 

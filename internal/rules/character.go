@@ -31,6 +31,7 @@ func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset)
 	for _, ability := range Abilities {
 		object(object(hydrated.Sheet["abilities"])[ability])["cap"] = object(normalized["scoreCaps"])[ability]
 	}
+	baseAttunementWarning := attunementCapacityWarning(integer(object(hydrated.Sheet["attunement"])["limit"], 0))
 	applyCharacterHitDice(input, hydrated.Sheet, tracked, &result, profile)
 	applyCharacterEffects(input, hydrated.Sheet, &result, tracked)
 	normalized["resourceUses"] = characterRemainingResources(input, hydrated.Sheet)
@@ -57,6 +58,11 @@ func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset)
 		}
 	}
 	for _, warning := range hydrated.Warnings {
+		// Character validation checks final capacity after authorized item/DM effects.
+		// The lower-level hydration warning only knows the unmodified class limit.
+		if warning == baseAttunementWarning {
+			continue
+		}
 		addCharacterIssue(&result, "rules-warning:"+warning, "build", warning, "warning", nil)
 	}
 	captureCharacterSources(hydrated.Sheet, tracked)

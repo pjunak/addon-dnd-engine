@@ -139,10 +139,7 @@ func validateCharacter(input character.Inputs, decisions Object, records Records
 			}
 		}
 		if item.Reference == nil {
-			mechanics := false
-			for _, grant := range input.Grants {
-				mechanics = mechanics || grant.ID == item.GrantID && grant.ItemID == item.ID && characterGrantActive(grant, input) && len(grant.Effects) > 0
-			}
+			mechanics := characterItemHasGrant(item, input)
 			if (item.Attuned || item.Location == "equipped") && !mechanics {
 				block("custom-item:"+item.ID, "inventory", "A narrative item needs a catalog definition or explicit DM mechanics before it can be equipped or attuned.")
 			}
@@ -163,7 +160,7 @@ func validateCharacter(input character.Inputs, decisions Object, records Records
 			if !truth(record["attunement"]) {
 				block("attunement-ineligible:"+item.ID, "inventory", "This item does not declare an attunement requirement.")
 			}
-			validatePrerequisite(record["attunementPrerequisites"], "attunement:"+item.ID, "inventory", input, Object(result.Sheet), result, item.Reference)
+			validateCharacterAttunementPrerequisite(item, record, input, records, profile, Object(result.Sheet), result)
 		}
 	}
 	equipped := map[string]string{}
@@ -172,11 +169,8 @@ func validateCharacter(input character.Inputs, decisions Object, records Records
 			continue
 		}
 		record := recordByID(records, item.Reference.Kind, item.Reference.ID)
-		slot := text(record["armorType"])
-		if slot != "" {
-			if slot != "shield" {
-				slot = "armor"
-			}
+		slot := characterEquipmentSlot(record)
+		if slot != "worn" {
 			if equipped[slot] != "" {
 				block("equipped:"+slot, "inventory", "Only one item may occupy the "+slot+" slot.")
 			}

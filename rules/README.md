@@ -21,8 +21,13 @@ Sense ranges use their greatest applicable contribution, with explicit typed
 adjustments afterwards. Armor candidates obey worn-armor eligibility. Empty inventory instances may
 remain carried or stored, but cannot stay equipped or attuned. Custom equipment
 requires matching active DM mechanics at the current level and evaluation time.
-Equip guidance evaluates the proposed equipped state, including equipped-only
-grant conditions, without changing the caller's inventory.
+Equip/attune guidance evaluates the proposed state, including item-conditioned
+grant authority, without changing the caller's inventory. Validation and
+projection share source-declared armor/shield slots. Attunement prerequisites
+exclude the candidate's own attunement benefits and conditional waivers;
+capacity warnings use the final authorized limit. Pure regressions cover
+nonstandard record IDs/kinds, duplicate slots/copies, capacity grant withdrawal,
+self-qualification, expired/revoked prerequisites and explicit DM adjudication.
 
 Progression checks each acquired class/feat against its earlier state. Normalized
 feat references retain their IDs through these checks and option filtering. A feat

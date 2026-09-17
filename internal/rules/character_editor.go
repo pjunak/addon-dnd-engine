@@ -35,6 +35,11 @@ func characterEditorGuidance(input character.Inputs, decisions Object, records R
 	result.Guidance["canSave"] = len(saveIssues) == 0
 	result.Guidance["saveIssues"] = saveIssues
 	result.Guidance["equipment"] = characterEquipmentOptions(input, records, profile, result)
+	slots := Object{}
+	for id, raw := range object(result.Guidance["equipment"]) {
+		slots[id] = Object{"slot": object(raw)["slot"]}
+	}
+	result.Sheet["equipment"] = slots
 	options := []any{}
 	if len(input.Build.Levels) < profile.Constants.Character.MaximumLevel {
 		for _, class := range recordList(records, "class") {
@@ -197,74 +202,4 @@ func findAbilityDescriptor(plan Object, id string) Object {
 		}
 	}
 	return nil
-}
-
-// Equipment controls consume these facts instead of interpreting source rules.
-func characterEquipmentOptions(input character.Inputs, records Records, profile Ruleset, result *character.Result) Object {
-	options := Object{}
-	attunement := object(result.Sheet["attunement"])
-	for index, item := range input.Play.Inventory {
-		entry := Object{"canEquip": false, "canAttune": false, "slot": "worn"}
-		options[item.ID] = entry
-		if item.Quantity < 1 {
-			continue
-		}
-		candidate := item
-		candidate.Location = "equipped"
-		// Eligibility tests the requested state, so an equipped-only grant can
-		// authorize equipping without changing the caller's inventory.
-		proposed := input
-		proposed.Play.Inventory = append([]character.Item(nil), input.Play.Inventory...)
-		proposed.Play.Inventory[index] = candidate
-		if item.Reference == nil {
-			for _, grant := range activeCharacterGrants(proposed) {
-				if grant.ID == item.GrantID && grant.ItemID == item.ID && len(grant.Effects) > 0 {
-					entry["canEquip"] = true
-				}
-			}
-			continue
-		}
-		record := recordByID(records, item.Reference.Kind, item.Reference.ID)
-		if record == nil {
-			continue
-		}
-		if item.Reference.Kind == "armor" {
-			entry["slot"] = "armor"
-			if text(record["armorType"]) == "shield" {
-				entry["slot"] = "shield"
-			}
-		}
-		check := character.Result{Issues: []character.Issue{}}
-		validateCharacterItemMechanics(candidate, record, proposed, &check)
-		if len(check.Issues) > 0 {
-			continue
-		}
-		entry["canEquip"] = true
-		if !truth(record["attunement"]) {
-			continue
-		}
-		if !item.Attuned && integer(attunement["count"], 0) >= integer(attunement["limit"], 0) {
-			continue
-		}
-		duplicate := false
-		if profile.Constants.Character.UniqueAttunement {
-			for _, other := range input.Play.Inventory {
-				if other.ID != item.ID && other.Attuned && other.Reference != nil && *other.Reference == *item.Reference {
-					duplicate = true
-				}
-			}
-		}
-		if duplicate {
-			continue
-		}
-		validatePrerequisite(record["attunementPrerequisites"], "attunement:"+item.ID, "inventory", input, Object(result.Sheet), &check, item.Reference)
-		allowed := true
-		for _, issue := range check.Issues {
-			if issue.Severity == "blocker" {
-				allowed = false
-			}
-		}
-		entry["canAttune"] = allowed
-	}
-	return options
 }

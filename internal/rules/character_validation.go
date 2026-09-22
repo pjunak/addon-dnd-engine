@@ -108,7 +108,7 @@ func validateCharacter(input character.Inputs, decisions Object, records Records
 				choiceValues[valueKey] = true
 			}
 			options := builderChoiceOptions(descriptor, Object(result.Sheet), records)
-			if kind := text(descriptor["kind"]); kind == "expertise" || kind == "skillExpertise" || isProficiencyChoice(descriptor) {
+			if kind := text(descriptor["kind"]); kind == "expertise" || kind == "skillExpertise" || isProficiencyChoice(descriptor) || truth(descriptor["distinctAcrossAcquisitions"]) {
 				options = values(object(object(result.Guidance["choices"])[choice.ID])["options"])
 			}
 			valid := text(descriptor["kind"]) == "asiMode" && (selected == "asi" || selected == "feat")
@@ -302,6 +302,7 @@ func findCharacterChoice(plan Object, id string, decisions Object, records Recor
 func validateCharacterProgression(input character.Inputs, records Records, profile Ruleset, result *character.Result) {
 	seenClasses := map[string]bool{}
 	seenFeats := map[string]bool{}
+	featCounts := map[string]int{}
 	seenAcquisitions := map[string]bool{}
 	for index, level := range input.Build.Levels {
 		prefix := cloneCharacter(input)
@@ -357,8 +358,16 @@ func validateCharacterProgression(input character.Inputs, records Records, profi
 			}
 			seenAcquisitions[acquired.id] = true
 			record := recordByID(records, "feat", id)
-			if seenFeats[id] && !truth(record["repeatable"]) && object(record["repeatable"]) == nil {
-				addCharacterIssue(result, "feat:"+id, "choices", "This feat cannot be acquired more than once.", "blocker", &character.Reference{Kind: "feat", ID: id})
+			featCounts[id]++
+			if !featRepetitionAllowed(record, featCounts[id]) {
+				message := "This feat cannot be acquired more than once."
+				if object(record["repeatable"]) != nil {
+					message = "No distinct options remain for another acquisition of this feat."
+					if conditionalFeatChoice(record) == nil {
+						message = "This feat's repeatability rule is unsupported."
+					}
+				}
+				addCharacterIssue(result, "feat:"+id, "choices", message, "blocker", &character.Reference{Kind: "feat", ID: id})
 			}
 			seenFeats[id] = true
 			prior := cloneObjectDeep(decisions)

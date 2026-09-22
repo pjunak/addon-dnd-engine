@@ -35,11 +35,13 @@ func simpleFeatOptionAllowed(input character.Inputs, descriptor, choice, feat Ob
 		}
 	}
 	prefixes := []int{at}
+	count := 1
 	for _, acquired := range acquisitions {
 		if acquired.id == text(choice["id"]) || acquired.featID != text(feat["id"]) {
 			continue
 		}
-		if !truth(feat["repeatable"]) && object(feat["repeatable"]) == nil {
+		count++
+		if !featRepetitionAllowed(feat, count) {
 			return false, true
 		}
 		if acquired.classID == "" && !strings.HasPrefix(acquired.id, "background:") && !strings.HasPrefix(acquired.id, "species:") && !strings.HasPrefix(acquired.id, "grant:") {

@@ -31,7 +31,10 @@ self-qualification, expired/revoked prerequisites and explicit DM adjudication.
 
 Progression checks each acquired class/feat against its earlier state. Normalized
 feat references retain their IDs through these checks and option filtering. A feat
-cannot qualify itself using its own ability increase. Structured all/any,
+cannot qualify itself using its own ability increase. Source-declared conditional
+repetition reserves distinct enumerated choices per acquisition, bounds repetition
+by the finite pool, and rejects unknown policies. Missing choices can save;
+duplicates and later choices remain repairable through ordinary Builder guidance. Structured all/any,
 ability, level and feature predicates are evaluated; unsupported prose requires
 a specific recorded DM waiver. Invalid later choices remain available for repair.
 

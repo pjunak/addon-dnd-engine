@@ -112,6 +112,9 @@ func featChoices(acquired featAcquisition, record Object) []any {
 			"source": Object{"type": "feat", "id": acquired.featID, "level": acquired.level},
 		}
 		copyChoiceFields(descriptor, choice)
+		if conditional := conditionalFeatChoice(record); conditional != nil && text(conditional["id"]) == text(choice["id"]) {
+			descriptor["distinctAcrossAcquisitions"] = true
+		}
 		if strings.Contains(featChoiceOwner(acquired, record), "@") {
 			descriptor["legacyId"] = "feat:" + acquired.featID + ":" + text(choice["id"])
 			descriptor["acquisition"] = Object{"id": acquired.id, "name": acquired.name, "classId": acquired.classID, "level": acquired.level}

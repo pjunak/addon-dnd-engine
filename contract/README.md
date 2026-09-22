@@ -65,8 +65,18 @@ A single historical unscoped repeatable choice normalizes to its sole owner in
 the detached `evaluation.inputs`. Ambiguous ownership produces
 `ambiguous-feat-choice:<id>#<slot>` and retains the original input for explicit
 assignment. Consumers must not treat this issue as automatic withdrawal.
-This covers declared Builder choices; it does not expand repeated spell,
-resource or conditional-repeat mechanics into new contract promises.
+Conditional repetition supports the provider's `repeatable: { by: "choice",
+choice: "<local-choice-id>" }` shape. It refers to one finite, single-slot
+`enumerated` grant choice. Acquisition order follows character level prefixes;
+same-level owners use stable acquisition IDs. Earlier valid selections reserve
+their value, while later duplicates receive the existing slot-specific
+`invalid-option` issue and repair guidance. Removing an owner releases its value
+without renaming other choices. Missing picks remain legal incomplete builds;
+more acquisitions than the declared pool permits block saving and are not offered.
+Unknown conditional policies cannot authorize repetition. The plan marks the
+owning descriptor `distinctAcrossAcquisitions: true`; consumers use its ordinary
+options and completion guidance. This does not expand repeated spell/resource
+mechanics or combat automation into new contract promises.
 
 Builder sections count required decisions, including the first class and class
 cantrips/spellbook selections. Their issues carry a stable `id` target and `tab`.

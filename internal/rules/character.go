@@ -43,6 +43,9 @@ func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset)
 	for id, options := range characterProficiencyOptions(input, Object(result.Plan), untracked, profile) {
 		choiceOptions[id] = options
 	}
+	for id, options := range characterConditionalFeatOptions(input, Object(result.Plan), untracked, profile) {
+		choiceOptions[id] = options
+	}
 	result.Guidance = builderGuidance(decisions, Object(result.Plan), untracked, profile, choiceOptions)
 	result.SpellOptions = SpellOptions(normalized, hydrated.Sheet, untracked, profile)
 	for _, caster := range objects(result.SpellOptions["classes"]) {

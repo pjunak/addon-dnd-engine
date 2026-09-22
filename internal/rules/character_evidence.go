@@ -198,8 +198,11 @@ func characterExplanations(input character.Inputs, sheet Object, evidence []char
 					if text(modifier["target"]) == "sense" && text(modifier["key"]) == key {
 						ref := entry.Reference
 						status := "inactive"
-						if input.Play.ActiveFeatures[entry.Reference.Kind+":"+entry.Reference.ID+":"+text(activation["id"])] {
-							status = "applied"
+						for _, current := range objects(sheet["activations"]) {
+							owner := object(current["source"])
+							if text(owner["type"]) == entry.Reference.Kind && text(owner["id"]) == entry.Reference.ID && text(current["id"]) == text(activation["id"]) && truth(current["active"]) {
+								status = "applied"
+							}
 						}
 						terms = append(terms, character.Term{Label: entry.Name + ": " + text(activation["condition"]), Value: modifier["value"], Source: &ref, Status: status})
 					}

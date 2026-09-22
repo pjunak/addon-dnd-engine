@@ -1,7 +1,6 @@
 package rules
 
 import (
-	"fmt"
 	"strings"
 )
 
@@ -26,8 +25,7 @@ func hydrateSpellGrants(
 		grants := sourceGrants
 		if grants == nil {
 			for _, candidate := range sources {
-				if text(candidate.Source["type"]) == text(source["type"]) &&
-					text(candidate.Source["id"]) == text(source["id"]) &&
+				if grantOwner(candidate.Source) == grantOwner(source) &&
 					candidate.Grants["castingAbility"] != nil {
 					grants = candidate.Grants
 					break
@@ -51,7 +49,7 @@ func hydrateSpellGrants(
 				if strings.HasSuffix(choiceID, ":featability") {
 					choiceID = strings.TrimSuffix(choiceID, ":featability") + ":feat"
 				}
-				if text(featureChoices[choiceID]) != text(source["id"]) {
+				if text(featureChoices[choiceID]) != text(source["id"]) || object(source["acquisition"]) != nil && text(object(source["acquisition"])["id"]) != choiceID {
 					continue
 				}
 				for _, ability := range Abilities {
@@ -63,8 +61,8 @@ func hydrateSpellGrants(
 			return ""
 		}
 		options := stringsOf(declaration["choose"])
-		key := fmt.Sprintf("%s:%s:%s", text(source["type"]), text(source["id"]),
-			firstText(declaration["id"], "casting-ability"))
+		localID := firstText(declaration["id"], "casting-ability")
+		key := grantOwner(source) + ":" + localID
 		selected := text(grantCastingAbilities[key])
 		if !contains(options, selected) {
 			selected = ""
@@ -72,7 +70,7 @@ func hydrateSpellGrants(
 		if _, exists := castingKeys[key]; !exists {
 			castingKeys[key] = struct{}{}
 			castingChoices = append(castingChoices, Object{
-				"key": key, "source": source, "options": anyStrings(options), "selected": nullableString(selected),
+				"key": key, "legacyKey": grantLegacyOwner(source) + ":" + localID, "source": source, "options": anyStrings(options), "selected": nullableString(selected),
 			})
 		}
 		return selected
@@ -92,7 +90,7 @@ func hydrateSpellGrants(
 			"school": text(record["school"]), "source": source,
 			"alwaysPrepared": truth(options["alwaysPrepared"]),
 			"free":           nullableText(options["free"]), "castingAbility": nullableText(options["castingAbility"]),
-			"castAtLevel": nullableNumber(options["castAtLevel"]),
+			"castAtLevel": nullableNumber(options["castAtLevel"]), "resourceKey": options["resourceKey"],
 		})
 	}
 
@@ -127,7 +125,10 @@ func hydrateSpellGrants(
 		if count == 0 || choiceID == "" {
 			return
 		}
-		key := fmt.Sprintf("%s:%s:%s", text(source["type"]), text(source["id"]), choiceID)
+		key := grantOwner(source) + ":" + choiceID
+		if count == 1 && text(spell["free"]) != "" {
+			options["resourceKey"] = "charge:" + key
+		}
 		picked := stringsOf(grantChoices[key])
 		if len(picked) > count {
 			picked = picked[:count]
@@ -140,12 +141,15 @@ func hydrateSpellGrants(
 			addGrant(reference, source, options)
 		}
 		pendingChoices = append(pendingChoices, Object{
-			"key": key, "source": source, "choose": count,
+			"key": key, "legacyKey": grantLegacyOwner(source) + ":" + choiceID, "source": source, "choose": count,
 			"spellLevel":    optionalInteger(spell, "spellLevel"),
 			"maxSpellLevel": optionalInteger(spell, "maxSpellLevel"),
 			"from":          objectOrEmpty(spell["from"]), "default": nullableText(spell["default"]),
 			"alwaysPrepared": truth(spell["alwaysPrepared"]), "picked": anyStrings(picked),
 		})
+		if text(spell["free"]) != "" && count == 1 {
+			object(pendingChoices[len(pendingChoices)-1])["free"] = spell["free"]
+		}
 	}
 
 	for _, current := range classes {
@@ -180,6 +184,18 @@ func hydrateSpellGrants(
 		}
 	}
 
+	for _, grant := range objects(granted) {
+		if text(grant["resourceKey"]) == "" {
+			delete(grant, "resourceKey")
+		}
+	}
+	for _, choices := range [][]any{pendingChoices, castingChoices} {
+		for _, choice := range objects(choices) {
+			if choice["legacyKey"] == choice["key"] {
+				delete(choice, "legacyKey")
+			}
+		}
+	}
 	spellcasting["granted"] = granted
 	spellcasting["pendingChoices"] = pendingChoices
 	spellcasting["castingAbilityChoices"] = castingChoices

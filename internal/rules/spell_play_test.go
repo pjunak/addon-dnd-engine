@@ -50,12 +50,12 @@ func TestGrantedSpellsChooseAbilityAndUseFreeCast(t *testing.T) {
 	apply(Object{"operation": "select-grant-spell", "key": "feat:gift:gift-cantrip", "ref": "spark", "selected": true})
 	apply(Object{"operation": "select-grant-spell", "key": "feat:gift:gift-spell", "ref": "ward", "selected": true})
 	apply(Object{"operation": "select-casting-ability", "key": "feat:gift:casting-ability", "ability": "CHA"})
-	apply(Object{"operation": "cast-granted-spell", "key": "feat:gift:ward", "slot": "charge-ward"})
-	if integer(object(state["resourceUses"])["charge-ward"], -1) != 0 {
+	apply(Object{"operation": "cast-granted-spell", "key": "feat:gift:ward", "slot": "charge:feat:gift:gift-spell"})
+	if integer(object(state["resourceUses"])["charge:feat:gift:gift-spell"], -1) != 0 {
 		t.Fatalf("Uses = %+v", state["resourceUses"])
 	}
 	before, _ := json.Marshal(state)
-	if _, err := applyPlayFixture(state, Object{"operation": "cast-granted-spell", "key": "feat:gift:ward", "slot": "charge-ward"}, records, profile); err == nil {
+	if _, err := applyPlayFixture(state, Object{"operation": "cast-granted-spell", "key": "feat:gift:ward", "slot": "charge:feat:gift:gift-spell"}, records, profile); err == nil {
 		t.Fatal("Repeated an exhausted free cast")
 	}
 	after, _ := json.Marshal(state)
@@ -64,7 +64,7 @@ func TestGrantedSpellsChooseAbilityAndUseFreeCast(t *testing.T) {
 	}
 	apply(Object{"operation": "cast-granted-spell", "key": "feat:gift:ward", "slot": "slot-2"})
 	apply(Object{"operation": "rest", "rest": "long"})
-	if object(state["resourceUses"])["charge-ward"] != nil {
+	if object(state["resourceUses"])["charge:feat:gift:gift-spell"] != nil {
 		t.Fatal("Long rest did not restore grant")
 	}
 	options := SpellOptions(state, Hydrate(state, records, &profile).Sheet, records, profile)

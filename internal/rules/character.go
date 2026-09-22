@@ -27,6 +27,9 @@ func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset)
 	applyCharacterAbilityEffects(input, normalized, &result, profile, tracked)
 	tracked.selected = map[string]character.Evidence{}
 	hydrated := Hydrate(normalized, tracked, &profile)
+	if normalizeCharacterGrantState(&input, hydrated.Sheet) {
+		return EvaluateCharacter(input, records, profile)
+	}
 	result.Sheet = hydrated.Sheet
 	for _, ability := range Abilities {
 		object(object(hydrated.Sheet["abilities"])[ability])["cap"] = object(normalized["scoreCaps"])[ability]
@@ -192,7 +195,7 @@ func ApplyCharacterPlay(input character.Inputs, change Object, records Records, 
 	if !current.Ready {
 		return current, fmt.Errorf("Resolve the character's blocking choices before applying play changes.")
 	}
-	input = cloneCharacter(input)
+	input = cloneCharacter(current.Inputs)
 	switch text(change["operation"]) {
 	case "spend-hit-die":
 		resource := findPlayResource(Object(current.Sheet), text(change["key"]))

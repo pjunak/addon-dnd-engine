@@ -51,8 +51,8 @@ func SpellOptions(decisions, sheet Object, records Records, profile Ruleset) Obj
 		ref := text(grant["ref"])
 		entry["key"] = spellGrantKey(grant)
 		keys := spellSlotKeys(decisions, sheet, records, ref, integer(grant["level"], 0))
-		if text(grant["free"]) != "" && findPlayResource(sheet, "charge-"+ref) != nil {
-			keys = append([]string{"charge-" + ref}, keys...)
+		if text(grant["free"]) != "" && findPlayResource(sheet, grantFreeResourceKey(grant)) != nil {
+			keys = append([]string{grantFreeResourceKey(grant)}, keys...)
 		}
 		entry["slots"] = anyStrings(keys)
 		grants = append(grants, entry)
@@ -155,7 +155,7 @@ func selectCastingAbility(decisions, sheet, change Object) error {
 
 func spellGrantKey(grant Object) string {
 	source := object(grant["source"])
-	return text(source["type"]) + ":" + text(source["id"]) + ":" + text(grant["ref"])
+	return grantOwner(source) + ":" + text(grant["ref"])
 }
 
 func castGrantedSpell(decisions, sheet, change Object, records Records) error {
@@ -167,7 +167,7 @@ func castGrantedSpell(decisions, sheet, change Object, records Records) error {
 		if recordByID(records, "spell", ref) == nil {
 			return fmt.Errorf("This granted spell is unavailable in the selected rules data.")
 		}
-		if slot == "charge-"+ref && text(grant["free"]) != "" {
+		if slot == grantFreeResourceKey(grant) && text(grant["free"]) != "" {
 			return spendResource(decisions, findPlayResource(sheet, slot))
 		}
 		return spendSpellSlot(decisions, sheet, records, ref, integer(grant["level"], 0), slot)

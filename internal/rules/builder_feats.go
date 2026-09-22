@@ -12,6 +12,7 @@ type featAcquisition struct {
 	id, featID, name, classID string
 	level                     int
 	ancestors                 []string
+	presets                   Object
 }
 
 func featChoiceOwner(acquired featAcquisition, record Object) string {
@@ -34,6 +35,9 @@ func selectedFeatAcquisitions(source Object, records Records, classChoices []any
 	for _, origin := range selectedOrigins(source, records) {
 		record := object(origin["record"])
 		add(text(origin["type"])+":"+text(record["id"]), text(record["originFeat"]), firstText(record["name"], record["id"]), "", 1, nil)
+		if len(result) > 0 && result[len(result)-1].id == text(origin["type"])+":"+text(record["id"]) {
+			result[len(result)-1].presets = object(record["originFeatChoices"])
+		}
 	}
 	for _, grant := range objects(source["extraFeats"]) {
 		add("grant:"+text(grant["id"]), text(grant["featId"]), firstText(grant["name"], grant["id"]), "", integer(grant["level"], 1), nil)
@@ -112,6 +116,10 @@ func featChoices(acquired featAcquisition, record Object) []any {
 			"source": Object{"type": "feat", "id": acquired.featID, "level": acquired.level},
 		}
 		copyChoiceFields(descriptor, choice)
+		if preset := text(acquired.presets[text(choice["id"])]); preset != "" && contains(stringsOf(choice["from"]), preset) {
+			descriptor["from"] = []any{preset}
+			descriptor["default"] = preset
+		}
 		if conditional := conditionalFeatChoice(record); conditional != nil && text(conditional["id"]) == text(choice["id"]) {
 			descriptor["distinctAcrossAcquisitions"] = true
 		}

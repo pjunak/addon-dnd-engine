@@ -119,7 +119,7 @@ func hydrateResources(
 				continue
 			}
 			resources = append(resources, Object{
-				"key": text(resource["key"]), "name": firstText(resource["name"], resource["key"]),
+				"key": grantResourceKey(source.Source, text(resource["key"])), "legacyKey": text(resource["key"]), "name": firstText(resource["name"], resource["key"]),
 				"max": maximum, "kind": "pool", "recharge": normalizeRecharge(resource["recharge"], source.Level),
 				"source": source.Source,
 			})
@@ -127,8 +127,12 @@ func hydrateResources(
 	}
 
 	appendHitDiceAndSpellSlots(&resources, sheet, classes, ruleset)
-	for _, feat := range selectedFeats(decisions, records) {
-		slot := object(object(feat["grants"])["spellSlot"])
+	for _, source := range sources {
+		if text(source.Source["type"]) != "feat" {
+			continue
+		}
+		feat := source.Record
+		slot := object(source.Grants["spellSlot"])
 		if slot == nil {
 			continue
 		}
@@ -141,12 +145,12 @@ func hydrateResources(
 		}
 		level = max(integer(levelRule["min"], 1), min(integer(levelRule["max"], 9), level))
 		resources = append(resources, Object{
-			"key":  "feat-slot-" + text(feat["id"]),
+			"key": grantResourceKey(source.Source, "feat-slot-"+text(feat["id"])), "legacyKey": "feat-slot-" + text(feat["id"]),
 			"name": fmt.Sprintf("%s (%s)", firstText(feat["name"], feat["id"]), ordinal(level)),
 			"max":  max(1, integer(slot["count"], 1)), "kind": "slot", "level": level,
 			"restriction": nullableText(slot["restriction"]),
 			"recharge":    normalizeRecharge(slot["recharge"], integer(sheet["totalLevel"], 1)),
-			"source":      Object{"type": "feat", "id": text(feat["id"])},
+			"source":      source.Source,
 		})
 	}
 	for _, raw := range values(object(sheet["spellcasting"])["granted"]) {
@@ -160,11 +164,38 @@ func hydrateResources(
 			recharge = append(recharge, Object{"on": rest, "amount": "full"})
 		}
 		resources = append(resources, Object{
-			"key":  "charge-" + firstText(grant["ref"], grant["name"]),
+			"key": grantFreeResourceKey(grant), "legacyKey": "charge-" + text(grant["ref"]),
 			"name": firstText(grant["name"], grant["ref"]) + " (free cast)",
 			"max":  maximum, "kind": "charge", "recharge": recharge,
 			"source": firstObject(grant["source"], Object{"type": "spell"}),
 		})
+	}
+	// The allowance belongs to the granting choice even while its spell is
+	// cleared or awaiting a replacement. Selection changes cannot refresh it.
+	for _, choice := range objects(object(sheet["spellcasting"])["pendingChoices"]) {
+		if text(choice["free"]) == "" || integer(choice["choose"], 0) != 1 {
+			continue
+		}
+		key := "charge:" + text(choice["key"])
+		exists := false
+		for _, resource := range objects(resources) {
+			exists = exists || text(resource["key"]) == key
+		}
+		if exists {
+			continue
+		}
+		maximum, rests := parseFrequency(text(choice["free"]))
+		recharge := []any{}
+		for _, rest := range rests {
+			recharge = append(recharge, Object{"on": rest, "amount": "full"})
+		}
+		source := object(choice["source"])
+		resources = append(resources, Object{"key": key, "name": guidanceLabel(text(source["id"])) + " (free cast)", "max": maximum, "kind": "charge", "recharge": recharge, "source": source})
+	}
+	for _, resource := range objects(resources) {
+		if resource["legacyKey"] == resource["key"] {
+			delete(resource, "legacyKey")
+		}
 	}
 	sheet["resources"] = resources
 }

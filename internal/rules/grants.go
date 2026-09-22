@@ -1,7 +1,5 @@
 package rules
 
-import "fmt"
-
 type grantSource struct {
 	Record Object
 	Grants Object
@@ -15,6 +13,7 @@ func collectGrantSources(
 	lineage Object,
 	background Object,
 	feats []Object,
+	acquisitions []Object,
 	records Records,
 	totalLevel int,
 ) []grantSource {
@@ -48,8 +47,14 @@ func collectGrantSources(
 		add(lineage, Object{"type": "species", "id": text(species["id"])}, totalLevel)
 	}
 	add(background, Object{"type": "background", "id": text(background["id"])}, totalLevel)
-	for _, feat := range feats {
-		add(feat, Object{"type": "feat", "id": text(feat["id"])}, totalLevel)
+	if acquisitions == nil {
+		for _, feat := range feats {
+			add(feat, Object{"type": "feat", "id": text(feat["id"])}, totalLevel)
+		}
+	} else {
+		for _, source := range acquisitions {
+			add(recordByID(records, "feat", text(source["id"])), source, totalLevel)
+		}
 	}
 	return result
 }
@@ -63,7 +68,7 @@ func applyChoicePackages(sources []grantSource, selected Object) []grantSource {
 			if choiceID == "" {
 				continue
 			}
-			scopedID := fmt.Sprintf("%s:%s:%s", text(source.Source["type"]), text(source.Source["id"]), choiceID)
+			scopedID := grantOwner(source.Source) + ":" + choiceID
 			selectedValue := selected[scopedID]
 			if selectedValue == nil {
 				selectedValue = selected[choiceID]
@@ -128,14 +133,14 @@ func activeGrantModifiers(
 			if id == "" || integer(activation["minLevel"], 1) > source.Level {
 				continue
 			}
-			key := fmt.Sprintf("%s:%s:%s", text(source.Source["type"]), text(source.Source["id"]), id)
+			key := grantOwner(source.Source) + ":" + id
 			restrictions := object(activation["restrictions"])
 			available := !(truth(restrictions["noArmor"]) && wearingArmor) &&
 				!(truth(restrictions["noShield"]) && usingShield)
 			enabled := truth(active[key]) && available
 			activations = append(activations, Object{
-				"key": key, "id": id, "name": firstText(activation["name"], id),
-				"source": source.Source, "resource": nullableObject(activation["resource"]),
+				"key": key, "legacyKey": grantLegacyOwner(source.Source) + ":" + id, "id": id, "name": firstText(activation["name"], id),
+				"source": source.Source, "resource": grantActivationResource(source.Source, activation["resource"]),
 				"exclusiveGroup": nullableText(activation["exclusiveGroup"]),
 				"active":         enabled, "available": available,
 			})

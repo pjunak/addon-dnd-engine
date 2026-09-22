@@ -119,6 +119,39 @@ func TestPreservedV1Parity(t *testing.T) {
 					object(sheet["derived"])["armorClass"] = float64(-5)
 				}
 			}
+			// Stable granting-source counters intentionally replace the captured
+			// spell-only keys. Keep every numeric and spell fact in the oracle.
+			counterKeys := map[string]string{
+				"charge-faerie-fire": "charge:species:elf:faerie-fire",
+				"charge-darkness":    "charge:species:elf:darkness",
+				"charge-misty-step":  "charge:feat:fey-touched:misty-step",
+				"charge-mage-armor":  "charge:feat:magic-initiate:mi-spell",
+			}
+			expectedSheet := object(object(vector.Expected)["sheet"])
+			for _, resource := range objects(expectedSheet["resources"]) {
+				if key, ok := counterKeys[text(resource["key"])]; ok {
+					resource["legacyKey"], resource["key"] = resource["key"], key
+				}
+			}
+			for _, choice := range objects(object(expectedSheet["spellcasting"])["pendingChoices"]) {
+				if text(choice["key"]) != "feat:magic-initiate:mi-spell" {
+					continue
+				}
+				choice["free"] = "1/long"
+				if len(stringsOf(choice["picked"])) == 0 {
+					expectedSheet["resources"] = append(values(expectedSheet["resources"]), map[string]any{
+						"key": "charge:feat:magic-initiate:mi-spell", "name": "Magic Initiate (free cast)",
+						"max": float64(1), "kind": "charge", "recharge": []any{map[string]any{"on": "long", "amount": "full"}}, "source": choice["source"],
+					})
+				}
+			}
+			if vector.Name == "feat-magic-initiate" {
+				grant := objects(object(expectedSheet["spellcasting"])["granted"])[1]
+				if text(grant["ref"]) != "mage-armor" {
+					t.Fatal("free-cast correction baseline changed")
+				}
+				grant["resourceKey"] = "charge:feat:magic-initiate:mi-spell"
+			}
 			if diff := parityDifference(vector.Expected, actual, "$"); diff != "" {
 				t.Error(diff)
 			}

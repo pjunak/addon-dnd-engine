@@ -57,6 +57,22 @@ func NormalizeBuilderDecisions(decisions Object, records Records, ruleset Rulese
 	for key, value := range resolveBuilderChoices(copy, plan, records) {
 		copy[key] = value
 	}
+	acquisitions := []any{}
+	for _, acquired := range selectedFeatAcquisitions(copy, records, values(plan["classChoices"])) {
+		record := recordByID(records, "feat", acquired.featID)
+		source := Object{"type": "feat", "id": acquired.featID}
+		if featChoiceOwner(acquired, record) != "feat:"+acquired.featID {
+			source["name"] = firstText(record["name"], acquired.featID)
+			source["acquisition"] = Object{"id": acquired.id, "name": acquired.name, "classId": acquired.classID, "level": acquired.level}
+		}
+		acquisitions = append(acquisitions, source)
+	}
+	copy["featAcquisitions"] = acquisitions
+	for _, choice := range objects(plan["creationChoices"]) {
+		if value := text(choice["default"]); value != "" && text(object(copy["featureChoices"])[text(choice["id"])]) == "" {
+			playMap(copy, "featureChoices")[text(choice["id"])] = value
+		}
+	}
 	return copy
 }
 
@@ -162,15 +178,11 @@ func collectClassChoices(classes []any, records Records, ruleset Ruleset) []any 
 			continue
 		}
 		classLevel := max(1, integer(selected["level"], 1))
-		starting := object(record["startingProficiencies"])
-		reduced := Object(nil)
+		proficiencies := object(record["startingProficiencies"])
 		if classIndex > 0 {
-			reduced = object(record["multiclassProficiencies"])
+			proficiencies = object(record["multiclassProficiencies"])
 		}
-		skills := object(starting["skills"])
-		if reduced != nil && reduced["skills"] != nil {
-			skills = object(reduced["skills"])
-		}
+		skills := object(proficiencies["skills"])
 		if integer(skills["choose"], 0) > 0 {
 			result = append(result, Object{
 				"id": "skills:" + classID, "kind": "skills", "count": max(1, integer(skills["choose"], 1)),

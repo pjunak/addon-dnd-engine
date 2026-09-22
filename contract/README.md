@@ -179,3 +179,16 @@ snapshot. Returned values are detached from provider caches.
 The manifest and [service schema](../contracts/rules-engine.service.json) also
 specify context, record queries and derivation. Public character evaluation has
 no legacy envelopes or provider-free manually writable projection.
+
+### Acquisition-owned spell grants
+
+Repeatable feat spell selections, casting abilities, resource pools, bonus slots and activations use the same stable acquisition owner as Builder choices. A free-cast counter belongs to its source and, for a single selected spell, its granting choice. Replacing that spell does not refresh its spent allowance. Cast commands can spend only that grant's free counter or an eligible spell slot.
+
+Returned descriptors provide `source.acquisition` and a `legacyKey` when an older unscoped key differs. Detached character evaluation moves an old key only to one unoccupied owner; ambiguous choices, abilities, activations and spent counters remain authored input for explicit assignment. Play commands use this normalized input, so an old spent allowance cannot refresh during its first command. Reading never commits a migration.
+
+Generic `choicePackages` resolve against each acquisition. Source `originFeatChoices` presets constrain the corresponding origin-granted feat choice; the Engine applies those defaults without rewriting the source record. Unknown conditional-repeat rules remain closed.
+
+Class skill choices use starting proficiencies only for the initial class.
+Every later class uses its declared multiclass skill pool; an absent pool
+means no additional starting skills. Changing the ordered initial class
+recomputes those choices without changing the source catalog.

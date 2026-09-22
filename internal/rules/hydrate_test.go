@@ -151,7 +151,7 @@ func TestHydrateMaterializesSpellGrantsResourcesAndFeatureIdentity(t *testing.T)
 		t.Fatalf("spellcasting = %+v", spellcasting)
 	}
 	resources := values(result["resources"])
-	if !hasResource(resources, "guardian-pool", 2) || !hasResource(resources, "charge-mage-armor", 1) {
+	if !hasResource(resources, "guardian-pool", 2) || !hasResource(resources, "charge:feat:magic-initiate:mi-spell", 1) {
 		t.Fatalf("resources = %+v", resources)
 	}
 	features := values(result["features"])

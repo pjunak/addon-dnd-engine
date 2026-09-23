@@ -178,10 +178,7 @@ func collectClassChoices(classes []any, records Records, ruleset Ruleset) []any 
 			continue
 		}
 		classLevel := max(1, integer(selected["level"], 1))
-		proficiencies := object(record["startingProficiencies"])
-		if classIndex > 0 {
-			proficiencies = object(record["multiclassProficiencies"])
-		}
+		proficiencies := classProficiencies(record, classIndex == 0)
 		skills := object(proficiencies["skills"])
 		if integer(skills["choose"], 0) > 0 {
 			result = append(result, Object{

@@ -550,6 +550,13 @@ func hydrateSkills(
 	object(sheet["derived"])["passivePerception"] = passive
 }
 
+func classProficiencies(record Object, initial bool) Object {
+	if initial {
+		return object(record["startingProficiencies"])
+	}
+	return object(record["multiclassProficiencies"])
+}
+
 func hydrateProficiencies(
 	decisions, sheet Object,
 	classes []resolvedClass,
@@ -561,10 +568,7 @@ func hydrateProficiencies(
 	tools := make([]string, 0)
 	weapons := append(grantValues(sources, "weapons"), stringsOf(decisions["weaponProficiencies"])...)
 	for index, current := range classes {
-		source := object(current.Record["startingProficiencies"])
-		if index > 0 && current.Record["multiclassProficiencies"] != nil {
-			source = object(current.Record["multiclassProficiencies"])
-		}
+		source := classProficiencies(current.Record, index == 0)
 		armor = append(armor, stringsOf(source["armor"])...)
 		tools = append(tools, stringsOf(source["tools"])...)
 		weapons = append(weapons, stringsOf(source["weapons"])...)
@@ -603,18 +607,16 @@ func hydrateSpellcasting(
 	casters := make([]caster, 0)
 	perClass := make([]any, 0)
 	for _, current := range classes {
-		casting := object(current.Record["spellcasting"])
-		subclass := recordByID(records, "subclass", current.Subclass)
+		castingSource := current.Record
+		casting := object(castingSource["spellcasting"])
 		if casting == nil {
-			casting = object(subclass["spellcasting"])
+			castingSource = recordByID(records, "subclass", current.Subclass)
+			casting = object(castingSource["spellcasting"])
 		}
 		if casting == nil {
 			continue
 		}
-		progression := progressionAt(objects(current.Record["progression"]), current.Level)
-		if subclass != nil && len(objects(subclass["progression"])) > 0 {
-			progression = progressionAt(objects(subclass["progression"]), current.Level)
-		}
+		progression := progressionAt(objects(castingSource["progression"]), current.Level)
 		var pact *PactMagicResult
 		if text(casting["type"]) == "pact" {
 			pact = PactMagic(current.Level, ruleset)
@@ -655,10 +657,18 @@ func hydrateSpellcasting(
 		object(raw)["expandedSpellIds"] = anyStrings(unique(expanded))
 	}
 
+	// Pact Magic has its own pool and does not turn one Spellcasting class
+	// into multiple Spellcasting classes for shared-slot progression.
+	spellcasters := make([]caster, 0, len(casters))
+	for _, current := range casters {
+		if text(current.casting["type"]) != "pact" {
+			spellcasters = append(spellcasters, current)
+		}
+	}
 	casterLevel := 0
 	var slots []int
-	if len(casters) == 1 {
-		only := casters[0]
+	if len(spellcasters) == 1 {
+		only := spellcasters[0]
 		divisor := casterDivisor(text(only.casting["type"]))
 		if divisor > 0 {
 			casterLevel = int(math.Ceil(float64(only.class.Level) / float64(divisor)))
@@ -667,7 +677,7 @@ func hydrateSpellcasting(
 			slots = integersOf(only.progress["spellSlots"])
 		}
 	} else {
-		for _, current := range casters {
+		for _, current := range spellcasters {
 			casterLevel += CasterContribution(text(current.casting["type"]), current.class.Level, ruleset)
 		}
 	}
@@ -771,10 +781,7 @@ func weaponProficiency(classes []resolvedClass, extra []string) weaponProf {
 		}
 	}
 	for index, current := range classes {
-		source := object(current.Record["startingProficiencies"])
-		if index > 0 && current.Record["multiclassProficiencies"] != nil {
-			source = object(current.Record["multiclassProficiencies"])
-		}
+		source := classProficiencies(current.Record, index == 0)
 		for _, token := range stringsOf(source["weapons"]) {
 			apply(token)
 		}

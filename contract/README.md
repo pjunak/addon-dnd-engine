@@ -192,3 +192,22 @@ Class skill choices use starting proficiencies only for the initial class.
 Every later class uses its declared multiclass skill pool; an absent pool
 means no additional starting skills. Changing the ordered initial class
 recomputes those choices without changing the source catalog.
+
+### Multiclass progression and item prerequisites
+
+Starting skills, equipment training and weapon-attack proficiency use the same
+class-order decision. Later classes receive only `multiclassProficiencies`;
+an absent reduced pool gives no starting training. Spell progression comes
+from the record owning `spellcasting`. A subclass's ordinary feature table
+cannot replace its class's spell limits. Pact Magic retains a separate pool
+and does not count as a second Spellcasting class: one Spellcasting class
+keeps its declared slot table; multiple use profile-owned fractions and slots.
+Spell preparation limits always use each class's own level.
+
+Item `attunementPrerequisites` accepts generic `classes` minimum-level maps
+and `spellcaster: true`, including inside `all`/`any`. Intrinsic class spell
+capacity, trait/feat cantrips and granted free spells qualify independently of
+spent uses. Item-granted spells and unusable prepared-only grants do not.
+Unknown predicates remain blocked for explicit DM adjudication. Losing a
+prerequisite never silently unattunes an authored item; repair must be explicit.
+These checks do not replace the separate item-mechanics authority gate.

@@ -475,6 +475,25 @@ func prerequisiteMatchesDepth(value Object, sheet Object, depth int) (bool, bool
 				}
 			}
 			valid = valid && match
+		case "classes":
+			if len(object(raw)) == 0 {
+				return false, false
+			}
+			for classID, minimum := range object(raw) {
+				if classID == "" || !positivePredicateNumber(minimum) {
+					return false, false
+				}
+				found := false
+				for _, class := range objects(sheet["classes"]) {
+					found = found || text(class["classId"]) == classID && integer(class["level"], 0) >= integer(minimum, 0)
+				}
+				valid = valid && found
+			}
+		case "spellcaster":
+			if required, ok := raw.(bool); !ok || !required {
+				return false, false
+			}
+			valid = valid && hasIntrinsicSpellcasting(sheet)
 		case "feature":
 			if text(raw) == "" {
 				return false, false

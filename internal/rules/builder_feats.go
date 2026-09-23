@@ -1,9 +1,10 @@
 package rules
 
 import (
-	"net/url"
 	"sort"
 	"strings"
+
+	"github.com/pjunak/addon-dnd-engine/character"
 )
 
 // An acquisition is a granting decision, not a feat record or its array index.
@@ -18,7 +19,7 @@ type featAcquisition struct {
 func featChoiceOwner(acquired featAcquisition, record Object) string {
 	owner := "feat:" + acquired.featID
 	if truth(record["repeatable"]) || object(record["repeatable"]) != nil {
-		owner += "@" + url.QueryEscape(acquired.id)
+		owner = character.AcquisitionOwner(owner, acquired.id)
 	}
 	return owner
 }

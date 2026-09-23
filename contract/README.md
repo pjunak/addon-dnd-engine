@@ -161,6 +161,16 @@ coordinator must verify editor/DM roles, stamp grant authority, review imports,
 and commit the exact accepted result atomically. Engine output
 never grants persistence authority to a browser.
 
+The public `character.AcquisitionOwner` helper owns acquisition-key encoding.
+`character.RemapGrantReferences` accepts an explicit old-to-new DM grant ID map
+and returns detached inputs for a coordinator's reviewed import. It follows
+nested acquisition owners in choices, spells, casting abilities, spent counters,
+activations, roll resource references, item links, resource-capacity effects and
+waivers. Renaming is simultaneous; empty/reused target IDs, reference collisions,
+invalid encoding and excessive nesting are rejected. It does not rename grants,
+stamp authority, recalculate values, reset counters or rewrite authored text.
+The coordinator remains responsible for new grant identities and provenance.
+
 Evidence identifies each contributing record, book, content hash, bounded
 summary, mechanical facts, package ID, archive generation hash and content
 revision. The sheet additionally retains the engine's package version/hash.

@@ -1,18 +1,13 @@
 package rules
 
 import (
-	"net/url"
 	"sort"
 
 	"github.com/pjunak/addon-dnd-engine/character"
 )
 
 func grantOwner(source Object) string {
-	owner := text(source["type"]) + ":" + text(source["id"])
-	if id := text(object(source["acquisition"])["id"]); id != "" {
-		owner += "@" + url.QueryEscape(id)
-	}
-	return owner
+	return character.AcquisitionOwner(text(source["type"])+":"+text(source["id"]), text(object(source["acquisition"])["id"]))
 }
 
 func grantLegacyOwner(source Object) string { return text(source["type"]) + ":" + text(source["id"]) }

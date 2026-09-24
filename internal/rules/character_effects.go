@@ -221,7 +221,7 @@ func applyCharacterHitDice(input character.Inputs, sheet Object, records Records
 	con := integer(object(object(sheet["abilities"])["CON"])["mod"], 0)
 	bonus := integer(old["miscPerLevel"], 0)
 	rows := []any{}
-	maximum := 0
+	maximum := integer(old["fixedBonus"], 0)
 	minimum := profile.Constants.Character.MinimumHPGain
 	for index, level := range input.Build.Levels {
 		record := recordByID(records, "class", level.ClassID)

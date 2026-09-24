@@ -91,7 +91,7 @@ func Hydrate(decisions Object, records Records, ruleset *Ruleset) HydrationResul
 		derived["hitDie"] = nil
 	}
 
-	species, lineage, hpPerLevel := hydrateSpecies(decisions, records, sheet, warn)
+	species, lineage := hydrateSpecies(decisions, records, sheet, warn)
 	background := selectedRecord(decisions["background"], records, "background")
 	if decisions["background"] != nil && background == nil && records != nil {
 		warn("Unknown background: " + text(decisions["background"]))
@@ -101,7 +101,9 @@ func Hydrate(decisions Object, records Records, ruleset *Ruleset) HydrationResul
 		classes, species, lineage, background, featRecords, objects(decisions["featAcquisitions"]), records, totalLevel,
 	), object(decisions["featureChoices"]))
 	activeModifiers := activeGrantModifiers(decisions, sheet, grantSources, records)
-	hydrateHitPoints(sheet, classes, mods["CON"], hpPerLevel, featRecords)
+	sheet["speed"] = integer(sheet["speed"], 0) + grantTotal(grantSources, "speedBonus")
+	derived["speed"] = sheet["speed"]
+	hydrateHitPoints(sheet, classes, mods["CON"], grantSources)
 	hydrateArmorClass(decisions, sheet, classes, mods, records, species, grantSources, activeModifiers)
 	derived["initiative"] = initiative(decisions, records, mods["DEX"], pb)
 	hydrateSaves(decisions, sheet, classes, mods, pb, grantSources)
@@ -243,7 +245,7 @@ func hydrateSpecies(
 	records Records,
 	sheet Object,
 	warn func(string),
-) (Object, Object, int) {
+) (Object, Object) {
 	selected := text(decisions["race"])
 	if selected == "" {
 		selected = text(decisions["species"])
@@ -262,27 +264,21 @@ func hydrateSpecies(
 		}
 	}
 	darkvision := 0
-	speedBonus := 0
-	hpPerLevel := 0
 	resistances := make([]string, 0)
 	if species != nil {
 		sheet["species"] = species
 		darkvision = integer(object(species["senses"])["darkvision"], 0)
 		resistances = append(resistances, stringsOf(species["resistances"])...)
-		hpPerLevel += integer(object(species["grants"])["hpPerLevel"], 0)
 	}
 	if lineage != nil {
 		grants := object(lineage["grants"])
 		darkvision = max(darkvision, integer(object(grants["senses"])["darkvision"], 0))
 		resistances = append(resistances, stringsOf(grants["resistances"])...)
-		hpPerLevel += integer(grants["hpPerLevel"], 0)
-		speedBonus += integer(grants["speedBonus"], 0)
 	}
 	speed := 30
 	if species != nil {
 		speed = integer(object(species["speeds"])["walk"], 30)
 	}
-	speed += speedBonus
 	sheet["speed"] = speed
 	object(sheet["derived"])["speed"] = speed
 	if darkvision > 0 {
@@ -291,15 +287,12 @@ func hydrateSpecies(
 		sheet["senses"] = Object{}
 	}
 	sheet["resistances"] = anyStrings(unique(resistances))
-	return species, lineage, hpPerLevel
+	return species, lineage
 }
 
-func hydrateHitPoints(sheet Object, classes []resolvedClass, conMod, speciesHP int, feats []Object) {
-	featHP := 0
-	for _, feat := range feats {
-		featHP += integer(object(feat["grants"])["hpPerLevel"], 0)
-	}
-	perLevel := speciesHP + featHP
+func hydrateHitPoints(sheet Object, classes []resolvedClass, conMod int, sources []grantSource) {
+	perLevel := grantTotal(sources, "hpPerLevel")
+	fixedBonus := grantTotal(sources, "hpBonus")
 	dice := 0
 	level := 0
 	maxAwarded := false
@@ -317,7 +310,7 @@ func hydrateHitPoints(sheet Object, classes []resolvedClass, conMod, speciesHP i
 	}
 	maximum := 0
 	if level > 0 {
-		maximum = dice + conMod*level + perLevel*level
+		maximum = dice + conMod*level + perLevel*level + fixedBonus
 	}
 	sheet["hp"] = Object{
 		"max": maximum,
@@ -325,6 +318,17 @@ func hydrateHitPoints(sheet Object, classes []resolvedClass, conMod, speciesHP i
 			"dice": dice, "conMod": conMod, "conTotal": conMod * level,
 			"miscPerLevel": perLevel, "miscTotal": perLevel * level, "level": level,
 		},
+	}
+	if fixedBonus != 0 {
+		object(object(sheet["hp"])["breakdown"])["fixedBonus"] = fixedBonus
+	}
+	for _, source := range sources {
+		if value := integer(source.Grants["hpBonus"], 0); value != 0 {
+			hp := object(sheet["hp"])
+			hp["fixedBonuses"] = append(values(hp["fixedBonuses"]), Object{
+				"name": firstText(source.Record["name"], source.Source["id"]), "source": source.Source, "value": value,
+			})
+		}
 	}
 	object(sheet["derived"])["maxHp"] = maximum
 }
@@ -429,7 +433,8 @@ func hydrateArmorClass(
 			activeBonus += integer(modifier["add"], 0) + mods[text(modifier["addAbility"])]
 		}
 	}
-	value := integer(best["value"], 0) + shieldBonus + speciesBonus + activeBonus
+	bonuses, passiveBonus := armorGrantBonuses(sources, bodyArmor)
+	value := integer(best["value"], 0) + shieldBonus + speciesBonus + activeBonus + passiveBonus
 	ac := Object{
 		"value": value, "base": text(best["label"]), "shield": shieldBonus,
 		"candidates": candidates, "restrictions": nil,
@@ -439,6 +444,9 @@ func hydrateArmorClass(
 	}
 	if activeBonus != 0 {
 		ac["activeBonus"] = activeBonus
+	}
+	if len(bonuses) > 0 {
+		ac["bonuses"] = bonuses
 	}
 	if bodyArmor != nil {
 		requirement := strengthRequirement(bodyArmor["strReq"])
@@ -949,6 +957,13 @@ func initiative(decisions Object, records Records, dexterity, proficiency int) i
 }
 
 func inventoryRecord(item Object, records Records, kind string) Object {
+	if declared := text(item["kind"]); kind == "armor" && declared != "" {
+		record := recordByID(records, declared, text(item["ref"]))
+		if contains([]string{"light", "medium", "heavy", "shield"}, text(record["armorType"])) {
+			return record
+		}
+		return nil
+	}
 	if record := recordByID(records, kind, text(item["ref"])); record != nil {
 		return record
 	}

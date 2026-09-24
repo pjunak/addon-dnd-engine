@@ -165,13 +165,24 @@ func characterExplanations(input character.Inputs, sheet Object, evidence []char
 		}
 	}
 	hp := object(sheet["hp"])
-	makeExplanation("derived.maxHp", "Maximum HP", "sum of each level's max(minimum gain, hit die result + Constitution modifier) + per-level grants", derived["maxHp"], character.Term{Label: "Level gains", Value: hp["levels"]})
+	hpTerms := []character.Term{{Label: "Level gains", Value: hp["levels"]}}
+	for _, bonus := range objects(hp["fixedBonuses"]) {
+		source := object(bonus["source"])
+		hpTerms = append(hpTerms, character.Term{Label: text(bonus["name"]), Value: bonus["value"],
+			Source: &character.Reference{Kind: text(source["type"]), ID: text(source["id"])}})
+	}
+	makeExplanation("derived.maxHp", "Maximum HP", "sum of each level's max(minimum gain, hit die result + Constitution modifier) + per-level grants + fixed grants", derived["maxHp"], hpTerms...)
 	ac := object(sheet["ac"])
 	terms := []character.Term{{Label: "Available formulas (highest applies)", Value: ac["candidates"]}, {Label: "Chosen formula", Value: ac["base"]}, {Label: "Shield", Value: ac["shield"]}}
 	for _, key := range []string{"speciesBonus", "activeBonus", "restrictions"} {
 		if value, ok := ac[key]; ok {
 			terms = append(terms, character.Term{Label: key, Value: value})
 		}
+	}
+	for _, bonus := range objects(ac["bonuses"]) {
+		source := object(bonus["source"])
+		terms = append(terms, character.Term{Label: text(bonus["name"]), Value: Object{"bonus": bonus["value"], "requires": bonus["requires"]},
+			Source: &character.Reference{Kind: text(source["type"]), ID: text(source["id"])}, Status: text(bonus["status"])})
 	}
 	makeExplanation("derived.armorClass", "Armor Class", "highest eligible AC formula + shield + applicable bonuses", derived["armorClass"], terms...)
 	dex := object(object(sheet["abilities"])["DEX"])["mod"]

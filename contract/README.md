@@ -234,6 +234,22 @@ also retained for offline reading, without multiplying their references across
 unrelated statistics; a spell actually read by a calculated grant remains a
 calculation source.
 
+### Passive source bonuses
+
+Selected grant sources share `hpPerLevel`, `hpBonus`, `speedBonus` and
+`senses`. Fixed HP is added once after recorded level gains and Constitution;
+speed sums source bonuses once before armor penalties and typed item/DM
+effects. Sense grants use the greatest range before explicit adjustments.
+A recalculation is detached and never heals or otherwise edits authored play.
+
+`grants.acBonuses` adds to eligible AC formulas and shields. Its optional
+`requires.armorTypes` condition tests equipped body armor, using the item's
+declared reference kind and armor type. Shields alone do not satisfy it.
+Unknown or malformed conditions remain inactive. The saved AC explanation
+retains applied/inactive terms and source references; maximum HP retains
+fixed-grant terms. See the provider's [field shapes](../../addon-dnd-2024-compendium/data/SCHEMA.md).
+Neither the Engine nor the sheet identifies these rules by feat or book ID.
+
 ## Provider contract
 
 The worker reaches `catalog`, `get` and `query` through host-issued

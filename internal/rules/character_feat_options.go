@@ -8,7 +8,7 @@ import (
 
 // Most catalog prerequisites need only acquisition level or a DM waiver.
 // Keep those on the same predicate interpreter without hydrating every earlier
-// level for every option. Ability/feature predicates retain full progression.
+// level for every option. Sheet-dependent predicates retain full progression.
 func simpleFeatOptionAllowed(input character.Inputs, descriptor, choice, feat Object, acquisitions []featAcquisition) (bool, bool) {
 	if integer(choice["count"], 1) > 1 || prerequisiteNeedsSheet(object(feat["prerequisites"]), 0) {
 		return false, false
@@ -91,7 +91,7 @@ func prerequisiteNeedsSheet(value Object, depth int) bool {
 		return false
 	}
 	for key, raw := range value {
-		if key == "abilities" || key == "feature" {
+		if key == "abilities" || key == "feature" || key == "classes" || key == "spellcaster" {
 			return true
 		}
 		if key == "all" || key == "any" {

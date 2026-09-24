@@ -35,6 +35,7 @@ func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset)
 		return EvaluateCharacter(input, records, profile)
 	}
 	result.Sheet = hydrated.Sheet
+	result.Sheet["feats"] = acquiredFeatRows(selectedFeats(normalized, tracked), objects(normalized["featAcquisitions"]))
 	for _, ability := range Abilities {
 		object(object(hydrated.Sheet["abilities"])[ability])["cap"] = object(normalized["scoreCaps"])[ability]
 	}

@@ -78,6 +78,27 @@ owning descriptor `distinctAcrossAcquisitions: true`; consumers use its ordinary
 options and completion guidance. This does not expand repeated spell/resource
 mechanics or combat automation into new contract promises.
 
+An empty advancement `featCategories` list with no level-specific categories
+means no category restriction; each option still needs its own prerequisites.
+Level-specific categories are additive to the base list. Eligibility uses the
+character level at that exact ordered acquisition, including multiclass levels,
+not today's final level or the class level alone. Class, feature, ability and
+spellcaster predicates use the calculated acquired state in both option filtering
+and save validation. Narrative predicates still require an exact DM waiver.
+Explicit feat ability caps remain owned by the source record/profile. When a
+replacement feat supplies no ability increase, the old assignment is reported as
+an `unavailable-choice`; the coordinator can withdraw only its previously saved
+value through ordinary dependent-choice repair. New illegal assignments remain
+blocked.
+
+Subclass feature rows resolve inline local IDs to canonical records within the
+owning class/subclass. Record levels govern acquisition; unrelated or future
+features never satisfy a prerequisite. Inline-only features remain readable.
+The additive `sheet.feats` array retains each acquired feat's `id`, `name` and
+`count`, with prose in the existing bounded evidence. It contains acquired feats,
+not the option catalog. Consumers can render saved feat details without live
+rules; older projections may omit this array.
+
 Builder sections count required decisions, including the first class and class
 cantrips/spellbook selections. Their issues carry a stable `id` target and `tab`.
 Invalid existing foundation/advancement choices have `repair: true` and do not

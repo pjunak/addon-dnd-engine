@@ -567,6 +567,9 @@ func findAbilityChoice(plan Object, id string, source Object, records Records) O
 			featID := text(object(source["featureChoices"])[text(feat["id"])])
 			selected := recordByID(records, "feat", featID)
 			increase := object(object(selected["grants"])["abilityScoreIncrease"])
+			if increase == nil || len(FeatASIFrom(increase)) == 0 {
+				return nil
+			}
 			budget := max(1, integer(increase["amount"], 1))
 			return Object{
 				"id": text(featAbility["id"]), "kind": "abilityBudget", "eligible": anyStrings(FeatASIFrom(increase)),

@@ -76,6 +76,9 @@ func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset)
 		addCharacterIssue(&result, "rules-warning:"+warning, "build", warning, "warning", nil)
 	}
 	captureCharacterSources(hydrated.Sheet, tracked)
+	// Retain learned spell facts for offline reading without attaching every
+	// spell to unrelated statistics. Explanations use the calculation reads.
+	calculationEvidence := tracked.evidence()
 	for _, selections := range []map[string][]string{input.Build.Spells.Cantrips, input.Build.Spells.Spellbook, input.Build.Spells.GrantChoices, input.Play.PreparedSpells} {
 		for _, ids := range selections {
 			for _, id := range ids {
@@ -85,7 +88,7 @@ func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset)
 	}
 	result.Evidence = tracked.evidence()
 	compactCharacterProjection(hydrated.Sheet)
-	result.Explanations = characterExplanations(input, hydrated.Sheet, result.Evidence)
+	result.Explanations = characterExplanations(input, hydrated.Sheet, calculationEvidence)
 	for key, explanation := range result.Explanations {
 		if explanation.Unit != "" {
 			explanation.Unit = profile.Constants.Character.DistanceUnit

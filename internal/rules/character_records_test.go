@@ -102,6 +102,54 @@ func TestCharacterEvaluationCacheIsDetachedAndRefreshesSources(t *testing.T) {
 	}
 }
 
+func TestLearnedSpellsRetainEvidenceWithoutMultiplyingStatSources(t *testing.T) {
+	input, origin, profile := characterFixture(t)
+	records := spellPlayRecords()
+	for kind, entries := range origin.(memoryRecords).byKind {
+		if kind != "class" {
+			records.byKind[kind] = entries
+		}
+	}
+	input.Build.Levels[0].ClassID = "wizard"
+	profile.Constants.Spellbook.BaseKnown = 32
+	input.Notes = "Keep authored notes"
+	input.Play.Currency["gp"] = 37
+	spells := []string{}
+	for index := 0; index < 32; index++ {
+		id := fmt.Sprintf("learned-%02d", index)
+		spells = append(spells, id)
+		records.byKind["spell"][id] = mustJSON(Object{"kind": "spell", "id": id, "name": id, "description": "Retained spell summary", "level": 1, "classes": []any{"wizard"}})
+	}
+	input.Build.Spells.Spellbook["wizard"] = spells[:1]
+	first := EvaluateCharacter(input, records, profile)
+	input.Build.Spells.Spellbook["wizard"] = spells
+	before := cloneCharacter(input)
+	sourceBefore := string(mustJSON(records.byKind))
+	counted := &countedCharacterRecords{Records: records}
+	result := EvaluateCharacter(input, counted, profile)
+	if !result.Ready {
+		t.Fatalf("legal source-defined spellbook failed: %+v", result.Issues)
+	}
+	if !reflect.DeepEqual(first.Explanations, result.Explanations) {
+		t.Fatal("learning more spells multiplied unrelated statistic explanations")
+	}
+	retained := map[string]bool{}
+	for _, entry := range result.Evidence {
+		if entry.Reference.Kind == "spell" {
+			retained[entry.Reference.ID] = true
+			if entry.Summary != "Retained spell summary" || integer(entry.Facts["level"], 0) != 1 || len(entry.Hash) != 64 || entry.PackageGeneration != "generation-one" {
+				t.Fatal("spell facts or frozen provenance lost", entry)
+			}
+		}
+	}
+	if len(retained) != len(spells) {
+		t.Fatalf("retained %d spells, want %d", len(retained), len(spells))
+	}
+	if len(result.Explanations["derived.maxHp"].Sources) == 0 || !reflect.DeepEqual(result.Inputs, before) || !reflect.DeepEqual(input, before) || string(mustJSON(records.byKind)) != sourceBefore {
+		t.Fatal("calculation sources, authored state or detached provider data changed")
+	}
+}
+
 func TestCharacterRecordCopiesKeepNestedStatePrivate(t *testing.T) {
 	source := newMemoryRecords([]Object{{"kind": "feat", "id": "nested", "grants": Object{"choices": []any{Object{"id": "choice", "from": []any{"one", "two"}}}}}})
 	cached := newCharacterRecordSnapshot(source)

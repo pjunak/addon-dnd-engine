@@ -193,7 +193,11 @@ Evidence identifies each contributing record, book, content hash, bounded
 summary, mechanical facts, package ID, archive generation hash and content
 revision. The sheet additionally retains the engine's package version/hash.
 Missing sources cannot retroactively alter this saved evidence. Current rule
-links remain subject to current source and viewer access.
+links remain subject to current source and viewer access. Statistic explanations
+reference records read by the calculation. Learned/prepared spell records are
+also retained for offline reading, without multiplying their references across
+unrelated statistics; a spell actually read by a calculated grant remains a
+calculation source.
 
 ## Provider contract
 

@@ -12,7 +12,7 @@ var builderModeSuffix = regexp.MustCompile(`:(ability|feat|featability)$`)
 
 func BuilderPlan(decisions Object, records Records, ruleset Ruleset) Object {
 	modelBase, modelClasses := builderModel(decisions, records)
-	classChoices := collectClassChoices(modelClasses, records, ruleset)
+	classChoices := collectClassChoices(modelClasses, object(decisions["featureChoices"]), records, ruleset)
 	plan := Object{
 		"schemaVersion": 1,
 		"edition":       ruleset.Edition,
@@ -166,7 +166,7 @@ func builderModel(source Object, records Records) (Object, []any) {
 	return cloneObjectDeep(baseStats), classes
 }
 
-func collectClassChoices(classes []any, records Records, ruleset Ruleset) []any {
+func collectClassChoices(classes []any, selections Object, records Records, ruleset Ruleset) []any {
 	result := make([]any, 0)
 	masteryEnabled := ruleset.Capabilities.WeaponMastery != nil && *ruleset.Capabilities.WeaponMastery
 	advancement := ruleset.Builder.AbilityScoreAdvancement
@@ -189,14 +189,14 @@ func collectClassChoices(classes []any, records Records, ruleset Ruleset) []any 
 		}
 		context := choiceContext{
 			owner: classID, classID: classID, classLevel: classLevel,
-			sourceType: "class", records: records, masteryEnabled: masteryEnabled,
+			sourceType: "class", records: records, masteryEnabled: masteryEnabled, selections: selections,
 		}
 		appendRecordChoices(&result, record["grants"], context)
 		subclassID := text(selected["subclass"])
 		subclass := recordByID(records, "subclass", subclassID)
 		context = choiceContext{
 			owner: subclassID, classID: classID, classLevel: classLevel, sourceType: "subclass",
-			fallbackLevel: integer(subclass["subclassLevel"], 3), records: records, masteryEnabled: masteryEnabled,
+			fallbackLevel: integer(subclass["subclassLevel"], 3), records: records, masteryEnabled: masteryEnabled, selections: selections,
 		}
 		appendRecordChoices(&result, subclass["grants"], context)
 		for _, feature := range recordCatalog(records, "feature") {
@@ -206,7 +206,7 @@ func collectClassChoices(classes []any, records Records, ruleset Ruleset) []any 
 			}
 			appendRecordChoices(&result, feature["grants"], choiceContext{
 				owner: text(feature["id"]), classID: classID, classLevel: classLevel, sourceType: "feature",
-				fallbackLevel: integer(feature["level"], 1), records: records, masteryEnabled: masteryEnabled,
+				fallbackLevel: integer(feature["level"], 1), records: records, masteryEnabled: masteryEnabled, selections: selections,
 			})
 		}
 		levels := make(map[int]struct{})
@@ -263,10 +263,11 @@ type choiceContext struct {
 	classLevel, fallbackLevel  int
 	records                    Records
 	masteryEnabled             bool
+	selections                 Object
 }
 
 func appendRecordChoices(result *[]any, rawGrants any, context choiceContext) {
-	grants := object(rawGrants)
+	grants := selectedChoiceGrants(object(rawGrants), Object{"type": context.sourceType, "id": context.owner}, context.selections)
 	for _, choice := range objects(grants["choices"]) {
 		if text(choice["id"]) == "" {
 			continue

@@ -62,35 +62,39 @@ func collectGrantSources(
 func applyChoicePackages(sources []grantSource, selected Object) []grantSource {
 	result := make([]grantSource, 0, len(sources))
 	for _, source := range sources {
-		grants := source.Grants
-		for _, declaration := range objects(grants["choicePackages"]) {
-			choiceID := text(declaration["choiceId"])
-			if choiceID == "" {
-				continue
-			}
-			scopedID := grantOwner(source.Source) + ":" + choiceID
-			selectedValue := selected[scopedID]
-			if selectedValue == nil {
-				selectedValue = selected[choiceID]
-			}
-			option := object(object(declaration["options"])[text(selectedValue)])
-			if option == nil {
-				continue
-			}
-			merged := cloneObject(grants)
-			for field, value := range option {
-				if additions := values(value); additions != nil {
-					merged[field] = append(append([]any(nil), values(merged[field])...), additions...)
-				} else {
-					merged[field] = value
-				}
-			}
-			grants = merged
-		}
-		source.Grants = grants
+		source.Grants = selectedChoiceGrants(source.Grants, source.Source, selected)
 		result = append(result, source)
 	}
 	return result
+}
+
+// Builder discovery and hydration must resolve the same selected package.
+// Only the declared top-level packages are interpreted; packages cannot recurse.
+func selectedChoiceGrants(grants, source, selected Object) Object {
+	for _, declaration := range objects(grants["choicePackages"]) {
+		choiceID := text(declaration["choiceId"])
+		if choiceID == "" {
+			continue
+		}
+		selectedValue := selected[grantOwner(source)+":"+choiceID]
+		if selectedValue == nil {
+			selectedValue = selected[choiceID]
+		}
+		option := object(object(declaration["options"])[text(selectedValue)])
+		if option == nil {
+			continue
+		}
+		merged := cloneObject(grants)
+		for field, value := range option {
+			if additions := values(value); additions != nil {
+				merged[field] = append(append([]any(nil), values(merged[field])...), additions...)
+			} else {
+				merged[field] = value
+			}
+		}
+		grants = merged
+	}
+	return grants
 }
 
 func grantValues(sources []grantSource, field string) []string {

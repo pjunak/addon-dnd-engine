@@ -78,6 +78,20 @@ owning descriptor `distinctAcrossAcquisitions: true`; consumers use its ordinary
 options and completion guidance. This does not expand repeated spell/resource
 mechanics or combat automation into new contract promises.
 
+Class, subclass and feature choices can be supplied by a selected
+`grants.choicePackages` branch. Builder discovery, acquisition validation and
+hydration share that resolution. Enumerated parents resolve before dependent
+feat choices even when their IDs sort later. Inactive branches contribute no
+feats or spells; their authored values remain intact in the Engine result with
+exact withdrawal issues for the coordinator. Class/subclass level requirements,
+feat categories and nonrepeatable acquisition checks still apply.
+
+A granted spell's optional source-declared class membership is retained as
+`source.classId` without replacing the granting record identity. Its selected
+list and casting ability remain independent facts. This is current-state build
+editing; dedicated level-up replacement actions for class-granted choices are
+not supplied by this contract.
+
 An empty advancement `featCategories` list with no level-specific categories
 means no category restriction; each option still needs its own prerequisites.
 Level-specific categories are additive to the base list. Eligibility uses the

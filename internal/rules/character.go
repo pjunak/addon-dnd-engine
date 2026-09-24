@@ -146,7 +146,7 @@ func characterDecisions(input character.Inputs, records Records, profile Ruleset
 	})
 	// Parents may sort after their children (for example a species feat and
 	// its selections). Apply each available decision once, in dependency order.
-	// Only feat/mode selections change the available descriptors.
+	// Feat, mode and package selections can expose dependent descriptors.
 	plan := BuilderPlan(decisions, records, profile)
 	for len(choices) > 0 {
 		pending := []character.Choice{}
@@ -169,7 +169,7 @@ func characterDecisions(input character.Inputs, records Records, profile Ruleset
 				}
 			} else {
 				decisions = applyBuilderChoiceWithPlan(decisions, Object{"choiceId": choice.ID, "slot": choice.Slot, "value": value}, records, plan)
-				if kind := text(descriptor["kind"]); kind == "feat" || kind == "asiMode" {
+				if kind := text(descriptor["kind"]); kind == "feat" || kind == "asiMode" || kind == "enumerated" {
 					plan = BuilderPlan(decisions, records, profile)
 				}
 			}

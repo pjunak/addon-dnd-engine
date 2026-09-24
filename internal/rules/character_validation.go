@@ -309,7 +309,7 @@ func validateCharacterProgression(input character.Inputs, records Records, profi
 		prefix.Build.Levels = prefix.Build.Levels[:index+1]
 		detached := character.Result{Issues: []character.Issue{}}
 		authored := characterDecisions(prefix, records, profile, &detached)
-		acquisitions := selectedFeatAcquisitions(authored, records, collectClassChoices(values(authored["classes"]), records, profile))
+		acquisitions := selectedFeatAcquisitions(authored, records, collectClassChoices(values(authored["classes"]), object(authored["featureChoices"]), records, profile))
 		decisions := NormalizeBuilderDecisions(authored, records, profile)
 		if index > 0 && !seenClasses[level.ClassID] {
 			classIDs := []string{level.ClassID}

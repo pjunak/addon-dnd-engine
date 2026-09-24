@@ -107,6 +107,10 @@ func hydrateSpellGrants(
 				hasCastAtLevel = true
 			}
 		}
+		if classID := text(spell["classId"]); classID != "" {
+			source = cloneObject(source)
+			source["classId"] = classID
+		}
 		options := Object{
 			"alwaysPrepared": spell["alwaysPrepared"], "free": spell["free"],
 			"castingAbility": castingAbility,

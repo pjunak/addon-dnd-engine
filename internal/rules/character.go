@@ -27,6 +27,10 @@ func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset)
 	applyCharacterAbilityEffects(input, normalized, &result, profile, tracked)
 	tracked.selected = map[string]character.Evidence{}
 	hydrated := Hydrate(normalized, tracked, &profile)
+	species := object(hydrated.Sheet["species"])
+	if size := selectedSpeciesSize(normalized, species); size != nil || speciesSizeChoice(species) != nil {
+		object(hydrated.Sheet["derived"])["size"] = size
+	}
 	if normalizeCharacterGrantState(&input, hydrated.Sheet) {
 		return EvaluateCharacter(input, records, profile)
 	}

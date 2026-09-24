@@ -94,6 +94,24 @@ every slot in that group.
 Unsupported prerequisites require an exact issue-ID waiver from an authorized
 DM. Narrative content and encounter effects remain visible source facts.
 
+## Species size
+
+A species may declare `sizeOptions` as distinct canonical size labels.
+The Engine returns one `kind: "size"` creation descriptor with stable ID
+`species:<id>:size`, count one and source-owned options. Option `labelKey`
+is an optional translatable UI key; absent keys leave authored labels intact.
+The existing `build.choices` array owns the selection; there is no new saved
+schema or automatic default.
+
+`sheet.derived.size` and its explanation retain the chosen value and species
+evidence. Fixed-size records use their canonical `size` directly. Unselected or
+invalid size choices produce null; undeclared compound summaries omit the
+projection field. Neither produces an inferred choice. Missing choices can save as incomplete builds; forged values/slots
+use ordinary validation and stable repair issue IDs. Changing sources does
+not mutate Engine inputs. The coordinator's existing explicit save/adoption
+policy determines whether an already saved invalid selection is withdrawn.
+This covers base species size, not temporary transformations or combat rules.
+
 ## Equipment eligibility
 
 `guidance.equipment` is keyed by inventory instance ID. Each entry exposes

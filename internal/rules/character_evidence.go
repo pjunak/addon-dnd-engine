@@ -97,6 +97,13 @@ func compactCharacterProjection(sheet Object) {
 
 func characterExplanations(input character.Inputs, sheet Object, evidence []character.Evidence) map[string]character.Explanation {
 	result := map[string]character.Explanation{}
+	if size := object(sheet["derived"])["size"]; size != nil {
+		source := character.Reference{Kind: "species", ID: input.Build.Species}
+		result["derived.size"] = character.Explanation{
+			Label: "Size", Formula: "Size from the selected species and its explicit choice, when required.", Value: size,
+			Terms: []character.Term{{Label: "Species size", Value: size, Source: &source}}, Sources: []character.Reference{source},
+		}
+	}
 	sources := []character.Reference{}
 	for _, entry := range evidence {
 		sources = append(sources, entry.Reference)

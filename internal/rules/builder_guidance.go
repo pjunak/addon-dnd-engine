@@ -269,7 +269,11 @@ func builderChoiceOptions(choice, sheet Object, records Records) []any {
 		case "enumerated":
 			record = recordByID(records, "feature", id)
 		}
-		result = append(result, guidanceOption(id, record))
+		option := guidanceOption(id, record)
+		if kind == "size" {
+			option["labelKey"] = id
+		}
+		result = append(result, option)
 	}
 	sortGuidanceOptions(result)
 	return result

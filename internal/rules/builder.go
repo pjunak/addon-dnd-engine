@@ -336,6 +336,11 @@ func collectOriginChoices(source Object, records Records) []any {
 	for _, origin := range selectedOrigins(source, records) {
 		record := object(origin["record"])
 		typeID := text(origin["type"])
+		if typeID == "species" {
+			if choice := speciesSizeChoice(record); choice != nil {
+				result = append(result, choice)
+			}
+		}
 		if choice := object(record["toolProficiencyChoice"]); choice != nil {
 			descriptor := Object{
 				"id": typeID + ":" + text(record["id"]) + ":tool", "kind": "tools",

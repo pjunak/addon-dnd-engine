@@ -129,6 +129,22 @@ every slot in that group.
 Unsupported prerequisites require an exact issue-ID waiver from an authorized
 DM. Narrative content and encounter effects remain visible source facts.
 
+## Authored Inspiration
+
+The optional boolean `inputs.play.inspiration` records the current allocation.
+Omission remains valid for earlier characters and displays as unavailable;
+explicit `false` records spending it. Evaluation does not populate an omitted
+input, and calculation, rests and other play commands preserve its value.
+This is authored state, with no automatic award, reroll or encounter resolution.
+
+Supporting engines return `guidance.authoredPlay.inspiration: true`, the boolean
+`sheet.inspiration` and its saved explanation, including for incomplete builds.
+Consumers enable editing only with that guidance. Existing requests that omit
+the field remain supported in v4; older providers may reject a request containing
+it. Consumers must retain saved reading and fail changes without silently
+dropping the value. The Sheets schema includes the same optional DTO field;
+its reviewed upgrade is documented by the [persistence owner](../../addon-dnd-character-sheets/docs/RULES_EDGE_CASES.md#inspiration-and-compatible-schema-upgrades).
+
 ## Species size
 
 A species may declare `sizeOptions` as distinct canonical size labels.

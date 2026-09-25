@@ -42,4 +42,8 @@ func TestCharacterBoundaryRejectsRetiredHandlersAndUnknownInputs(t *testing.T) {
 	}
 	_, err := handler.HandleRPC(context.Background(), rpcRequest("evaluate-character", `{"contractVersion":"rules-character.v1","inputs":{"manualStats":{"STR":99}}}`))
 	assertRPCError(t, err, workerrpc.KindInvalidRequest)
+	for _, value := range []string{`"true"`, `1`, `[]`, `{}`} {
+		_, err := handler.HandleRPC(context.Background(), rpcRequest("evaluate-character", `{"contractVersion":"rules-character.v1","inputs":{"play":{"inspiration":`+value+`}}}`))
+		assertRPCError(t, err, workerrpc.KindInvalidRequest)
+	}
 }

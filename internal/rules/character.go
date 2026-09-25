@@ -109,6 +109,10 @@ func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset)
 		result.Explanations = map[string]character.Explanation{"status": {Label: "Calculated values need choices", Formula: "Choose base abilities, species, background and the first class level to calculate the character.", Value: nil, Terms: []character.Term{}, Sources: []character.Reference{}}}
 	}
 	characterEditorGuidance(input, decisions, records, profile, &result)
+	inspiration := input.Play.Inspiration != nil && *input.Play.Inspiration
+	result.Sheet["inspiration"] = inspiration
+	result.Guidance["authoredPlay"] = Object{"inspiration": true}
+	result.Explanations["inspiration"] = character.Explanation{Label: "Inspiration", Formula: "Authored play state. Awarding and spending Inspiration are explicit edits; calculation and rest do not change it.", Value: inspiration, Terms: []character.Term{}, Sources: []character.Reference{}}
 	return result
 }
 

@@ -282,6 +282,9 @@ func appendEffectExplanations(input character.Inputs, result *character.Result, 
 				name = "DM given: " + name
 			}
 			explanation.Terms = append(explanation.Terms, character.Term{Label: name + " (" + effect.Mode + ")", Value: effect.Value, GrantID: grant.GrantID, Source: grant.Reference, Status: status})
+			if grant.Reference != nil {
+				explanation.Sources = uniqueCharacterReferences(append(explanation.Sources, *grant.Reference))
+			}
 			result.Explanations[path] = explanation
 		}
 	}

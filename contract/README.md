@@ -232,7 +232,12 @@ links remain subject to current source and viewer access. Statistic explanations
 reference records read by the calculation. Learned/prepared spell records are
 also retained for offline reading, without multiplying their references across
 unrelated statistics; a spell actually read by a calculated grant remains a
-calculation source.
+calculation source. Ability increases, training, class spell statistics and resource
+capacities/remaining uses link to their relevant granting sources, including
+acquisition-owned grants, matching hit-die classes and shared/Pact slot owners.
+The full evidence, hashes and calculation terms remain retained once; narrative
+features do not multiply those per-statistic source lists. Typed item/DM effect
+terms retain their own source or authorization identity.
 
 ### Passive source bonuses
 

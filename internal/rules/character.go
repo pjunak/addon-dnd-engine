@@ -97,6 +97,7 @@ func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset)
 		}
 	}
 	appendEffectExplanations(input, &result, records)
+	scopeCharacterExplanationSources(input, normalized, hydrated.Sheet, calculationEvidence, result.Explanations)
 	result.Ready = true
 	for _, issue := range result.Issues {
 		if issue.Severity == "blocker" {

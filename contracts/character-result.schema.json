@@ -722,6 +722,31 @@
               "maxLength": 30000,
               "type": "string"
             },
+            "containers": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "maxLength": 30000,
+                    "type": "string"
+                  },
+                  "name": {
+                    "maxLength": 30000,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "name"
+                ],
+                "type": "object"
+              },
+              "maxItems": 500,
+              "type": [
+                "array",
+                "null"
+              ]
+            },
             "currency": {
               "additionalProperties": {
                 "maximum": 1000000000,
@@ -752,6 +777,10 @@
                   },
                   "attuned": {
                     "type": "boolean"
+                  },
+                  "containerId": {
+                    "maxLength": 30000,
+                    "type": "string"
                   },
                   "grantId": {
                     "maxLength": 30000,

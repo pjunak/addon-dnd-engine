@@ -163,6 +163,28 @@ not mutate Engine inputs. The coordinator's existing explicit save/adoption
 policy determines whether an already saved invalid selection is withdrawn.
 This covers base species size, not temporary transformations or combat rules.
 
+## Storage containers and membership
+
+`play.containers` optionally stores ordered `{id,name}` organizational groups.
+An inventory instance may declare `containerId` referencing one of those groups.
+IDs must be distinct and nonempty; labels are nonblank and at most 120 characters.
+The 500-container input limit is a payload bound, not physical carrying capacity.
+Duplicate labels remain legal; identity is always the ID. There is no nesting,
+source-item creation, weight calculation or additional equipment effect.
+
+Membership is limited to carried/stored entries, including depleted quantities.
+It never changes location, attunement allocation, notes, grants or quick-use
+availability. Equipping requires explicitly clearing that item's membership.
+Removing a container requires unassigning its members in the same input; dangling
+references are blockers, never automatically deleted or redirected.
+
+`guidance.authoredPlay.storage: true` advertises editing support.
+`guidance.storage` supplies `maximumContainers` and `maximumNameLength`.
+Saved `sheet.storage.containers` retains each ID, name and ordered `itemIds`,
+including empty groups and depleted entries. Evaluation and play preserve authored
+groups and membership; absent optional fields stay absent for older characters.
+Invalid inputs remain intact for correction, including unfinished builds.
+
 ## Quick-use inventory references
 
 `play.quickUse` is an optional ordered list of distinct owned inventory instance

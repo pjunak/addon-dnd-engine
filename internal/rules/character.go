@@ -111,8 +111,9 @@ func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset)
 	characterEditorGuidance(input, decisions, records, profile, &result)
 	inspiration := input.Play.Inspiration != nil && *input.Play.Inspiration
 	result.Sheet["inspiration"] = inspiration
-	result.Guidance["authoredPlay"] = Object{"inspiration": true, "quickUse": true}
+	result.Guidance["authoredPlay"] = Object{"inspiration": true, "quickUse": true, "storage": true}
 	characterQuickUse(input, &result)
+	characterStorage(input, &result)
 	result.Explanations["inspiration"] = character.Explanation{Label: "Inspiration", Formula: "Authored play state. Awarding and spending Inspiration are explicit edits; calculation and rest do not change it.", Value: inspiration, Terms: []character.Term{}, Sources: []character.Reference{}}
 	return result
 }

@@ -46,6 +46,13 @@ func TestCharacterBoundaryRejectsRetiredHandlersAndUnknownInputs(t *testing.T) {
 		_, err := handler.HandleRPC(context.Background(), rpcRequest("evaluate-character", `{"contractVersion":"rules-character.v1","inputs":{"play":{"quickUse":`+value+`}}}`))
 		assertRPCError(t, err, workerrpc.KindInvalidRequest)
 	}
+	for _, play := range []string{
+		`{"containers":"pack"}`, `{"containers":[1]}`, `{"containers":[{"id":"pack","name":"Pack","capacity":99}]}`,
+		`{"containers":[{"id":"pack","name":"Pack","parentId":"pouch"}]}`, `{"inventory":[{"containerId":5}]}`,
+	} {
+		_, err := handler.HandleRPC(context.Background(), rpcRequest("evaluate-character", `{"contractVersion":"rules-character.v1","inputs":{"play":`+play+`}}`))
+		assertRPCError(t, err, workerrpc.KindInvalidRequest)
+	}
 	for _, value := range []string{`"true"`, `1`, `[]`, `{}`} {
 		_, err := handler.HandleRPC(context.Background(), rpcRequest("evaluate-character", `{"contractVersion":"rules-character.v1","inputs":{"play":{"inspiration":`+value+`}}}`))
 		assertRPCError(t, err, workerrpc.KindInvalidRequest)

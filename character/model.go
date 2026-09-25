@@ -67,6 +67,7 @@ type Build struct {
 }
 type Item struct {
 	ID          string     `json:"id"`
+	ContainerID string     `json:"containerId,omitempty"`
 	Reference   *Reference `json:"reference,omitempty"`
 	SpellID     string     `json:"spellId,omitempty"`
 	Name        string     `json:"name"`
@@ -77,10 +78,15 @@ type Item struct {
 	GrantID     string     `json:"grantId,omitempty"`
 	Notes       string     `json:"notes"`
 }
+type Container struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
 type Play struct {
 	// Optional so existing schema-4 characters remain valid without rewriting.
 	Inspiration    *bool               `json:"inspiration,omitempty"`
 	QuickUse       []string            `json:"quickUse,omitempty"`
+	Containers     []Container         `json:"containers,omitempty"`
 	Rolls          []PlayRoll          `json:"rolls"`
 	HP             int                 `json:"hp"`
 	TemporaryHP    int                 `json:"temporaryHp"`

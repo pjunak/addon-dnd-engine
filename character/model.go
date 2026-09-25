@@ -80,6 +80,7 @@ type Item struct {
 type Play struct {
 	// Optional so existing schema-4 characters remain valid without rewriting.
 	Inspiration    *bool               `json:"inspiration,omitempty"`
+	QuickUse       []string            `json:"quickUse,omitempty"`
 	Rolls          []PlayRoll          `json:"rolls"`
 	HP             int                 `json:"hp"`
 	TemporaryHP    int                 `json:"temporaryHp"`

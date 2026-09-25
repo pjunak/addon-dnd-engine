@@ -163,6 +163,30 @@ not mutate Engine inputs. The coordinator's existing explicit save/adoption
 policy determines whether an already saved invalid selection is withdrawn.
 This covers base species size, not temporary transformations or combat rules.
 
+## Quick-use inventory references
+
+`play.quickUse` is an optional ordered list of distinct owned inventory instance
+IDs, bounded by the character input limit. Omitting it leaves existing characters
+unchanged. Pins never duplicate item records, quantities, source references,
+grant links or notes. Stored and depleted instances may remain pinned; missing
+or duplicate references block saving without normalization.
+
+`guidance.authoredPlay.quickUse: true` advertises support. Per-instance
+`guidance.quickUse[id]` returns `canUse` and a stable reason (`empty`, `stored`,
+or `build`). The saved `sheet.quickUse` rows and explanation retain order,
+instance identity, name, quantity, location and availability for reading.
+Availability describes the item; only live guidance authorizes an action.
+
+`character-play` accepts `{operation:"consume-item", itemId}`. It uses one
+positive-quantity carried/equipped instance and rejects extra fields. No item
+effects, healing, rest replenishment or encounter resolution are implied. Using
+the last unit retains the entry, pin and notes while clearing its attunement
+and moving an equipped empty instance to carried, in the same detached result.
+All ordinary validation still applies. Explicit item deletion must also remove
+its pin in the same proposed input; an unpin alone never deletes inventory.
+Consumers persist through their existing authenticated optimistic command and
+exact-retry boundary.
+
 ## Equipment eligibility
 
 `guidance.equipment` is keyed by inventory instance ID. Each entry exposes

@@ -836,6 +836,17 @@
                 "null"
               ]
             },
+            "quickUse": {
+              "items": {
+                "maxLength": 30000,
+                "type": "string"
+              },
+              "maxItems": 500,
+              "type": [
+                "array",
+                "null"
+              ]
+            },
             "resourceUses": {
               "additionalProperties": {
                 "maximum": 1000000,

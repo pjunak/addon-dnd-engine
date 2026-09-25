@@ -111,7 +111,8 @@ func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset)
 	characterEditorGuidance(input, decisions, records, profile, &result)
 	inspiration := input.Play.Inspiration != nil && *input.Play.Inspiration
 	result.Sheet["inspiration"] = inspiration
-	result.Guidance["authoredPlay"] = Object{"inspiration": true}
+	result.Guidance["authoredPlay"] = Object{"inspiration": true, "quickUse": true}
+	characterQuickUse(input, &result)
 	result.Explanations["inspiration"] = character.Explanation{Label: "Inspiration", Formula: "Authored play state. Awarding and spending Inspiration are explicit edits; calculation and rest do not change it.", Value: inspiration, Terms: []character.Term{}, Sources: []character.Reference{}}
 	return result
 }
@@ -210,6 +211,10 @@ func ApplyCharacterPlay(input character.Inputs, change Object, records Records, 
 	}
 	input = cloneCharacter(current.Inputs)
 	switch text(change["operation"]) {
+	case "consume-item":
+		if err := consumeCharacterItem(&input, change); err != nil {
+			return current, err
+		}
 	case "spend-hit-die":
 		resource := findPlayResource(Object(current.Sheet), text(change["key"]))
 		roll, ok := change["result"].(float64)

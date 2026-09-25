@@ -10,6 +10,7 @@ import (
 )
 
 func validateCharacter(input character.Inputs, decisions Object, records Records, profile Ruleset, result *character.Result) {
+	validateCharacterQuickUse(input, result)
 	block := func(id, target, message string) { addCharacterIssue(result, id, target, message, "blocker", nil) }
 	if len(input.Build.Levels) == 0 || len(input.Build.Levels) > profile.Constants.Character.MaximumLevel {
 		block("levels", "levels", fmt.Sprintf("Choose between 1 and %d ordered class levels.", profile.Constants.Character.MaximumLevel))

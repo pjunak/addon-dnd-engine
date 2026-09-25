@@ -301,7 +301,19 @@ func findCharacterChoice(plan Object, id string, decisions Object, records Recor
 	return nil
 }
 
+type progressionChecks struct {
+	classes bool
+	feats   bool
+	featID  string
+}
+
 func validateCharacterProgression(input character.Inputs, records Records, profile Ruleset, result *character.Result) {
+	validateSelectedProgression(input, records, profile, result, progressionChecks{classes: true, feats: true})
+}
+
+// Editor options consume only one family of progression issues. Keep the same
+// acquisition-order validation, without calculating issues the caller discards.
+func validateSelectedProgression(input character.Inputs, records Records, profile Ruleset, result *character.Result, checks progressionChecks) {
 	seenClasses := map[string]bool{}
 	seenFeats := map[string]bool{}
 	featCounts := map[string]int{}
@@ -310,10 +322,14 @@ func validateCharacterProgression(input character.Inputs, records Records, profi
 		prefix := cloneCharacter(input)
 		prefix.Build.Levels = prefix.Build.Levels[:index+1]
 		detached := character.Result{Issues: []character.Issue{}}
-		authored := characterDecisions(prefix, records, profile, &detached)
-		acquisitions := selectedFeatAcquisitions(authored, records, collectClassChoices(values(authored["classes"]), object(authored["featureChoices"]), records, profile))
-		decisions := NormalizeBuilderDecisions(authored, records, profile)
-		if index > 0 && !seenClasses[level.ClassID] {
+		var acquisitions []featAcquisition
+		var decisions Object
+		if checks.feats {
+			authored := characterDecisions(prefix, records, profile, &detached)
+			acquisitions = selectedFeatAcquisitions(authored, records, collectClassChoices(values(authored["classes"]), object(authored["featureChoices"]), records, profile))
+			decisions = NormalizeBuilderDecisions(authored, records, profile)
+		}
+		if checks.classes && index > 0 && !seenClasses[level.ClassID] {
 			classIDs := []string{level.ClassID}
 			for id := range seenClasses {
 				classIDs = append(classIDs, id)
@@ -345,6 +361,9 @@ func validateCharacterProgression(input character.Inputs, records Records, profi
 			}
 		}
 		seenClasses[level.ClassID] = true
+		if !checks.feats {
+			continue
+		}
 		newFeats := map[string]bool{}
 		for _, feat := range objects(decisions["feats"]) {
 			id := text(feat["featId"])
@@ -352,15 +371,19 @@ func validateCharacterProgression(input character.Inputs, records Records, profi
 				newFeats[id] = true
 			}
 		}
-		plan := BuilderPlan(decisions, records, profile)
+		var plan Object
 		for _, acquired := range acquisitions {
 			id := acquired.featID
 			if seenAcquisitions[acquired.id] {
 				continue
 			}
 			seenAcquisitions[acquired.id] = true
-			record := recordByID(records, "feat", id)
 			featCounts[id]++
+			seenFeats[id] = true
+			if checks.featID != "" && checks.featID != id {
+				continue
+			}
+			record := recordByID(records, "feat", id)
 			if !featRepetitionAllowed(record, featCounts[id]) {
 				message := "This feat cannot be acquired more than once."
 				if object(record["repeatable"]) != nil {
@@ -371,7 +394,12 @@ func validateCharacterProgression(input character.Inputs, records Records, profi
 				}
 				addCharacterIssue(result, "feat:"+id, "choices", message, "blocker", &character.Reference{Kind: "feat", ID: id})
 			}
-			seenFeats[id] = true
+			if emptyPrerequisite(record["prerequisites"]) {
+				continue
+			}
+			if plan == nil {
+				plan = BuilderPlan(decisions, records, profile)
+			}
 			prior := cloneObjectDeep(decisions)
 			remaining := []any{}
 			for _, current := range objects(prior["feats"]) {
@@ -415,7 +443,7 @@ func characterGrantFromFeat(grant Object, featID string, plan, decisions Object)
 // Predicates are a small serializable vocabulary. Narrative prerequisites need
 // an exact recorded waiver; the engine never parses prose into authority.
 func validatePrerequisite(value any, id, target string, input character.Inputs, sheet Object, result *character.Result, reference *character.Reference) {
-	if value == nil || object(value) != nil && len(object(value)) == 0 {
+	if emptyPrerequisite(value) {
 		return
 	}
 	for _, grant := range activeCharacterGrants(input) {
@@ -434,6 +462,10 @@ func validatePrerequisite(value any, id, target string, input character.Inputs, 
 	}
 	addCharacterIssue(result, id, target, message, "blocker", reference)
 }
+func emptyPrerequisite(value any) bool {
+	return value == nil || object(value) != nil && len(object(value)) == 0
+}
+
 func prerequisiteMatches(value Object, sheet Object) (bool, bool) {
 	return prerequisiteMatchesDepth(value, sheet, 0)
 }

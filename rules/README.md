@@ -37,6 +37,10 @@ by the finite pool, and rejects unknown policies. Missing choices can save;
 duplicates and later choices remain repairable through ordinary Builder guidance. Structured all/any,
 ability, level and feature predicates are evaluated; unsupported prose requires
 a specific recorded DM waiver. Invalid later choices remain available for repair.
+Editor options reuse the same acquisition-order checks, restricted to the class
+or candidate feat issues they consume. Saved characters still receive all
+progression checks. Empty prerequisites skip sheet hydration without bypassing
+repeatability checks; calculations never cache eligibility across requests.
 
 Source facts and explanations are retained separately from compact calculated
 class/species/background identities. Numeric rows include their calculation

@@ -46,7 +46,7 @@ func characterEditorGuidance(input character.Inputs, decisions Object, records R
 			candidate := cloneCharacter(input)
 			candidate.Build.Levels = append(candidate.Build.Levels, character.Level{ID: "editor-next-level", ClassID: text(class["id"])})
 			check := character.Result{Issues: []character.Issue{}}
-			validateCharacterProgression(candidate, records, profile, &check)
+			validateSelectedProgression(candidate, records, profile, &check, progressionChecks{classes: true})
 			allowed := true
 			for _, issue := range check.Issues {
 				if strings.HasPrefix(issue.ID, "multiclass:") && issue.Severity == "blocker" {
@@ -104,7 +104,7 @@ func characterEditorGuidance(input character.Inputs, decisions Object, records R
 				value, _ := json.Marshal(text(option["id"]))
 				candidate.Build.Choices = append(choices, character.Choice{ID: text(choice["id"]), Value: value})
 				check := character.Result{Issues: []character.Issue{}}
-				validateCharacterProgression(candidate, records, profile, &check)
+				validateSelectedProgression(candidate, records, profile, &check, progressionChecks{feats: true, featID: text(option["id"])})
 				allowed := true
 				for _, issue := range check.Issues {
 					if issue.ID == "feat:"+text(option["id"]) && issue.Severity == "blocker" {

@@ -163,6 +163,38 @@ not mutate Engine inputs. The coordinator's existing explicit save/adoption
 policy determines whether an already saved invalid selection is withdrawn.
 This covers base species size, not temporary transformations or combat rules.
 
+Public character DTO changes must regenerate `contracts/character-*.schema.json`
+with `go run ./cmd/character-contract`. The character tests reject stale packaged
+input/result schemas before release.
+
+## Body placement
+
+An inventory instance may carry optional `bodyPlacement`, chosen from the
+source record's `bodyPlacements`. The vocabulary is `head`, `body`, `wrists`,
+`legs`, `feet`, `face`, `neck`, `shoulders`, `waist`, `gloves` and `other`.
+These are presentation groups, not anatomy assumptions or mechanical slots.
+Multiple accessories may use the same group; armor/shield exclusivity and
+attunement remain independently enforced. Names, browse tags and catalog kind
+never infer placement. Missing, duplicate or unknown source declarations offer
+no placement. A custom item with active linked DM mechanics may use any group;
+the declaration never grants that authority to an ordinary narrative item.
+
+Only positive-quantity equipped instances may be assigned. Omission is valid
+and evaluation never supplies defaults. Invalid or withdrawn placements remain
+unchanged with a save blocker; consumers can explicitly clear them for repair.
+Stowing or zeroing an item must clear placement in the same input. The final
+`consume-item` unit clears it in the detached play result, retaining item/pin
+identity, notes and acquisition. Other evaluation/play operations preserve it.
+
+`guidance.authoredPlay.bodyPlacement: true` advertises editing. Each
+`guidance.equipment[id].bodyPlacements` lists source-compatible groups, while
+`canEquip` still determines mechanical eligibility.
+`sheet.equipment[id].bodyPlacements` retains the source facts for reading;
+`sheet.bodyPlacement` retains authored `{itemId,name,placement}` rows and a
+saved explanation. Neither saved projection authorizes an action.
+The optional field remains in v4; older providers may reject it and must never
+silently remove it. The Sheets owner supplies the reviewed schema-4 upgrade.
+
 ## Storage containers and membership
 
 `play.containers` optionally stores ordered `{id,name}` organizational groups.

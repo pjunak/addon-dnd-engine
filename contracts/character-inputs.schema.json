@@ -573,6 +573,10 @@
               "attuned": {
                 "type": "boolean"
               },
+              "bodyPlacement": {
+                "maxLength": 30000,
+                "type": "string"
+              },
               "containerId": {
                 "maxLength": 30000,
                 "type": "string"

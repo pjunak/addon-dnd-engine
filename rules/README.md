@@ -47,6 +47,15 @@ class/species/background identities. Numeric rows include their calculation
 context; primary statistics include explicit terms, limits and source references.
 Applied and suppressed DM/item contributions share one explanation format.
 
+Body placement is independent authored organization. Only current source facts
+or an active linked custom-item ruling supply placement choices. Multiple items
+may share a display group without bypassing armor/shield or attunement limits.
+Validation retains invalid assignments for explicit repair; calculation and
+rest never move them. Consuming the final unit clears placement atomically.
+Pure cases cover Face/Legs facts from arbitrary source IDs, multiple accessories,
+malformed/withdrawn declarations, custom authority, incomplete builds, detached
+results and unchanged statistics.
+
 ## Verification
 
 Character regressions cover deterministic recalculation, DM revocation/expiry,

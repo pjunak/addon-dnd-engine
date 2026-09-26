@@ -66,17 +66,18 @@ type Build struct {
 	Spells     SpellDecisions    `json:"spells"`
 }
 type Item struct {
-	ID          string     `json:"id"`
-	ContainerID string     `json:"containerId,omitempty"`
-	Reference   *Reference `json:"reference,omitempty"`
-	SpellID     string     `json:"spellId,omitempty"`
-	Name        string     `json:"name"`
-	Quantity    int        `json:"quantity"`
-	Location    string     `json:"location"`
-	Attuned     bool       `json:"attuned"`
-	Acquisition string     `json:"acquisition"`
-	GrantID     string     `json:"grantId,omitempty"`
-	Notes       string     `json:"notes"`
+	ID            string     `json:"id"`
+	ContainerID   string     `json:"containerId,omitempty"`
+	BodyPlacement string     `json:"bodyPlacement,omitempty"`
+	Reference     *Reference `json:"reference,omitempty"`
+	SpellID       string     `json:"spellId,omitempty"`
+	Name          string     `json:"name"`
+	Quantity      int        `json:"quantity"`
+	Location      string     `json:"location"`
+	Attuned       bool       `json:"attuned"`
+	Acquisition   string     `json:"acquisition"`
+	GrantID       string     `json:"grantId,omitempty"`
+	Notes         string     `json:"notes"`
 }
 type Container struct {
 	ID   string `json:"id"`

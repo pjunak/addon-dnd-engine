@@ -37,7 +37,7 @@ func characterEditorGuidance(input character.Inputs, decisions Object, records R
 	result.Guidance["equipment"] = characterEquipmentOptions(input, records, profile, result)
 	slots := Object{}
 	for id, raw := range object(result.Guidance["equipment"]) {
-		slots[id] = Object{"slot": object(raw)["slot"]}
+		slots[id] = Object{"slot": object(raw)["slot"], "bodyPlacements": object(raw)["bodyPlacements"]}
 	}
 	result.Sheet["equipment"] = slots
 	options := []any{}

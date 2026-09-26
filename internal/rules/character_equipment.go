@@ -84,7 +84,7 @@ func characterEquipmentOptions(input character.Inputs, records Records, profile 
 		if item.Reference != nil {
 			record = recordByID(records, item.Reference.Kind, item.Reference.ID)
 		}
-		entry := Object{"canEquip": false, "canAttune": false, "slot": characterEquipmentSlot(record)}
+		entry := Object{"canEquip": false, "canAttune": false, "slot": characterEquipmentSlot(record), "bodyPlacements": characterBodyPlacements(item, record, input)}
 		options[item.ID] = entry
 		if item.Quantity < 1 {
 			entry["equipReason"], entry["attuneReason"] = "empty", "empty"

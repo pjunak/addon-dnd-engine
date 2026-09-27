@@ -307,6 +307,81 @@
               "maxLength": 30000,
               "type": "string"
             },
+            "replacements": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "classId": {
+                    "maxLength": 30000,
+                    "type": "string"
+                  },
+                  "classLevel": {
+                    "maximum": 1000000,
+                    "minimum": -1000000,
+                    "type": "integer"
+                  },
+                  "in": {
+                    "maxLength": 30000,
+                    "type": "string"
+                  },
+                  "key": {
+                    "maxLength": 30000,
+                    "type": "string"
+                  },
+                  "kind": {
+                    "maxLength": 30000,
+                    "type": "string"
+                  },
+                  "origin": {
+                    "maxLength": 30000,
+                    "type": "string"
+                  },
+                  "out": {
+                    "maxLength": 30000,
+                    "type": "string"
+                  },
+                  "slot": {
+                    "maximum": 1000000,
+                    "minimum": -1000000,
+                    "type": "integer"
+                  },
+                  "source": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": {
+                        "maxLength": 30000,
+                        "type": "string"
+                      },
+                      "kind": {
+                        "maxLength": 30000,
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "id"
+                    ],
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "source",
+                  "classId",
+                  "classLevel",
+                  "kind",
+                  "key",
+                  "slot",
+                  "out",
+                  "in"
+                ],
+                "type": "object"
+              },
+              "maxItems": 500,
+              "type": [
+                "array",
+                "null"
+              ]
+            },
             "rolls": {
               "items": {
                 "additionalProperties": false,

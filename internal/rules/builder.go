@@ -313,7 +313,7 @@ func appendRecordChoices(result *[]any, rawGrants any, context choiceContext) {
 }
 
 func copyChoiceFields(descriptor, choice Object) {
-	for _, key := range []string{"from", "category", "prompt", "default", "changeOn"} {
+	for _, key := range []string{"from", "category", "prompt", "default", "changeOn", "levelReplacements"} {
 		if value, exists := choice[key]; exists {
 			descriptor[key] = cloneValue(value)
 		}

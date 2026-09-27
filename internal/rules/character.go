@@ -63,6 +63,7 @@ func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset)
 	}
 	validateCharacter(input, decisions, untracked, profile, &result)
 	validateCharacterSpellProgression(input, untracked, profile, &result)
+	validateClassReplacementLedger(input, profile, &result)
 	for _, section := range objects(result.Guidance["sections"]) {
 		for _, issue := range objects(section["issues"]) {
 			addCharacterIssue(&result, "choice:"+text(issue["id"]), text(issue["id"]), text(issue["label"]), "blocker", nil)
@@ -122,6 +123,7 @@ func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset)
 	characterQuickUse(input, &result)
 	characterStorage(input, &result)
 	characterPlacement(input, &result)
+	result.Guidance["classReplacements"] = classReplacementOptions(input, records, profile, &result)
 	result.Explanations["inspiration"] = character.Explanation{Label: "Inspiration", Formula: "Authored play state. Awarding and spending Inspiration are explicit edits; calculation and rest do not change it.", Value: inspiration, Terms: []character.Term{}, Sources: []character.Reference{}}
 	return result
 }
@@ -223,6 +225,9 @@ func characterDecisions(input character.Inputs, records Records, profile Ruleset
 }
 
 func ApplyCharacterPlay(input character.Inputs, change Object, records Records, profile Ruleset) (character.Result, error) {
+	if text(change["operation"]) == "replace-class-choice" {
+		return replaceClassChoice(input, change, records, profile)
+	}
 	if operation := text(change["operation"]); operation == "set-hand" || operation == "set-grip" {
 		return applyCharacterHandCommand(input, change, records, profile)
 	}

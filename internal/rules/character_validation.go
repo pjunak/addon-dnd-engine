@@ -318,11 +318,9 @@ func validateCharacterProgression(input character.Inputs, records Records, profi
 func validateSelectedProgression(input character.Inputs, records Records, profile Ruleset, result *character.Result, checks progressionChecks) {
 	seenClasses := map[string]bool{}
 	seenFeats := map[string]bool{}
-	featCounts := map[string]int{}
-	seenAcquisitions := map[string]bool{}
+	seenAcquisitions := map[string]string{}
 	for index, level := range input.Build.Levels {
-		prefix := cloneCharacter(input)
-		prefix.Build.Levels = prefix.Build.Levels[:index+1]
+		prefix := replacementPrefix(input, index+1)
 		detached := character.Result{Issues: []character.Issue{}}
 		var acquisitions []featAcquisition
 		var decisions Object
@@ -337,8 +335,7 @@ func validateSelectedProgression(input character.Inputs, records Records, profil
 				classIDs = append(classIDs, id)
 			}
 			sort.Strings(classIDs)
-			beforeLevel := cloneCharacter(prefix)
-			beforeLevel.Build.Levels = beforeLevel.Build.Levels[:index]
+			beforeLevel := replacementPrefix(input, index)
 			priorDecisions := NormalizeBuilderDecisions(characterDecisions(beforeLevel, records, profile, &detached), records, profile)
 			applyCharacterAbilityEffects(beforeLevel, priorDecisions, &detached, profile, records)
 			beforeSheet := Hydrate(priorDecisions, records, &profile).Sheet
@@ -374,14 +371,17 @@ func validateSelectedProgression(input character.Inputs, records Records, profil
 			}
 		}
 		var plan Object
+		featCounts := map[string]int{}
+		currentAcquisitions := map[string]string{}
+		for _, acquired := range acquisitions {
+			featCounts[acquired.featID]++
+			currentAcquisitions[acquired.id] = acquired.featID
+		}
 		for _, acquired := range acquisitions {
 			id := acquired.featID
-			if seenAcquisitions[acquired.id] {
+			if seenAcquisitions[acquired.id] == id {
 				continue
 			}
-			seenAcquisitions[acquired.id] = true
-			featCounts[id]++
-			seenFeats[id] = true
 			if checks.featID != "" && checks.featID != id {
 				continue
 			}
@@ -424,6 +424,11 @@ func validateSelectedProgression(input character.Inputs, records Records, profil
 			applyCharacterAbilityEffects(prefix, prior, &detached, profile, records)
 			before := Hydrate(prior, records, &profile).Sheet
 			validatePrerequisite(record["prerequisites"], "feat:"+id, "choices", prefix, before, result, &character.Reference{Kind: "feat", ID: id})
+		}
+		seenAcquisitions = currentAcquisitions
+		seenFeats = map[string]bool{}
+		for id := range featCounts {
+			seenFeats[id] = true
 		}
 	}
 }

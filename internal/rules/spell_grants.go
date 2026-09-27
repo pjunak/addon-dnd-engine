@@ -154,6 +154,11 @@ func hydrateSpellGrants(
 		if text(spell["free"]) != "" && count == 1 {
 			object(pendingChoices[len(pendingChoices)-1])["free"] = spell["free"]
 		}
+		if spell["levelReplacements"] != nil {
+			entry := object(pendingChoices[len(pendingChoices)-1])
+			entry["levelReplacements"] = cloneValue(spell["levelReplacements"])
+			entry["acquiredAt"] = max(integer(spell["atLevel"], integer(spell["level"], 1)), integer(recordByID(records, text(source["type"]), text(source["id"]))["level"], 1))
+		}
 	}
 
 	for _, current := range classes {

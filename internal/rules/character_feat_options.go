@@ -13,6 +13,13 @@ func simpleFeatOptionAllowed(input character.Inputs, descriptor, choice, feat Ob
 	if integer(choice["count"], 1) > 1 || prerequisiteNeedsSheet(object(feat["prerequisites"]), 0) {
 		return false, false
 	}
+	// A replacement can move this acquisition, or another copy of the same
+	// feat, to a later level. The progression validator reconstructs that history.
+	for _, entry := range input.Build.Replacements {
+		if entry.Kind == "feat" && (entry.Key == text(choice["id"]) || entry.In == text(feat["id"]) || entry.Out == text(feat["id"])) {
+			return false, false
+		}
+	}
 	source := object(descriptor["source"])
 	classID := text(descriptor["classId"])
 	if classID == "" && text(source["type"]) != "background" && text(source["type"]) != "species" {

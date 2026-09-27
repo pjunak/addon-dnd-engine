@@ -54,16 +54,31 @@ type SpellAcquisition struct {
 	ScrollID string  `json:"scrollId,omitempty"`
 }
 type Build struct {
-	Method     string            `json:"method"`
-	BaseScores map[string]int    `json:"baseScores"`
-	Rolls      []Roll            `json:"rolls"`
-	Species    string            `json:"species"`
-	Lineage    string            `json:"lineage"`
-	Background string            `json:"background"`
-	Levels     []Level           `json:"levels"`
-	Subclasses map[string]string `json:"subclasses"`
-	Choices    []Choice          `json:"choices"`
-	Spells     SpellDecisions    `json:"spells"`
+	Replacements []ClassReplacement `json:"replacements,omitempty"`
+	Method       string             `json:"method"`
+	BaseScores   map[string]int     `json:"baseScores"`
+	Rolls        []Roll             `json:"rolls"`
+	Species      string             `json:"species"`
+	Lineage      string             `json:"lineage"`
+	Background   string             `json:"background"`
+	Levels       []Level            `json:"levels"`
+	Subclasses   map[string]string  `json:"subclasses"`
+	Choices      []Choice           `json:"choices"`
+	Spells       SpellDecisions     `json:"spells"`
+}
+
+// ClassReplacement records consumption of one source-owned class-level allowance.
+// It survives retroactive Builder corrections; it is not a character snapshot.
+type ClassReplacement struct {
+	Origin     string    `json:"origin,omitempty"`
+	Source     Reference `json:"source"`
+	ClassID    string    `json:"classId"`
+	ClassLevel int       `json:"classLevel"`
+	Kind       string    `json:"kind"`
+	Key        string    `json:"key"`
+	Slot       int       `json:"slot"`
+	Out        string    `json:"out"`
+	In         string    `json:"in"`
 }
 type Item struct {
 	ID            string     `json:"id"`

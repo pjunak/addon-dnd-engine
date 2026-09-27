@@ -88,9 +88,28 @@ feat categories and nonrepeatable acquisition checks still apply.
 
 A granted spell's optional source-declared class membership is retained as
 `source.classId` without replacing the granting record identity. Its selected
-list and casting ability remain independent facts. This is current-state build
-editing; dedicated level-up replacement actions for class-granted choices are
-not supplied by this contract.
+list and casting ability remain independent facts.
+
+Class-owned feat choices with `changeOn: "classLevel"` and
+`levelReplacements: 1`, and spell-choice grants with `levelReplacements: 1`,
+declare one replacement after the feature's acquisition level. The additive
+`guidance.classReplacements` array supplies the owning class/source, choice key,
+current class level, picked slots, eligible options and remaining allowance.
+Consumers issue `replace-class-choice` with only `kind` (`feat` or `spell`),
+`key`, `out` and `ref`. The Engine derives the owner and slot from current
+guidance and appends a typed optional `build.replacements` entry atomically with
+the changed choice. Legal incomplete builds may use this command; invalid
+authored choices must be repaired first.
+
+The ledger records source, class ID/level, kind, key, slot, outgoing/incoming
+IDs and `recorded`/`import` origin. Its budget belongs to that grant and class
+level, not a replaceable level-row ID. Another class level, rests, imports,
+source withdrawal/reselection and provider changes do not restore it. Unused
+prior levels are not banked. Ordinary Builder corrections remain possible but
+must preserve the ledger. Earlier prerequisite checks reconstruct unchanged
+feat replacement chains, so later acquisitions neither invalidate a legal
+current feat nor qualify an earlier multiclass step. New candidates must still
+satisfy their exact acquisition prerequisites and nonrepeatable restrictions.
 
 An empty advancement `featCategories` list with no level-specific categories
 means no category restriction; each option still needs its own prerequisites.

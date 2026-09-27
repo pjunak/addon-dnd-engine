@@ -37,7 +37,7 @@ func characterEffectSources(input character.Inputs, records Records) []character
 			continue
 		}
 		key := item.Reference.Kind + ":" + item.Reference.ID
-		active := item.Quantity > 0 && item.Location == "equipped" && (!truth(record["attunement"]) || item.Attuned) && !applied[key]
+		active := item.Quantity > 0 && item.Location == "equipped" && !characterItemSuspended(input, item.ID) && (!truth(record["attunement"]) || item.Attuned) && !applied[key]
 		if active {
 			applied[key] = true
 		}

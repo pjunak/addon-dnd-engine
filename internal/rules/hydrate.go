@@ -749,7 +749,14 @@ func hydrateWeaponsAndAttunement(
 		if record == nil {
 			continue
 		}
-		weapons = append(weapons, weaponAttack(record, mods, pb, proficiency, mastery, preferredAbility))
+		attack := weaponAttack(record, mods, pb, proficiency, mastery, preferredAbility)
+		if grip := text(item["handGrip"]); grip != "" {
+			attack["itemId"], attack["grip"] = item["id"], grip
+			if grip == "two" && text(attack["versatileDamage"]) != "" {
+				attack["damage"] = attack["versatileDamage"]
+			}
+		}
+		weapons = append(weapons, attack)
 	}
 	sheet["weapons"] = weapons
 	limit := ruleset.Constants.AttunementLimit

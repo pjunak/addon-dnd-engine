@@ -85,6 +85,7 @@ type Container struct {
 }
 type Play struct {
 	// Optional so existing schema-4 characters remain valid without rewriting.
+	Hands          *Hands              `json:"hands,omitempty"`
 	Inspiration    *bool               `json:"inspiration,omitempty"`
 	QuickUse       []string            `json:"quickUse,omitempty"`
 	Containers     []Container         `json:"containers,omitempty"`
@@ -97,6 +98,21 @@ type Play struct {
 	ActiveFeatures map[string]bool     `json:"activeFeatures"`
 	PreparedSpells map[string][]string `json:"preparedSpells"`
 	AsOf           string              `json:"asOf"`
+}
+
+type Hands struct {
+	Main         string         `json:"main"`
+	Off          string         `json:"off"`
+	Grip         string         `json:"grip"`
+	SuspendedOff *SuspendedHand `json:"suspendedOff,omitempty"`
+}
+
+// The fingerprint binds restoration to the exact instance left carried by the
+// grip command. Subsequent moves, consumption or edits never get overwritten.
+type SuspendedHand struct {
+	ItemID             string `json:"itemId"`
+	ExpectedItemSHA256 string `json:"expectedItemSha256"`
+	BodyPlacement      string `json:"bodyPlacement,omitempty"`
 }
 type PlayRoll struct {
 	Origin   string `json:"origin,omitempty"`

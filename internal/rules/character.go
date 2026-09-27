@@ -98,6 +98,7 @@ func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset)
 	}
 	appendEffectExplanations(input, &result, records)
 	scopeCharacterExplanationSources(input, normalized, hydrated.Sheet, calculationEvidence, result.Explanations)
+	validateCharacterHands(input, records, &result)
 	result.Ready = true
 	for _, issue := range result.Issues {
 		if issue.Severity == "blocker" {
@@ -111,7 +112,8 @@ func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset)
 	characterEditorGuidance(input, decisions, records, profile, &result)
 	inspiration := input.Play.Inspiration != nil && *input.Play.Inspiration
 	result.Sheet["inspiration"] = inspiration
-	result.Guidance["authoredPlay"] = Object{"inspiration": true, "quickUse": true, "storage": true, "bodyPlacement": true}
+	result.Guidance["authoredPlay"] = Object{"inspiration": true, "quickUse": true, "storage": true, "bodyPlacement": true, "hands": true}
+	characterHands(input, records, &result)
 	characterQuickUse(input, &result)
 	characterStorage(input, &result)
 	characterPlacement(input, &result)
@@ -192,6 +194,15 @@ func characterDecisions(input character.Inputs, records Records, profile Ruleset
 			continue
 		}
 		entry := Object{"id": item.ID, "name": item.Name, "qty": item.Quantity, "location": item.Location, "attuned": item.Attuned, "notes": item.Notes}
+		if characterItemSuspended(input, item.ID) {
+			entry["location"] = "carried"
+		}
+		if hands := play.Hands; hands != nil && (item.ID == hands.Main || item.ID == hands.Off) {
+			entry["handGrip"] = "one"
+			if item.ID == hands.Main {
+				entry["handGrip"] = hands.Grip
+			}
+		}
 		if item.SpellID != "" {
 			entry["spellRef"] = item.SpellID
 		}
@@ -207,6 +218,9 @@ func characterDecisions(input character.Inputs, records Records, profile Ruleset
 }
 
 func ApplyCharacterPlay(input character.Inputs, change Object, records Records, profile Ruleset) (character.Result, error) {
+	if operation := text(change["operation"]); operation == "set-hand" || operation == "set-grip" {
+		return applyCharacterHandCommand(input, change, records, profile)
+	}
 	current := EvaluateCharacter(input, records, profile)
 	if !current.Ready {
 		return current, fmt.Errorf("Resolve the character's blocking choices before applying play changes.")

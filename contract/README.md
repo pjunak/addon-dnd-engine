@@ -145,6 +145,40 @@ it. Consumers must retain saved reading and fail changes without silently
 dropping the value. The Sheets schema includes the same optional DTO field;
 its reviewed upgrade is documented by the [persistence owner](../../addon-dnd-character-sheets/docs/RULES_EDGE_CASES.md#inspiration-and-compatible-schema-upgrades).
 
+## Hands and grip
+
+Optional `inputs.play.hands` contains `main` and `off` owned inventory IDs
+(empty means free), `grip: "one" | "two"`, and optional `suspendedOff`.
+The suspended value records `itemId`, `expectedItemSha256` and optional prior
+`bodyPlacement`. The digest comes from `character.HandItemFingerprint` over the
+complete typed item after suspension. Absent hand state stays absent; the Engine
+does not choose items or rewrite earlier characters during evaluation.
+
+`character-play` accepts closed `{operation:"set-hand", hand:"main"|"off",
+itemId}` and `{operation:"set-grip", grip:"one"|"two"}` changes. Selecting an
+item equips that exact instance, clears container membership and stows the old
+selection. A two-handed grip suspends only the selected off-hand instance:
+carry it, clear its body placement and exclude its active equipment effects,
+while retaining attunement, quantity, notes, source and acquisition. Releasing
+the grip restores the exact still-carried, unchanged, positive-quantity,
+eligible instance and prior compatible placement. Missing, consumed, moved,
+edited, ineligible or blocked instances leave the hand free; no item is created.
+
+`guidance.authoredPlay.hands: true` advertises editing, including on legal
+unfinished builds. `guidance.hands` supplies instance options (`canMain`,
+`canOff`, `grips`), `canTwo`, `canRelease` and `restoreReason`. Saved
+`sheet.hands` and its explanation contain selected identities and active state.
+A failed restoration records `restoreReason` and `unrestoredItem` in the saved
+projection; stable reasons are `missing`, `empty`, `changed`, `ineligible` and
+`occupied`. Ordinary evaluation/play preserves authored hand state. Removed
+or stowed selections stay available for explicit repair with an inactive
+warning; malformed identities/grips and excess equipped hand capacity block saves.
+
+Existing v4 requests without hands remain compatible. Consumers must retain
+saved reading when an older provider rejects the optional input. The Sheets
+coordinator additionally checks that provider responses preserve unrelated
+authored values; its schema upgrade uses the existing compatible-data review.
+
 ## Species size
 
 A species may declare `sizeOptions` as distinct canonical size labels.
@@ -270,7 +304,8 @@ class/spellcaster predicate vocabulary, rest timing, distance or death tracking.
 
 Commands include damage, healing, direct HP, temporary HP, short/long rests,
 recorded hit-die spending, declared feature activation, spell/grant selections,
-casting, rituals, copying and level-up spell replacement. Each command validates
+casting, rituals, copying, level-up spell replacement and the hand operations
+above. Each command validates
 its own fields and uses the same evaluation before and after applying it.
 An invalid character must be repaired in Build before dependent play actions.
 

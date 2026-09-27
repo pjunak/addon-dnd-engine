@@ -56,6 +56,29 @@ Pure cases cover Face/Legs facts from arbitrary source IDs, multiple accessories
 malformed/withdrawn declarations, custom authority, incomplete builds, detached
 results and unchanged statistics.
 
+## Held equipment
+
+The optional hand model uses source facts: `damage`, `properties`
+(`two-handed`, `versatile`), `versatileDamage`, and `armorType: "shield"`.
+No record or provider ID supplies a rule. A selected versatile weapon uses its
+two-handed die in both the attack row and saved explanation; selected rows
+retain the owned `itemId` and `grip`, including when multiple copies share a
+source record. Equipped hand items consume at most two hands once this model is
+authored; required-two-handed weapons consume both. Legacy characters without
+hand state retain their existing projection and inventory behavior.
+
+Suspension excludes attacks, shield AC, item effects and item-conditioned DM
+effects, even if another editor moves the suspended instance. It does not
+release attunement capacity. Restoration requires the exact post-suspension
+item fingerprint and current source eligibility. Changing even its notes
+requires an explicit subsequent hand selection instead of automatic restoration.
+
+The [official 2024 equipment rules](https://www.dndbeyond.com/sources/dnd/br-2024/equipment)
+inform the supported grip/damage and shield behavior. This is equipment state,
+not action or encounter simulation: shield don/doff costs, attack timing and
+conditional mounted exceptions are not automated. Undeclared item mechanics
+remain outside the supported hand options.
+
 ## Verification
 
 Character regressions cover deterministic recalculation, DM revocation/expiry,

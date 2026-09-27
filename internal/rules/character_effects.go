@@ -23,6 +23,9 @@ func characterGrantActive(grant character.Grant, input character.Inputs) bool {
 	}
 	for _, item := range input.Play.Inventory {
 		if item.ID == grant.ItemID && item.Quantity > 0 {
+			if hands := input.Play.Hands; hands != nil && hands.SuspendedOff != nil && hands.SuspendedOff.ItemID == item.ID {
+				return false
+			}
 			return grant.Condition == "equipped" && item.Location == "equipped" || grant.Condition == "attuned" && item.Attuned
 		}
 	}

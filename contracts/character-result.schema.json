@@ -759,6 +759,51 @@
                 "null"
               ]
             },
+            "hands": {
+              "additionalProperties": false,
+              "properties": {
+                "grip": {
+                  "maxLength": 30000,
+                  "type": "string"
+                },
+                "main": {
+                  "maxLength": 30000,
+                  "type": "string"
+                },
+                "off": {
+                  "maxLength": 30000,
+                  "type": "string"
+                },
+                "suspendedOff": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "bodyPlacement": {
+                      "maxLength": 30000,
+                      "type": "string"
+                    },
+                    "expectedItemSha256": {
+                      "maxLength": 30000,
+                      "type": "string"
+                    },
+                    "itemId": {
+                      "maxLength": 30000,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "itemId",
+                    "expectedItemSha256"
+                  ],
+                  "type": "object"
+                }
+              },
+              "required": [
+                "main",
+                "off",
+                "grip"
+              ],
+              "type": "object"
+            },
             "hp": {
               "maximum": 1000000,
               "minimum": -1000000,

@@ -79,6 +79,17 @@ not action or encounter simulation: shield don/doff costs, attack timing and
 conditional mounted exceptions are not automated. Undeclared item mechanics
 remain outside the supported hand options.
 
+## Condition tracking
+
+Condition IDs, level limits and supported effects come from the profile-selected
+rule record. Optional authored selections stay detached and survive ordinary
+evaluation/rest. Movement restrictions apply after other bonuses; zero Speed
+wins and all results have a floor of zero. The D20 penalty remains an explicit
+roll adjustment, separate from base statistics and spell save DCs. Existing
+condition immunities suppress effects without discarding tracked selections.
+This is bounded sheet guidance, not expiry, targeting or encounter resolution.
+See the [condition contract](../contract/README.md#authored-conditions).
+
 ## Verification
 
 Character regressions cover deterministic recalculation, DM revocation/expiry,

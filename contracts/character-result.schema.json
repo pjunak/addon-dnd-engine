@@ -722,6 +722,32 @@
               "maxLength": 30000,
               "type": "string"
             },
+            "conditions": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "maxLength": 30000,
+                    "type": "string"
+                  },
+                  "level": {
+                    "maximum": 1000000,
+                    "minimum": -1000000,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "id",
+                  "level"
+                ],
+                "type": "object"
+              },
+              "maxItems": 500,
+              "type": [
+                "array",
+                "null"
+              ]
+            },
             "containers": {
               "items": {
                 "additionalProperties": false,

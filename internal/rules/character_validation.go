@@ -10,6 +10,7 @@ import (
 )
 
 func validateCharacter(input character.Inputs, decisions Object, records Records, profile Ruleset, result *character.Result) {
+	validateCharacterConditions(input, records, profile, result)
 	validateCharacterQuickUse(input, result)
 	validateCharacterStorage(input, result)
 	validateCharacterPlacement(input, records, result)

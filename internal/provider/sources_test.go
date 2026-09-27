@@ -24,6 +24,7 @@ func (sources sourcesCaller) Call(_ context.Context, method string, params any, 
 		Method   string `json:"method"`
 		Params   struct {
 			Kind string `json:"kind"`
+			ID   string `json:"id"`
 		} `json:"params"`
 	}
 	if err := json.Unmarshal(encoded, &request); err != nil {
@@ -40,6 +41,18 @@ func (sources sourcesCaller) Call(_ context.Context, method string, params any, 
 			kinds[record.Kind]++
 		}
 		result = map[string]any{"contractVersion": "content-catalog.v1", "sets": []any{map[string]any{"id": "rules", "revision": source.revision, "recordCount": len(source.records), "kinds": kinds, "schemaSha256": strings.Repeat("a", 64)}}}
+	} else if request.Method == "get" {
+		var selected *Record
+		for _, record := range source.records {
+			if record.Kind == request.Params.Kind && record.ID == request.Params.ID {
+				copy := record
+				selected = &copy
+			}
+		}
+		if selected == nil {
+			return nil, workerrpc.NewRPCError(workerrpc.JSONRPCInvalidParams, workerrpc.KindNotFound, "Missing fixture record", false, nil)
+		}
+		result = map[string]any{"contractVersion": "content-record.v1", "setId": "rules", "revision": source.revision, "record": selected}
 	} else {
 		records := []Record{}
 		for _, record := range source.records {

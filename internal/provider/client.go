@@ -252,6 +252,15 @@ func (client *Client) Repository(
 			repository.names[kind][normalized] = record.ID
 		}
 	}
+	if policy := profile.Ruleset.Constants.Character; policy != nil && policy.ConditionRules != "" {
+		record, found, err := client.referencedRecord(ctx, meta, catalog.Identity, "rule", policy.ConditionRules)
+		if err != nil {
+			return nil, err
+		}
+		if found {
+			repository.records["rule"] = map[string]Record{record.ID: record}
+		}
+	}
 	confirmed, err := client.Catalog(ctx, meta)
 	if err != nil {
 		return nil, err

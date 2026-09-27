@@ -112,7 +112,12 @@ func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset)
 	characterEditorGuidance(input, decisions, records, profile, &result)
 	inspiration := input.Play.Inspiration != nil && *input.Play.Inspiration
 	result.Sheet["inspiration"] = inspiration
-	result.Guidance["authoredPlay"] = Object{"inspiration": true, "quickUse": true, "storage": true, "bodyPlacement": true, "hands": true}
+	result.Guidance["authoredPlay"] = Object{"inspiration": true, "quickUse": true, "storage": true, "bodyPlacement": true, "hands": true, "conditions": true}
+	characterConditions(input, records, profile, &result)
+	if len(input.Play.Conditions) > 0 && profile.Constants.Character.ConditionRules != "" {
+		_, _ = tracked.Value("rule", profile.Constants.Character.ConditionRules)
+	}
+	result.Evidence = tracked.evidence()
 	characterHands(input, records, &result)
 	characterQuickUse(input, &result)
 	characterStorage(input, &result)

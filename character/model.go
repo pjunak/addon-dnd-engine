@@ -85,6 +85,7 @@ type Container struct {
 }
 type Play struct {
 	// Optional so existing schema-4 characters remain valid without rewriting.
+	Conditions     []Condition         `json:"conditions,omitempty"`
 	Hands          *Hands              `json:"hands,omitempty"`
 	Inspiration    *bool               `json:"inspiration,omitempty"`
 	QuickUse       []string            `json:"quickUse,omitempty"`
@@ -98,6 +99,11 @@ type Play struct {
 	ActiveFeatures map[string]bool     `json:"activeFeatures"`
 	PreparedSpells map[string][]string `json:"preparedSpells"`
 	AsOf           string              `json:"asOf"`
+}
+
+type Condition struct {
+	ID    string `json:"id"`
+	Level int    `json:"level"`
 }
 
 type Hands struct {

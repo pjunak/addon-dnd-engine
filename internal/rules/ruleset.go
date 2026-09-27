@@ -19,6 +19,7 @@ type Ruleset struct {
 }
 
 type CharacterPolicy struct {
+	ConditionRules   string `json:"conditionRules,omitempty"`
 	UniqueAttunement bool   `json:"uniqueAttunement"`
 	MaximumLevel     int    `json:"maximumLevel"`
 	MinimumHPGain    int    `json:"minimumHpGain"`

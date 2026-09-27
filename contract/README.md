@@ -145,6 +145,38 @@ it. Consumers must retain saved reading and fail changes without silently
 dropping the value. The Sheets schema includes the same optional DTO field;
 its reviewed upgrade is documented by the [persistence owner](../../addon-dnd-character-sheets/docs/RULES_EDGE_CASES.md#inspiration-and-compatible-schema-upgrades).
 
+## Authored conditions
+
+Optional `inputs.play.conditions` contains ordered, distinct `{id,level}` rows.
+The complete rules profile may name a `constants.character.conditionRules`
+record with closed `conditionDefinitions`; [the provider field contract](../../addon-dnd-2024-compendium/data/SCHEMA.md#condition-definitions)
+owns these source facts. No catalog or edition defaults are embedded in the
+Engine. Unknown IDs, duplicates and invalid levels block saving without changing
+input. Missing/malformed definitions offer no choices; saved selections remain
+available for explicit removal or source restoration.
+
+`guidance.authoredPlay.conditions: true` advertises support. `guidance.conditions`
+returns `available` and `options` with identity, name, summary, reference,
+`maximumLevel` and `canAdd`. Existing condition immunities make a retained
+selection inactive and prevent offering it as a new choice; gaining immunity
+does not erase authored tracking. Legal incomplete builds can retain conditions.
+
+Saved `sheet.conditions` rows carry level, source, summary, active/immune/
+unavailable status and a terminal-level marker. Movement restrictions apply
+after equipment/DM bonuses to walking and all declared special speeds, with
+zero Speed taking precedence and a floor of zero. `sheet.conditionEffects.
+d20Adjustment` is a separate signed roll adjustment, **not included** in ability
+modifiers, skill/save/attack bonuses, Initiative or spell save DCs. Consumers
+must show that distinction. Explanations retain source facts for offline reading.
+
+Evaluation and ordinary play/rest preserve the input list. Adding/removing
+conditions and changing levels are explicit authored edits. Expiry, rest
+exceptions, advantage, targeting, concentration, dropping items, inferred
+conditions, death and condition-implied conditions are not automated. No HP,
+inventory or core status is changed by a condition. Optional inputs remain in
+v4; older providers may reject them. Sheets must preserve saved reading and
+reject a provider that drops or rewrites the authored list.
+
 ## Hands and grip
 
 Optional `inputs.play.hands` contains `main` and `off` owned inventory IDs

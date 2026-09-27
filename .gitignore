@@ -2,6 +2,7 @@
 coverage/
 coverage.out
 dist/
+/worker/
 
 # Secrets and private keys
 .env

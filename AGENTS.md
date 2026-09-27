@@ -36,7 +36,7 @@ contracts/          public JSON Schemas for the worker service
 internal/engine/    worker service boundary
 internal/provider/  brokered rules-data v3 client
 internal/rules/     deterministic host-free computation
-worker/             committed platform binaries used by reviewed packages
+worker/             ignored platform binaries generated for reviewed packages
 ```
 
 These ownership rules are mandatory:
@@ -120,7 +120,7 @@ For changed concurrent rules/provider/engine behavior, also run
 platform and C toolchain support it; report any unavailable coverage.
 
 For worker, schema, manifest or packaging changes and release candidates,
-build the committed worker binaries and deterministic install archive with
+build the native workers from source and the deterministic install archive with
 `go run ./cmd/build-package`. Inspect the archive with the sibling host's
 `codex-addon-inspect` command before committing a release candidate.
 
@@ -132,8 +132,12 @@ go run ./cmd/codex-addon-inspect ../addon-dnd-engine/dist/dnd-engine-4.0.0.zip
 
 Source edits are not visible in the running app until the worker is rebuilt,
 packaged, staged, reviewed, and activated. Keep manifest entrypoints
-synchronized with committed platform binaries and retain meaningful Go
+synchronized with generated platform binaries and retain meaningful Go
 coverage for every public method.
+
+`worker/` and `dist/` are ignored build output, not source. Packaging must work
+without them and preserve tracked source. Public generated schemas remain
+versioned; regenerate them through `go run ./cmd/character-contract` when needed.
 
 The only durable suite backlog is
 `../ttrpg-codex/docs/BACKLOG.md`. Temporary cross-repository implementation

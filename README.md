@@ -36,8 +36,11 @@ go test -race ./internal/rules ./internal/provider ./internal/engine
 go run ./cmd/build-package
 ```
 
-The build generates character schemas from the public Go model and packages
-committed Windows amd64, Linux amd64 and Linux arm64 workers. Inspect the ZIP
+Generate versioned character schemas from the public Go model with
+`go run ./cmd/character-contract` when that model changes. The package command
+rebuilds Windows amd64, Linux amd64 and Linux arm64 workers from source;
+`worker/` and `dist/` are ignored build output, never committed. CI requires
+builds to leave tracked source unchanged. Inspect the ZIP
 from the host with `go run ./cmd/codex-addon-inspect ../addon-dnd-engine/dist/dnd-engine-4.0.0.zip`.
 Installation uses stage, permission review, approval and activation.
 

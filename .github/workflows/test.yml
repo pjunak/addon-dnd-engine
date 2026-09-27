@@ -41,6 +41,11 @@ jobs:
       - name: Build release package
         run: go run ./cmd/build-package
         working-directory: addon-dnd-engine
+      - name: Verify builds preserve source ownership
+        run: |
+          git diff --exit-code
+          test -z "$(git ls-files -- worker)"
+        working-directory: addon-dnd-engine
       - name: Locate built package
         id: package
         shell: bash

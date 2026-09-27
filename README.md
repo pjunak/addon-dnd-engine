@@ -30,11 +30,17 @@ Use Go from [go.mod](go.mod). Its local SDK replacement expects a compatible
 `ttrpg-codex` checkout beside this repository.
 
 ```text
-go test ./...
-go vet ./...
-go test -race ./internal/rules ./internal/provider ./internal/engine
+go run ./tools/check.go
 go run ./cmd/build-package
 ```
+
+The check runner uses gofmt, vet and pinned Staticcheck, then runs all tests and
+the rules/provider/engine race tests. Use `go run ./tools/check.go fast` for the
+short edit loop, `format` to apply gofmt, `workflows` for actionlint, and `vuln`
+for govulncheck against the current vulnerability database. The race detector
+requires a supported C compiler. CI runs the analysis gates before publication
+and checks workflows/vulnerabilities weekly. Tool versions live separately in
+`go.tools.mod` and `go.tools.sum`; no npm toolchain is needed for this engine.
 
 Generate versioned character schemas from the public Go model with
 `go run ./cmd/character-contract` when that model changes. The package command

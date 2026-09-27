@@ -105,9 +105,9 @@ func findRepositoryRoot() (string, error) {
 }
 
 func buildWorkers(root string) error {
-	goExecutable := filepath.Join(runtime.GOROOT(), "bin", "go")
-	if runtime.GOOS == "windows" {
-		goExecutable += ".exe"
+	goExecutable, err := exec.LookPath("go")
+	if err != nil {
+		return fmt.Errorf("locate Go executable: %w", err)
 	}
 	for _, item := range targets {
 		output := filepath.Join(root, filepath.FromSlash(item.path))
@@ -271,8 +271,7 @@ func createArchive(root, destination string) error {
 		if strings.HasPrefix(name, "worker/linux-") {
 			mode = 0o755
 		}
-		header := &zip.FileHeader{Name: name, Method: zip.Deflate}
-		header.SetModTime(fixedTime)
+		header := &zip.FileHeader{Name: name, Method: zip.Deflate, Modified: fixedTime}
 		header.SetMode(mode)
 		writer, err := archive.CreateHeader(header)
 		if err != nil {

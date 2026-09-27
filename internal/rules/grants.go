@@ -238,10 +238,3 @@ func cloneObject(source Object) Object {
 	}
 	return result
 }
-
-func nullableObject(value any) any {
-	if current := object(value); current != nil {
-		return current
-	}
-	return nil
-}

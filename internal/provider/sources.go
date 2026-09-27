@@ -12,7 +12,7 @@ import (
 	"github.com/pjunak/ttrpg-codex/sdk/go/workerrpc"
 )
 
-// Bindings come from initialization, never from a registry probe or known package ID.
+// FromWorker uses bindings from initialization, never a registry probe or known package ID.
 func FromWorker(worker workerrpc.NativeWorkerContext) (*Client, error) {
 	ids := []string{}
 	for _, raw := range worker.Initialization.Services {

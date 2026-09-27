@@ -111,13 +111,17 @@ checks on unchanged inputs; preserve complete CI and release gates.
 For Go/runtime changes, the complete validation is:
 
 ```text
-go test ./...
-go vet ./...
+go run ./tools/check.go
 ```
 
-For changed concurrent rules/provider/engine behavior, also run
-`go test -race ./internal/rules ./internal/provider ./internal/engine` where the
-platform and C toolchain support it; report any unavailable coverage.
+The runner checks formatting, vet and Staticcheck, runs all Go tests and the
+rules/provider/engine race tests. The race detector requires a supported C
+toolchain and fails visibly if unavailable. Use `go run ./tools/check.go fast`
+for static feedback while editing and `go run ./tools/check.go format` to apply
+gofmt. CI also runs the `workflows` (actionlint) and `vuln` (govulncheck) modes;
+run those locally when changing automation or dependencies. Analysis tools are
+pinned independently in `go.tools.mod`/`go.tools.sum`; this Go-only repository
+does not need Node, TypeScript or Oxlint.
 
 For worker, schema, manifest or packaging changes and release candidates,
 build the native workers from source and the deterministic install archive with

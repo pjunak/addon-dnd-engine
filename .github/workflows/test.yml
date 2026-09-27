@@ -31,12 +31,17 @@ jobs:
           go-version-file: addon-dnd-engine/go.mod
           cache-dependency-path: |
             addon-dnd-engine/go.sum
+            addon-dnd-engine/go.tools.sum
             ttrpg-codex/go.sum
-      - run: go test ./...
+      - run: go mod download -modfile=go.tools.mod
         working-directory: addon-dnd-engine
-      - run: go vet ./...
+      - run: go run ./tools/check.go workflows
         working-directory: addon-dnd-engine
-      - run: go test -race ./internal/rules ./internal/provider ./internal/engine
+      - run: go run ./tools/check.go vuln
+        working-directory: addon-dnd-engine
+      - run: go run ./tools/check.go fast
+        working-directory: addon-dnd-engine
+      - run: go run ./tools/check.go test
         working-directory: addon-dnd-engine
       - name: Build release package
         run: go run ./cmd/build-package

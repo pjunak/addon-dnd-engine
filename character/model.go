@@ -128,7 +128,7 @@ type Hands struct {
 	SuspendedOff *SuspendedHand `json:"suspendedOff,omitempty"`
 }
 
-// The fingerprint binds restoration to the exact instance left carried by the
+// SuspendedHand binds restoration to the exact instance left carried by the
 // grip command. Subsequent moves, consumption or edits never get overwritten.
 type SuspendedHand struct {
 	ItemID             string `json:"itemId"`

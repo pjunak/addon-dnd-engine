@@ -1,2 +1,7 @@
-# Normalize text in the repository; working-tree line endings remain platform-native.
-* text=auto
+# Auto detect text files and keep them LF across development platforms.
+* text=auto eol=lf
+
+# Keep Go tooling deterministic across Windows and Unix checkouts.
+*.go text eol=lf
+*.mod text eol=lf
+*.sum text eol=lf

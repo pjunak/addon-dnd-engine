@@ -1,0 +1,54 @@
+name: Quality maintenance
+
+on:
+  # PR/main enforcement remains in the existing publication workflow's test job.
+  schedule:
+    - cron: "47 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  queue: max
+
+jobs:
+  workflows:
+    name: Workflow policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.tools.sum
+      - run: go mod download -modfile=go.tools.mod
+      - run: go run ./tools/check.go workflows
+
+  vulnerabilities:
+    name: Reachable Go vulnerabilities
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: addon-dnd-engine
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: addon-dnd-engine
+      - uses: actions/checkout@v7
+        with:
+          repository: pjunak/ttrpg-codex
+          path: ttrpg-codex
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: addon-dnd-engine/go.mod
+          cache-dependency-path: |
+            addon-dnd-engine/go.sum
+            addon-dnd-engine/go.tools.sum
+            ttrpg-codex/go.sum
+      - run: go mod download -modfile=go.tools.mod
+      - run: go run ./tools/check.go vuln

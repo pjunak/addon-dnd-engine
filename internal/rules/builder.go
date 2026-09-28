@@ -36,7 +36,7 @@ func BuilderPlan(decisions Object, records Records, ruleset Ruleset) Object {
 			continue
 		}
 		feat := object(choice["feat"])
-		selected := recordByID(records, "feat", text(object(decisions["featureChoices"])[text(feat["id"])]))
+		selected := recordView(records, "feat", text(object(decisions["featureChoices"])[text(feat["id"])]))
 		if object(object(selected["grants"])["abilityScoreIncrease"]) != nil {
 			feat["ability"] = findAbilityChoice(plan, text(object(feat["ability"])["id"]), decisions, records)
 		}
@@ -59,7 +59,7 @@ func NormalizeBuilderDecisions(decisions Object, records Records, ruleset Rulese
 	}
 	acquisitions := []any{}
 	for _, acquired := range selectedFeatAcquisitions(copy, records, values(plan["classChoices"])) {
-		record := recordByID(records, "feat", acquired.featID)
+		record := recordView(records, "feat", acquired.featID)
 		source := Object{"type": "feat", "id": acquired.featID}
 		if featChoiceOwner(acquired, record) != "feat:"+acquired.featID {
 			source["name"] = firstText(record["name"], acquired.featID)
@@ -82,11 +82,12 @@ func ApplyBuilderChoice(
 	records Records,
 	ruleset Ruleset,
 ) Object {
-	return applyBuilderChoiceWithPlan(decisions, change, records, BuilderPlan(decisions, records, ruleset))
+	return applyOwnedBuilderChoice(cloneObjectDeep(decisions), change, records, BuilderPlan(decisions, records, ruleset))
 }
 
-func applyBuilderChoiceWithPlan(decisions, change Object, records Records, plan Object) Object {
-	copy := cloneObjectDeep(decisions)
+// The caller owns this decision map. Character input decoding already creates
+// one; the public choice operation detaches its caller's map before entering.
+func applyOwnedBuilderChoice(copy, change Object, records Records, plan Object) Object {
 	choiceID := text(change["choiceId"])
 	if choiceID == "" {
 		return copy
@@ -134,7 +135,7 @@ func applyBuilderChoiceWithPlan(decisions, change Object, records Records, plan 
 	}
 	if choiceID == text(feat["id"]) {
 		removeGrant(copy, text(featAbility["id"]))
-		selectedFeat := recordByID(records, "feat", value)
+		selectedFeat := recordView(records, "feat", value)
 		increase := object(object(selectedFeat["grants"])["abilityScoreIncrease"])
 		eligible := FeatASIFrom(increase)
 		if increase != nil && len(eligible) == 1 {
@@ -173,7 +174,7 @@ func collectClassChoices(classes []any, selections Object, records Records, rule
 	for classIndex, rawSelected := range classes {
 		selected := object(rawSelected)
 		classID := text(selected["classId"])
-		record := recordByID(records, "class", classID)
+		record := recordView(records, "class", classID)
 		if record == nil {
 			continue
 		}
@@ -193,7 +194,7 @@ func collectClassChoices(classes []any, selections Object, records Records, rule
 		}
 		appendRecordChoices(&result, record["grants"], context)
 		subclassID := text(selected["subclass"])
-		subclass := recordByID(records, "subclass", subclassID)
+		subclass := recordView(records, "subclass", subclassID)
 		context = choiceContext{
 			owner: subclassID, classID: classID, classLevel: classLevel, sourceType: "subclass",
 			fallbackLevel: integer(subclass["subclassLevel"], 3), records: records, masteryEnabled: masteryEnabled, selections: selections,
@@ -364,7 +365,7 @@ func collectCreationChoices(source Object, records Records, classChoices []any) 
 	result := collectOriginChoices(source, records)
 	seen := map[string]bool{}
 	for _, acquired := range selectedFeatAcquisitions(source, records, classChoices) {
-		for _, choice := range objects(featChoices(acquired, recordByID(records, "feat", acquired.featID))) {
+		for _, choice := range objects(featChoices(acquired, recordView(records, "feat", acquired.featID))) {
 			if id := text(choice["id"]); !seen[id] {
 				seen[id] = true
 				result = append(result, choice)
@@ -566,7 +567,7 @@ func findAbilityChoice(plan Object, id string, source Object, records Records) O
 		featAbility := object(feat["ability"])
 		if text(featAbility["id"]) == id {
 			featID := text(object(source["featureChoices"])[text(feat["id"])])
-			selected := recordByID(records, "feat", featID)
+			selected := recordView(records, "feat", featID)
 			increase := object(object(selected["grants"])["abilityScoreIncrease"])
 			if increase == nil || len(FeatASIFrom(increase)) == 0 {
 				return nil

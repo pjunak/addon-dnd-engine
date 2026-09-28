@@ -320,14 +320,17 @@ func validateSelectedProgression(input character.Inputs, records Records, profil
 	seenFeats := map[string]bool{}
 	seenAcquisitions := map[string]string{}
 	for index, level := range input.Build.Levels {
+		if !checks.feats && (index == 0 || seenClasses[level.ClassID]) {
+			seenClasses[level.ClassID] = true
+			continue
+		}
 		prefix := replacementPrefix(input, index+1)
 		detached := character.Result{Issues: []character.Issue{}}
 		var acquisitions []featAcquisition
-		var decisions Object
+		var authored Object
 		if checks.feats {
-			authored := characterDecisions(prefix, records, profile, &detached)
+			authored = characterDecisions(prefix, records, profile, &detached)
 			acquisitions = selectedFeatAcquisitions(authored, records, collectClassChoices(values(authored["classes"]), object(authored["featureChoices"]), records, profile))
-			decisions = NormalizeBuilderDecisions(authored, records, profile)
 		}
 		if checks.classes && index > 0 && !seenClasses[level.ClassID] {
 			classIDs := []string{level.ClassID}
@@ -364,13 +367,7 @@ func validateSelectedProgression(input character.Inputs, records Records, profil
 			continue
 		}
 		newFeats := map[string]bool{}
-		for _, feat := range objects(decisions["feats"]) {
-			id := text(feat["featId"])
-			if !seenFeats[id] {
-				newFeats[id] = true
-			}
-		}
-		var plan Object
+		var decisions, plan Object
 		featCounts := map[string]int{}
 		currentAcquisitions := map[string]string{}
 		for _, acquired := range acquisitions {
@@ -400,6 +397,15 @@ func validateSelectedProgression(input character.Inputs, records Records, profil
 				continue
 			}
 			if plan == nil {
+				// Earlier levels still discover acquisitions and repetition, but
+				// need no normalized sheet unless a new relevant feat requires it.
+				decisions = NormalizeBuilderDecisions(authored, records, profile)
+				for _, feat := range objects(decisions["feats"]) {
+					id := text(feat["featId"])
+					if !seenFeats[id] {
+						newFeats[id] = true
+					}
+				}
 				plan = BuilderPlan(decisions, records, profile)
 			}
 			prior := cloneObjectDeep(decisions)

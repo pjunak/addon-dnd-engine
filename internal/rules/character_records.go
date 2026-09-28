@@ -40,6 +40,13 @@ func (records *characterRecordSnapshot) Provenance(kind, id string) SourceIdenti
 	return SourceIdentity{}
 }
 func (records *characterRecordSnapshot) recordObject(kind, id string) Object {
+	value := records.recordView(kind, id)
+	if value == nil {
+		return nil
+	}
+	return copyRecordObject(value)
+}
+func (records *characterRecordSnapshot) recordView(kind, id string) Object {
 	key := kind + ":" + id
 	value, loaded := records.objects[key]
 	if !loaded {
@@ -47,10 +54,7 @@ func (records *characterRecordSnapshot) recordObject(kind, id string) Object {
 		value, _ = DecodeObject(body)
 		records.objects[key] = value
 	}
-	if value == nil {
-		return nil
-	}
-	return copyRecordObject(value)
+	return value
 }
 func (records *characterRecordSnapshot) recordCatalog(kind string) []Object {
 	list, loaded := records.lists[kind]

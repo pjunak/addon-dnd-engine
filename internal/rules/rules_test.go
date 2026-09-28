@@ -71,7 +71,7 @@ func TestRulesetRejectsIncompleteAndInheritedProfiles(t *testing.T) {
 	}
 }
 
-func syntheticRuleset(t *testing.T) Ruleset {
+func syntheticRuleset(t testing.TB) Ruleset {
 	t.Helper()
 	body, err := os.ReadFile(filepath.Join("..", "..", "testdata", "synthetic-ruleset.json"))
 	if err != nil {

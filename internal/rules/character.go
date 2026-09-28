@@ -181,11 +181,11 @@ func characterDecisions(input character.Inputs, records Records, profile Ruleset
 			if assignment := object(value); assignment != nil {
 				for _, ability := range Abilities {
 					if amount, exists := assignment[ability]; exists {
-						decisions = applyBuilderChoiceWithPlan(decisions, Object{"choiceId": choice.ID, "value": Object{"ability": ability, "amount": amount}}, records, plan)
+						decisions = applyOwnedBuilderChoice(decisions, Object{"choiceId": choice.ID, "value": Object{"ability": ability, "amount": amount}}, records, plan)
 					}
 				}
 			} else {
-				decisions = applyBuilderChoiceWithPlan(decisions, Object{"choiceId": choice.ID, "slot": choice.Slot, "value": value}, records, plan)
+				decisions = applyOwnedBuilderChoice(decisions, Object{"choiceId": choice.ID, "slot": choice.Slot, "value": value}, records, plan)
 				if kind := text(descriptor["kind"]); kind == "feat" || kind == "asiMode" || kind == "enumerated" {
 					plan = BuilderPlan(decisions, records, profile)
 				}

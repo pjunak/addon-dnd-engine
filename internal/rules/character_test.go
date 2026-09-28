@@ -112,7 +112,7 @@ func mustJSON(value any) json.RawMessage {
 	return body
 }
 
-func characterFixture(t *testing.T) (character.Inputs, Records, Ruleset) {
+func characterFixture(t testing.TB) (character.Inputs, Records, Ruleset) {
 	t.Helper()
 	profile := syntheticRuleset(t)
 	profile.Constants.Character = &CharacterPolicy{MaximumLevel: 20, MinimumHPGain: 1, StandardArray: []int{15, 14, 13, 12, 10, 8}, RollDice: 4, RollSides: 6, RollKeep: 3, DistanceUnit: "ft"}

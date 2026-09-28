@@ -37,6 +37,19 @@ func recordByID(records Records, kind, id string) Object {
 	return value
 }
 
+// recordView lends an immutable record within this calculation, like
+// recordCatalog. Callers must copy any nested values they put in mutable output;
+// calculations that change a source record must keep using recordByID.
+func recordView(records Records, kind, id string) Object {
+	if records == nil || id == "" {
+		return nil
+	}
+	if cached, ok := records.(interface{ recordView(string, string) Object }); ok {
+		return cached.recordView(kind, id)
+	}
+	return recordByID(records, kind, id)
+}
+
 func recordByName(records Records, kind, name string) Object {
 	if records == nil || name == "" {
 		return nil

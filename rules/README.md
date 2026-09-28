@@ -12,7 +12,8 @@ spell slots and recovery. Class/source facts supply specific progression,
 prerequisites, choices, activations and effects. No book/add-on ID selects math.
 
 Every evaluation builds fresh output. A request-local decoded record cache reuses
-immutable feature catalogs for read-only scans; mutable lookups remain detached.
+immutable feature catalogs and Builder source lookups for read-only work;
+mutable lookups and nested values copied into Builder output remain detached.
 The cache is discarded after evaluation, so provider and source-policy changes
 cannot reuse an earlier calculation's records. Character lookups use IDs only. Ordinary source bonuses precede typed
 minimum/set effects, and explicitly raised ability caps affect normal increases.
@@ -40,7 +41,10 @@ a specific recorded DM waiver. Invalid later choices remain available for repair
 Editor options reuse the same acquisition-order checks, restricted to the class
 or candidate feat issues they consume. Saved characters still receive all
 progression checks. Empty prerequisites skip sheet hydration without bypassing
-repeatability checks; calculations never cache eligibility across requests.
+repeatability checks. Progression normalizes earlier decisions only when a new
+relevant prerequisite needs them. Applying authored choices reuses the
+calculation's private decision map; the public Builder operation still detaches
+its input. Calculations never cache eligibility across requests.
 
 Source facts and explanations are retained separately from compact calculated
 class/species/background identities. Numeric rows include their calculation
@@ -96,6 +100,11 @@ Character regressions cover deterministic recalculation, DM revocation/expiry,
 ability caps, multiclass acquisition order, HP bounds, recorded dice, rest and
 spent counters, attunement, item effects, conditional flight/senses, copying costs
 and level replacement budgets. Worker tests exercise the closed v4 boundary.
+
+`go test ./internal/rules -run '^$' -bench BenchmarkMulticlassCharacterCatalog -benchmem`
+measures a synthetic multiclass calculation with a larger choice catalog.
+Ownership regressions mutate Builder results and reuse the same record snapshot
+to check that caller decisions and borrowed nested records stay separate.
 
 The 144 pinned v1 arithmetic/Builder vectors remain an independent oracle for
 shared helpers. They are synthetic expected-result data. Adapters needed only

@@ -27,7 +27,7 @@ func featChoiceOwner(acquired featAcquisition, record Object) string {
 func selectedFeatAcquisitions(source Object, records Records, classChoices []any) []featAcquisition {
 	result := []featAcquisition{}
 	add := func(id, featID, name, classID string, level int, ancestors []string) {
-		if featID == "" || contains(ancestors, featID) || recordByID(records, "feat", featID) == nil {
+		if featID == "" || contains(ancestors, featID) || recordView(records, "feat", featID) == nil {
 			return
 		}
 		result = append(result, featAcquisition{id: id, featID: featID, name: name, classID: classID, level: level,
@@ -55,10 +55,10 @@ func selectedFeatAcquisitions(source Object, records Records, classChoices []any
 				continue
 			}
 			ref := object(descriptor["source"])
-			name := firstText(recordByID(records, text(ref["type"]), text(ref["id"]))["name"], ref["id"])
+			name := firstText(recordView(records, text(ref["type"]), text(ref["id"]))["name"], ref["id"])
 			classID := text(descriptor["classId"])
 			if classID != "" {
-				name = firstText(recordByID(records, "class", classID)["name"], classID)
+				name = firstText(recordView(records, "class", classID)["name"], classID)
 			}
 			count := max(1, integer(choice["count"], 1))
 			for slot := 0; slot < count; slot++ {
@@ -79,7 +79,7 @@ func selectedFeatAcquisitions(source Object, records Records, classChoices []any
 		for processed < len(result) {
 			acquired := result[processed]
 			processed++
-			record := recordByID(records, "feat", acquired.featID)
+			record := recordView(records, "feat", acquired.featID)
 			appendSelections(featChoices(acquired, record), acquired.ancestors)
 		}
 	}

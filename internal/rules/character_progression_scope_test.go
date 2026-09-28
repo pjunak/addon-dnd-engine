@@ -116,3 +116,25 @@ func TestEmptyPrerequisitesStillEnforceFeatRepetition(t *testing.T) {
 		}
 	}
 }
+
+func TestEarlierUnrestrictedFeatStillQualifiesLaterAcquisition(t *testing.T) {
+	input, records, profile := progressionChoiceInput(t)
+	records.byKind["feat"]["training"] = mustJSON(Object{"kind": "feat", "id": "training", "category": "general",
+		"grants": Object{"abilityScoreIncrease": Object{"from": []any{"INT"}, "amount": 2}}})
+	records.byKind["feat"]["advanced"] = mustJSON(Object{"kind": "feat", "id": "advanced", "category": "general",
+		"prerequisites": Object{"abilities": Object{"INT": 14}},
+		"grants":        Object{"abilityScoreIncrease": Object{"from": []any{"INT"}, "amount": 2}}})
+	input.Build.Choices = []character.Choice{
+		{ID: "asi:fighter:4", Value: mustJSON("feat")}, {ID: "asi:fighter:4:feat", Value: mustJSON("training")},
+		{ID: "asi:fighter:8", Value: mustJSON("feat")}, {ID: "asi:fighter:8:feat", Value: mustJSON("advanced")},
+	}
+	qualified := EvaluateCharacter(input, records, profile)
+	if !qualified.Ready || !offeredFeat(qualified, "asi:fighter:8", "advanced") {
+		t.Fatal("earlier unrestricted training no longer qualifies the later feat", qualified.Issues)
+	}
+	input.Build.Choices = input.Build.Choices[2:]
+	withdrawn := EvaluateCharacter(input, records, profile)
+	if !hasFeatBlock(withdrawn, "advanced") || offeredFeat(withdrawn, "asi:fighter:8", "advanced") {
+		t.Fatal("later feat qualified using its own increase after earlier training was removed")
+	}
+}

@@ -39,16 +39,25 @@ jobs:
       - uses: actions/checkout@v7
         with:
           path: addon-dnd-engine
-      - uses: actions/checkout@v7
-        with:
-          repository: pjunak/ttrpg-codex
-          path: ttrpg-codex
       - uses: actions/setup-go@v7
         with:
           go-version-file: addon-dnd-engine/go.mod
           cache-dependency-path: |
             addon-dnd-engine/go.sum
             addon-dnd-engine/go.tools.sum
-            ttrpg-codex/go.sum
+            addon-dnd-engine/host-sdk-revision.txt
+      - name: Resolve immutable native build dependencies
+        id: dependencies
+        shell: bash
+        run: |
+          host_sdk=$(go run ./tools/check.go dependency-ref host-sdk-revision.txt)
+          printf 'host_sdk=%s\n' "$host_sdk" >> "$GITHUB_OUTPUT"
+        working-directory: addon-dnd-engine
+      - uses: actions/checkout@v7
+        with:
+          repository: pjunak/ttrpg-codex
+          ref: ${{ steps.dependencies.outputs.host_sdk }}
+          path: ttrpg-codex
+          persist-credentials: false
       - run: go mod download -modfile=go.tools.mod
       - run: go run ./tools/check.go vuln

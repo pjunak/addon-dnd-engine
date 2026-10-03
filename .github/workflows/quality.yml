@@ -1,7 +1,7 @@
 name: Quality maintenance
 
 on:
-  # PR/main enforcement remains in the existing publication workflow's test job.
+  # Weekly re-check for new advisories; pushes are checked by the Test workflow.
   schedule:
     - cron: "47 3 * * 1"
   workflow_dispatch:
@@ -32,32 +32,13 @@ jobs:
     name: Reachable Go vulnerabilities
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: addon-dnd-engine
     steps:
       - uses: actions/checkout@v7
-        with:
-          path: addon-dnd-engine
       - uses: actions/setup-go@v7
         with:
-          go-version-file: addon-dnd-engine/go.mod
+          go-version-file: go.mod
           cache-dependency-path: |
-            addon-dnd-engine/go.sum
-            addon-dnd-engine/go.tools.sum
-            addon-dnd-engine/host-sdk-revision.txt
-      - name: Resolve immutable native build dependencies
-        id: dependencies
-        shell: bash
-        run: |
-          host_sdk=$(go run ./tools/check.go dependency-ref host-sdk-revision.txt)
-          printf 'host_sdk=%s\n' "$host_sdk" >> "$GITHUB_OUTPUT"
-        working-directory: addon-dnd-engine
-      - uses: actions/checkout@v7
-        with:
-          repository: pjunak/ttrpg-codex
-          ref: ${{ steps.dependencies.outputs.host_sdk }}
-          path: ttrpg-codex
-          persist-credentials: false
+            go.sum
+            go.tools.sum
       - run: go mod download -modfile=go.tools.mod
       - run: go run ./tools/check.go vuln

@@ -107,7 +107,10 @@ Ownership regressions mutate Builder results and reuse the same record snapshot
 to check that caller decisions and borrowed nested records stay separate.
 
 The 144 pinned v1 arithmetic/Builder vectors remain an independent oracle for
-shared helpers. They are synthetic expected-result data. Adapters needed only
+shared helpers. They are frozen synthetic expected-result data with source
+revision and hashes in `testdata/v1-parity.json`; current behavior changes belong
+in Go regressions. The retired JavaScript reference generator is available in
+Git history and is not needed for checking or packaging. Adapters needed only
 by these fixtures live in `*_test.go` files, outside the production package. Explicit tested corrections include class proficiency summaries and
 excluding unarmored AC candidates while armor is worn. The installed suites
 exercise current v4 characters and package lifecycle separately.

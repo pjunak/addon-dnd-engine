@@ -3,6 +3,7 @@ name: Test
 on:
   push:
     branches: [main]
+    paths-ignore: ["**/*.md"]
   pull_request:
   workflow_dispatch:
 
@@ -20,67 +21,37 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
-        with:
-          path: addon-dnd-engine
       - uses: actions/setup-go@v7
         with:
-          go-version-file: addon-dnd-engine/go.mod
+          go-version-file: go.mod
           cache-dependency-path: |
-            addon-dnd-engine/go.sum
-            addon-dnd-engine/go.tools.sum
-            addon-dnd-engine/host-sdk-revision.txt
-      - name: Resolve immutable native build dependencies
-        id: dependencies
-        shell: bash
-        run: |
-          host_sdk=$(go run ./tools/check.go dependency-ref host-sdk-revision.txt)
-          printf 'host_sdk=%s\n' "$host_sdk" >> "$GITHUB_OUTPUT"
-        working-directory: addon-dnd-engine
-      - uses: actions/checkout@v7
-        with:
-          repository: pjunak/ttrpg-codex
-          ref: ${{ steps.dependencies.outputs.host_sdk }}
-          path: ttrpg-codex
-          persist-credentials: false
+            go.sum
+            go.tools.sum
       - run: go mod download -modfile=go.tools.mod
-        working-directory: addon-dnd-engine
       - run: go run ./tools/check.go workflows
-        working-directory: addon-dnd-engine
       - run: go run ./tools/check.go vuln
-        working-directory: addon-dnd-engine
       - run: go run ./tools/check.go fast
-        working-directory: addon-dnd-engine
       - run: go run ./tools/check.go test
-        working-directory: addon-dnd-engine
       - name: Build release package
         run: go run ./cmd/build-package
-        working-directory: addon-dnd-engine
-      - name: Verify builds preserve source ownership
+      - name: Verify the build left tracked source unchanged
         run: |
           git diff --exit-code
           test -z "$(git ls-files -- worker)"
-        working-directory: addon-dnd-engine
       - name: Locate built package
         id: package
-        shell: bash
         run: |
           archive="$(jq -er '"dist/\(.id)-\(.version).zip"' addon.json)"
           test -f "$archive"
-          printf 'archive=%s/%s\n' "$PWD" "$archive" >> "$GITHUB_OUTPUT"
-        working-directory: addon-dnd-engine
-      - name: Inspect release package with the host
-        env:
-          ADDON_ARCHIVE: ${{ steps.package.outputs.archive }}
-        run: go run ./cmd/codex-addon-inspect "$ADDON_ARCHIVE"
-        working-directory: ttrpg-codex
-
+          printf 'archive=%s\n' "$archive" >> "$GITHUB_OUTPUT"
+      - name: Inspect release package with the host inspector
+        run: go tool -modfile=go.tools.mod codex-addon-inspect "${{ steps.package.outputs.archive }}"
       - uses: actions/upload-artifact@v7
         with:
           name: reviewed-package
           path: ${{ steps.package.outputs.archive }}
           if-no-files-found: error
           retention-days: 14
-
 
   publish:
     name: Publish tested commit

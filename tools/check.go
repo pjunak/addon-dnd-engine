@@ -13,8 +13,6 @@ import (
 
 var raceTargets = []string{"./internal/rules", "./internal/provider", "./internal/engine"}
 
-var buildDependencyPins = []string{"host-sdk-revision.txt"}
-
 func main() {
 	command := "all"
 	if len(os.Args) > 1 {
@@ -32,29 +30,17 @@ func main() {
 		run("go", "tool", "-modfile=go.tools.mod", "govulncheck", "./...")
 	case "workflows":
 		workflows()
-	case "dependency-ref":
-		if len(os.Args) != 3 {
-			fmt.Fprintln(os.Stderr, "use dependency-ref <revision-file>")
-			os.Exit(2)
-		}
-		revision, err := readBuildDependencyRevision(os.Args[2])
-		must(err)
-		fmt.Println(revision)
 	case "format":
 		files := goFiles()
 		if len(files) > 0 {
 			run("gofmt", append([]string{"-w"}, files...)...)
 		}
 	default:
-		fmt.Fprintf(os.Stderr, "unknown check %q; use fast, test, vuln, workflows, dependency-ref, format, or all\n", command)
+		fmt.Fprintf(os.Stderr, "unknown check %q; use fast, test, vuln, workflows, format, or all\n", command)
 		os.Exit(2)
 	}
 }
 func fast() {
-	for _, pin := range buildDependencyPins {
-		_, err := readBuildDependencyRevision(pin)
-		must(err)
-	}
 	checkFormatting(goFiles())
 	run("go", "vet", "./...")
 	// Engine errors are complete user-facing sentences returned through the
@@ -128,24 +114,6 @@ func workflows() {
 	// actionlint 1.7.12 predates GitHub's queue property; keep all other validation.
 	args := []string{"tool", "-modfile=go.tools.mod", "actionlint", "-ignore", `unexpected key "queue" for "concurrency" section`}
 	run("go", append(args, files...)...)
-}
-
-// Resolve pins with the standard library so CI can run this before fetching
-// the local module replacements. Mutable refs cannot identify a commit release.
-func readBuildDependencyRevision(path string) (string, error) {
-	source, err := os.ReadFile(path)
-	if err != nil {
-		return "", fmt.Errorf("read build dependency pin %q: %w", path, err)
-	}
-	revision := strings.TrimSpace(string(source))
-	valid := len(revision) == 40
-	for _, character := range revision {
-		valid = valid && (character >= '0' && character <= '9' || character >= 'a' && character <= 'f')
-	}
-	if !valid {
-		return "", fmt.Errorf("build dependency pin %q must contain one full lowercase commit SHA", path)
-	}
-	return revision, nil
 }
 
 func gitOutput(args ...string) (string, error) { return output("git", args...) }

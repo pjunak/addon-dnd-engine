@@ -1,154 +1,62 @@
-# AGENTS.md — addon-dnd-engine
+# D&D Rules Engine add-on
 
-This repository contains the headless `dnd-engine` addon for the sibling
-`ttrpg-codex` host. Independently developed character sheets can discover its
-`dnd5e.rules-engine` service without installing the official sheet UI. The
-manifest ID and service identities are permanent compatibility contracts.
+The headless `dnd-engine` add-on for TTRPG Codex. A native Go worker that
+provides `dnd5e.rules-engine` v4 and consumes any compatible `dnd5e.rules-data`
+v3 provider. It has no UI and stores nothing. The add-on ID and service
+identities are permanent.
 
-## Read by task
+This is a personal project: keep rules correct and code clear; old formats and
+extra hardening are low priority.
 
-Sibling paths in this guide assume the named repositories are checked out
-next to this one. For an independent checkout, locate the compatible public
-host/consumer contracts only when needed; do not assume parent workspace
-instructions were loaded or read unrelated sibling implementations. Go builds
-use the sibling host replacement declared in go.mod; ensure that compatible
-checkout exists before building, without importing its unrelated instructions.
+## Commands
 
-1. [`README.md`](README.md) for setup, purpose or product boundaries.
-2. `../ttrpg-codex/examples/addons/AGENTS.md` for host integration or package work.
-3. `../ttrpg-codex/examples/addons/API_V3.md` before changing manifests,
-   service discovery, lifecycle, permissions, or installation behavior.
-4. [`contract/README.md`](contract/README.md) before changing public services,
-   ruleset validation, provider metadata, or reference resolution.
-5. [`rules/README.md`](rules/README.md) before changing computation semantics.
-6. `../addon-dnd-2024-compendium/data/SCHEMA.md` when a provider record field changes.
-
-Do not duplicate the host authoring guide or compendium record catalog here.
-Link to their authoritative documents.
-
-## Intended architecture
+Go only (version in `go.mod`); no Node toolchain.
 
 ```text
-addon.json          API-v3 manifest and service declarations
-cmd/worker/         native worker composition root
-cmd/build-package/  reproducible cross-platform worker/package build
-contracts/          public JSON Schemas for the worker service
-internal/engine/    worker service boundary
-internal/provider/  brokered rules-data v3 client
-internal/rules/     deterministic host-free computation
-worker/             ignored platform binaries generated for reviewed packages
+go run ./tools/check.go          # gofmt, vet, staticcheck, all tests, race tests
+go run ./tools/check.go fast     # static checks only
+go run ./tools/check.go format   # apply gofmt
+go run ./cmd/build-package       # dist/dnd-engine-<version>.zip
+go tool -modfile=go.tools.mod codex-addon-inspect dist/dnd-engine-4.0.0.zip
 ```
 
-These ownership rules are mandatory:
+The repository builds from a plain clone: the host's worker SDK is a normal Go
+module requirement. To work against a local host change, use an uncommitted
+`go work init . ../ttrpg-codex`. Regenerate the public character schemas with
+`go run ./cmd/character-contract` when the `character` model changes.
 
-- The engine computes. It owns no pages, fragments, CSS, catalogs, or sheet
-  presentation.
-- The engine owns no character persistence. Callers pass detached input data
-  and receive detached results.
-- The engine consumes a compatible rules-data service through the host's
-  generic service registry. Never probe known addon IDs or sourcebook IDs.
-- Provider identity, contract version, ruleset identity/version, and content
-  revision remain explicit across the service boundary.
-- A ruleset is always complete. The engine owns no edition base and rejects
-  inheritance or implicit profile defaults.
-- Pure rule functions stay independent of the worker protocol, host services,
-  storage, network access, and addon lifecycle.
-- Provider records supply rule facts and provenance. Engine code interprets
-  generic documented fields and never branches on a book or product ID.
-- Public APIs are small, versioned, immutable where practical, and fail closed
-  on incompatible input. Internal helpers are not exported for convenience.
-- Hydration remains deterministic and returns structured warnings rather than
-  throwing for ordinary incomplete character choices.
-- Do not add combat resolution or encounter automation; those are separate
-  addon concerns.
-
-## Compatibility and migration
-
-- The existing `dnd-sheets` manifest ID and
-  `character.addonData["dnd-sheets"]` remain owned by the sheets addon. This
-  repository must not migrate or write that namespace.
-- Preserve engine behavior with repository-owned regression vectors. Change
-  semantics only in explicit, separately tested commits.
-- Installing, disabling, updating, or replacing a provider must participate in
-  host lifecycle ordering. A stale provider instance must never survive a
-  content-revision change.
-
-## Code quality
-
-- Use Go 1.27.1 for worker and rules code. Keep the `cmd/worker` package limited
-  to process composition and move behavior into focused internal packages.
-- Keep functions focused and pass dependencies explicitly.
-- Prefer immutable inputs/results and pure helpers. Clone at the contract
-  boundary when caller mutation could leak across consumers.
-- Write self-documenting code. Add comments only for non-obvious invariants,
-  constraints, or safety decisions.
-- Avoid hidden fallbacks, global registries outside the host facade, and
-  catch-all compatibility branches.
-- Add regression tests for every bug and contract tests for every public
-  surface. A provider fixture must be synthetic and legally redistributable;
-  do not copy compendium content into this repository.
-
-## Release and installation
-
-Successful main builds publish the inspected ZIP to a durable commit release;
-the source commit identifies an update even when the manifest version stays the
-same. Follow the [README installation guide](README.md#install-and-update-from-tested-commits).
-Each site's owner chooses **Latest published package**, reviews permissions and
-activates the package. Publication never installs it automatically.
-
-The host image is deployed separately by `pjunak/infra`. This add-on has no
-Compose deployment target or infra dispatch credential. Release publication uses
-the workflow's repository-scoped job token; private downloads use host-managed
-GitHub credentials. Preserve the reviewed package lifecycle on both sites.
-
-## Working loop
-
-Use the version in go.mod and the current shell. For prose or agent-guidance-only changes, review the diff, check local links,
-and verify changed commands or contract claims. Runtime builds and operational
-acceptance are required only for the affected behavior below. Reuse successful
-checks on unchanged inputs; preserve complete CI and release gates.
-
-For Go/runtime changes, the complete validation is:
+## Layout
 
 ```text
-go run ./tools/check.go
+cmd/worker/         worker composition only
+cmd/build-package/  reproducible package build (Windows amd64, Linux amd64/arm64)
+character/          public character model, shared with Character Sheets
+contracts/          public JSON Schemas of the service
+internal/engine/    service boundary
+internal/provider/  rules-data client
+internal/rules/     pure, deterministic rules computation
 ```
 
-The runner checks formatting, vet and Staticcheck, runs all Go tests and the
-rules/provider/engine race tests. The race detector requires a supported C
-toolchain and fails visibly if unavailable. Use `go run ./tools/check.go fast`
-for static feedback while editing and `go run ./tools/check.go format` to apply
-gofmt. CI also runs the `workflows` (actionlint) and `vuln` (govulncheck) modes;
-run those locally when changing automation or dependencies. Analysis tools are
-pinned independently in `go.tools.mod`/`go.tools.sum`; this Go-only repository
-does not need Node, TypeScript or Oxlint.
+## Rules
 
-For worker, schema, manifest or packaging changes and release candidates,
-build the native workers from source and the deterministic install archive with
-`go run ./cmd/build-package`. Inspect the archive with the sibling host's
-`codex-addon-inspect` command before committing a release candidate.
+- The engine computes; it owns no pages, persistence or character state.
+  Callers pass detached inputs and receive detached results.
+- Find rules data through the host service broker by contract. Never branch on
+  an add-on, book or product ID; interpret the documented record fields.
+- A ruleset is complete and explicit: no edition defaults or inheritance.
+- Keep `internal/rules` free of the worker protocol, host services, storage and
+  network. Incomplete choices produce structured warnings, not errors.
+- Keep public APIs small and versioned; fail closed on incompatible input.
+- No combat or encounter automation; that belongs in a separate add-on.
+- Add a regression test for every bug. Test fixtures are synthetic; never copy
+  compendium content here.
 
-Inspect the resulting release archive from the host repository:
+## Read more
 
-```text
-go run ./cmd/codex-addon-inspect ../addon-dnd-engine/dist/dnd-engine-4.0.0.zip
-```
+[README.md](README.md) (purpose and install), [contract/README.md](contract/README.md)
+(service contract), [rules/README.md](rules/README.md) (calculation ownership),
+and the host's [add-on guide](https://github.com/pjunak/ttrpg-codex/blob/main/examples/addons/AUTHORING.md).
+Tasks for all repositories live in the host's `docs/BACKLOG.md`.
 
-Source edits are not visible in the running app until the worker is rebuilt,
-packaged, staged, reviewed, and activated. Keep manifest entrypoints
-synchronized with generated platform binaries and retain meaningful Go
-coverage for every public method.
-
-`worker/` and `dist/` are ignored build output, not source. Packaging must work
-without them and preserve tracked source. Public generated schemas remain
-versioned; regenerate them through `go run ./cmd/character-contract` when needed.
-
-The only durable suite backlog is
-`../ttrpg-codex/docs/BACKLOG.md`. Temporary cross-repository implementation
-plans belong only in the host repository's ignored `docs/plans/` directory and
-must be deleted when the work closes. Do not create repository-local TODO or
-roadmap files.
-
-The global Codex instructions govern task commits. Keep public-contract and
-computation changes separate when they are independently reviewable. Never
-push commits or tags unless the maintainer explicitly requests it.
+Successful `main` builds publish the inspected ZIP as a GitHub release; DMs
+install it through Settings → Add-ons. Ask before pushing.

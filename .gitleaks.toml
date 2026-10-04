@@ -5,7 +5,7 @@ useDefault = true
 id = "generic-api-key"
 
 [[rules.allowlists]]
-description = "Legacy parity fixture records the SHA-256 of rules/api.js, not an API credential"
+description = "Git history: the retired testdata/v1-parity.json recorded source-file SHA-256 hashes, not credentials"
 condition = "AND"
 paths = ['''(^|[/\\])testdata[/\\]v1-parity\.json$''']
 regexTarget = "match"

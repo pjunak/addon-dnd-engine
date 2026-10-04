@@ -132,27 +132,6 @@ func TestRepeatedSpellListAndOwnerValidation(t *testing.T) {
 	}
 }
 
-func TestSpellGrantLegacyAliasesRequireOneOwner(t *testing.T) {
-	input, records, profile := repeatedSpellFixture(t)
-	input.Build.Spells.GrantChoices = map[string][]string{"feat:training:spell": {"shared"}}
-	input.Build.Spells.CastingAbilities = map[string]string{"feat:training:casting": "INT"}
-	input.Play.ResourceUses = map[string]int{"charge-shared": 1}
-	result := EvaluateCharacter(input, records, profile)
-	if !reflect.DeepEqual(result.Inputs.Build.Spells, input.Build.Spells) || result.Ready {
-		t.Fatal("ambiguous choices silently assigned")
-	}
-	input.Build.Levels = input.Build.Levels[:1]
-	input.Build.Choices = input.Build.Choices[4:5]
-	result = EvaluateCharacter(input, records, profile)
-	owner := strings.TrimSuffix(trainingOrigin, "proficiencies")
-	if !result.Ready || result.Inputs.Build.Spells.CastingAbilities[owner+"casting"] != "INT" || result.Inputs.Play.ResourceUses["charge:"+owner+"spell"] != 1 {
-		t.Fatal("unambiguous state lost", result.Issues, result.Inputs)
-	}
-	if _, err := ApplyCharacterPlay(input, Object{"operation": "cast-granted-spell", "key": strings.TrimSuffix(owner, ":") + ":shared", "slot": "charge:" + owner + "spell"}, records, profile); err == nil {
-		t.Fatal("normalized legacy expenditure ignored during play")
-	}
-}
-
 func TestOriginFeatPresetIsRestrictedAndFeedsSpellPackage(t *testing.T) {
 	input, records, profile := repeatedSpellFixture(t)
 	record := recordByID(records, "background", "artisan")
@@ -217,7 +196,7 @@ func TestRepeatedFeatBonusSlotsAreIndependentAndUsable(t *testing.T) {
 	result := EvaluateCharacter(input, records, profile)
 	slots := []string{}
 	for _, resource := range objects(result.Sheet["resources"]) {
-		if text(resource["legacyKey"]) == "feat-slot-training" {
+		if strings.HasSuffix(text(resource["key"]), ":feat-slot-training") {
 			slots = append(slots, text(resource["key"]))
 		}
 	}

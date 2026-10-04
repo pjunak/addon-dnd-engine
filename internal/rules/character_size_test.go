@@ -78,13 +78,13 @@ func TestSpeciesSizeChangePreservesAuthoredStateForExplicitRepair(t *testing.T) 
 	}
 }
 
-func TestLegacyCompoundSizeDoesNotPretendToBeASelectedValue(t *testing.T) {
+func TestCompoundSizeProseDoesNotPretendToBeASelectedValue(t *testing.T) {
 	input, records, profile := sizeFixture(t)
 	species := recordByID(records, "species", input.Build.Species)
 	delete(species, "sizeOptions")
 	records.byKind["species"][input.Build.Species] = mustJSON(species)
 	result := EvaluateCharacter(input, records, profile)
 	if _, exists := object(result.Sheet["derived"])["size"]; exists || len(objects(result.Plan["creationChoices"])) != 0 {
-		t.Fatal("legacy display prose was interpreted as a mechanical selection")
+		t.Fatal("display prose was interpreted as a mechanical selection")
 	}
 }

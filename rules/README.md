@@ -68,8 +68,8 @@ No record or provider ID supplies a rule. A selected versatile weapon uses its
 two-handed die in both the attack row and saved explanation; selected rows
 retain the owned `itemId` and `grip`, including when multiple copies share a
 source record. Equipped hand items consume at most two hands once this model is
-authored; required-two-handed weapons consume both. Legacy characters without
-hand state retain their existing projection and inventory behavior.
+authored; required-two-handed weapons consume both. Characters without hand
+state keep their existing projection and inventory behavior.
 
 Suspension excludes attacks, shield AC, item effects and item-conditioned DM
 effects, even if another editor moves the suspended instance. It does not

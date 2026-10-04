@@ -94,24 +94,16 @@ func TestRepeatableFeatChoicesRejectDuplicateSlotsAndForgedOwners(t *testing.T) 
 	}
 }
 
-func TestRepeatableFeatLegacyChoicesAreNeverDuplicatedOrRebound(t *testing.T) {
+func TestWithdrawnFeatChoiceIsNeverReboundToAnotherAcquisition(t *testing.T) {
 	input, records, profile := repeatableFixture(t)
 	input.Build.Levels = input.Build.Levels[:1]
-	input.Build.Choices = []character.Choice{{ID: "feat:training:proficiencies", Slot: 2, Value: mustJSON("tool:flute")}}
-	before := cloneCharacter(input)
-	result := EvaluateCharacter(input, records, profile)
-	if result.Inputs.Build.Choices[0].ID != trainingOrigin || result.Inputs.Build.Choices[0].Slot != 2 || !truth(result.Guidance["canSave"]) || !reflect.DeepEqual(input, before) {
-		t.Fatal("single legacy acquisition lost its saved slot", result.Inputs, result.Issues)
-	}
+	input.Build.Choices = []character.Choice{{ID: trainingOrigin, Slot: 2, Value: mustJSON("tool:flute")}}
 	input.Grants = []character.Grant{{ID: "reward", Name: "Training reward", Reason: "Study", ActorID: "dm", GrantedAt: input.Play.AsOf, Active: true, Condition: "always", EffectiveLevel: 1, Feat: &character.Reference{Kind: "feat", ID: "training"}}}
-	result = EvaluateCharacter(input, records, profile)
-	if !hasChoiceIssue(result, "ambiguous-feat-choice:feat:training:proficiencies#2") || hasChoiceIssue(result, "unavailable-choice:feat:training:proficiencies#2") || truth(result.Guidance["canSave"]) {
-		t.Fatal("ambiguous legacy input was copied or scheduled for withdrawal", result.Issues)
+	if result := EvaluateCharacter(input, records, profile); !truth(result.Guidance["canSave"]) {
+		t.Fatal("scoped choice was not accepted", result.Issues)
 	}
-	// Once bound, removing its source must not move that slot to the remaining grant.
-	input.Build.Choices[0].ID = trainingOrigin
 	input.Build.Background = "other"
-	result = EvaluateCharacter(input, records, profile)
+	result := EvaluateCharacter(input, records, profile)
 	if !hasChoiceIssue(result, "unavailable-choice:"+trainingOrigin+"#2") || len(stringsOf(object(result.Sheet["proficiencies"])["tools"])) != 0 {
 		t.Fatal("withdrawn choice was rebound to a different acquisition", result.Issues)
 	}

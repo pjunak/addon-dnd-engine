@@ -125,7 +125,6 @@ func featChoices(acquired featAcquisition, record Object) []any {
 			descriptor["distinctAcrossAcquisitions"] = true
 		}
 		if strings.Contains(featChoiceOwner(acquired, record), "@") {
-			descriptor["legacyId"] = "feat:" + acquired.featID + ":" + text(choice["id"])
 			descriptor["acquisition"] = Object{"id": acquired.id, "name": acquired.name, "classId": acquired.classID, "level": acquired.level}
 			descriptor["name"] = firstText(record["name"], acquired.featID)
 			if len(choices) > 1 {

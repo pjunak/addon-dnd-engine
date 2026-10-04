@@ -119,7 +119,7 @@ func hydrateResources(
 				continue
 			}
 			resources = append(resources, Object{
-				"key": grantResourceKey(source.Source, text(resource["key"])), "legacyKey": text(resource["key"]), "name": firstText(resource["name"], resource["key"]),
+				"key": grantResourceKey(source.Source, text(resource["key"])), "name": firstText(resource["name"], resource["key"]),
 				"max": maximum, "kind": "pool", "recharge": normalizeRecharge(resource["recharge"], source.Level),
 				"source": source.Source,
 			})
@@ -145,7 +145,7 @@ func hydrateResources(
 		}
 		level = max(integer(levelRule["min"], 1), min(integer(levelRule["max"], 9), level))
 		resources = append(resources, Object{
-			"key": grantResourceKey(source.Source, "feat-slot-"+text(feat["id"])), "legacyKey": "feat-slot-" + text(feat["id"]),
+			"key":  grantResourceKey(source.Source, "feat-slot-"+text(feat["id"])),
 			"name": fmt.Sprintf("%s (%s)", firstText(feat["name"], feat["id"]), ordinal(level)),
 			"max":  max(1, integer(slot["count"], 1)), "kind": "slot", "level": level,
 			"restriction": nullableText(slot["restriction"]),
@@ -164,7 +164,7 @@ func hydrateResources(
 			recharge = append(recharge, Object{"on": rest, "amount": "full"})
 		}
 		resources = append(resources, Object{
-			"key": grantFreeResourceKey(grant), "legacyKey": "charge-" + text(grant["ref"]),
+			"key":  grantFreeResourceKey(grant),
 			"name": firstText(grant["name"], grant["ref"]) + " (free cast)",
 			"max":  maximum, "kind": "charge", "recharge": recharge,
 			"source": firstObject(grant["source"], Object{"type": "spell"}),
@@ -191,11 +191,6 @@ func hydrateResources(
 		}
 		source := object(choice["source"])
 		resources = append(resources, Object{"key": key, "name": guidanceLabel(text(source["id"])) + " (free cast)", "max": maximum, "kind": "charge", "recharge": recharge, "source": source})
-	}
-	for _, resource := range objects(resources) {
-		if resource["legacyKey"] == resource["key"] {
-			delete(resource, "legacyKey")
-		}
 	}
 	sheet["resources"] = resources
 }

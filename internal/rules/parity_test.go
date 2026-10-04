@@ -155,7 +155,7 @@ func TestPreservedV1Parity(t *testing.T) {
 			}
 			for _, resource := range objects(expectedSheet["resources"]) {
 				if key, ok := counterKeys[text(resource["key"])]; ok {
-					resource["legacyKey"], resource["key"] = resource["key"], key
+					resource["key"] = key
 				}
 			}
 			for _, choice := range objects(object(expectedSheet["spellcasting"])["pendingChoices"]) {

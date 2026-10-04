@@ -143,7 +143,7 @@ func activeGrantModifiers(
 				!(truth(restrictions["noShield"]) && usingShield)
 			enabled := truth(active[key]) && available
 			activations = append(activations, Object{
-				"key": key, "legacyKey": grantLegacyOwner(source.Source) + ":" + id, "id": id, "name": firstText(activation["name"], id),
+				"key": key, "id": id, "name": firstText(activation["name"], id),
 				"source": source.Source, "resource": grantActivationResource(source.Source, activation["resource"]),
 				"exclusiveGroup": nullableText(activation["exclusiveGroup"]),
 				"active":         enabled, "available": available,

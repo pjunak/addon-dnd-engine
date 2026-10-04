@@ -380,17 +380,17 @@ func collectCreationAbilityChoices(source Object, records Records, ruleset Rules
 	for _, origin := range selectedOrigins(source, records) {
 		typeID := text(origin["type"])
 		config := originGrantPolicy(ruleset.Builder.BackgroundAbilityGrant)
-		legacyID := "bgasi"
+		choiceID := "bgasi"
 		if typeID == "species" {
 			config = originGrantPolicy(ruleset.Builder.SpeciesAbilityGrant)
-			legacyID = "speciesasi"
+			choiceID = "speciesasi"
 		}
 		eligible := stringsOf(object(origin["record"])["abilityScores"])
 		if config == nil || len(eligible) == 0 {
 			continue
 		}
 		result = append(result, Object{
-			"id": legacyID, "kind": "abilityBudget", "eligible": anyStrings(eligible),
+			"id": choiceID, "kind": "abilityBudget", "eligible": anyStrings(eligible),
 			"budget": integer(config["budget"], 0), "perAbilityMax": integer(config["perAbilityMax"], 0),
 			"source": origin["source"],
 		})

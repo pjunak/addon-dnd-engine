@@ -19,8 +19,6 @@ func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset)
 		addCharacterIssue(&result, "character-policy", "rules", "The rules profile does not define character creation policy.", "blocker", nil)
 		return result
 	}
-	normalizeCharacterFeatChoices(&input, records, profile, &result)
-	result.Inputs = input
 	tracked := newCharacterRecords(records)
 	decisions := characterDecisions(input, tracked, profile, &result)
 	normalized := NormalizeBuilderDecisions(decisions, tracked, profile)
@@ -30,9 +28,6 @@ func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset)
 	species := object(hydrated.Sheet["species"])
 	if size := selectedSpeciesSize(normalized, species); size != nil || speciesSizeChoice(species) != nil {
 		object(hydrated.Sheet["derived"])["size"] = size
-	}
-	if normalizeCharacterGrantState(&input, hydrated.Sheet) {
-		return EvaluateCharacter(input, records, profile)
 	}
 	result.Sheet = hydrated.Sheet
 	result.Sheet["feats"] = acquiredFeatRows(selectedFeats(normalized, tracked), objects(normalized["featAcquisitions"]))

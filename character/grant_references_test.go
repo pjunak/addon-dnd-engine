@@ -91,12 +91,12 @@ func TestRemapGrantReferencesRekeysSimultaneously(t *testing.T) {
 	input := Blank()
 	input.Play.ResourceUses["feat:a@grant%3Afirst:pool"] = 1
 	input.Play.ResourceUses["feat:a@grant%3Asecond:pool"] = 2
-	input.Play.ResourceUses["feat:a:legacy"] = 3
+	input.Play.ResourceUses["feat:b:pool"] = 3
 	result, err := RemapGrantReferences(input, map[string]string{"first": "second", "second": "first"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := map[string]int{"feat:a@grant%3Afirst:pool": 2, "feat:a@grant%3Asecond:pool": 1, "feat:a:legacy": 3}
+	want := map[string]int{"feat:a@grant%3Afirst:pool": 2, "feat:a@grant%3Asecond:pool": 1, "feat:b:pool": 3}
 	if !reflect.DeepEqual(result.Play.ResourceUses, want) {
 		t.Fatal(result.Play.ResourceUses)
 	}

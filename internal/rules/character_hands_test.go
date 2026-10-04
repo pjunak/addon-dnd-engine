@@ -107,9 +107,9 @@ func TestHandsNeverRestoreChangedMissingConsumedOrIneligibleInstances(t *testing
 func TestHandSelectionAndCapacityUseSourceFactsAndOwnedInstances(t *testing.T) {
 	input, records, profile := handsFixture(t)
 	input.Play.Hands = nil
-	legacy := cloneCharacter(input)
-	if result := EvaluateCharacter(input, records, profile); !reflect.DeepEqual(result.Inputs, legacy) {
-		t.Fatal("legacy state rewritten")
+	before := cloneCharacter(input)
+	if result := EvaluateCharacter(input, records, profile); !reflect.DeepEqual(result.Inputs, before) {
+		t.Fatal("state without hands was rewritten")
 	}
 	input.Play.Hands = &character.Hands{Main: "main-copy", Off: "off-copy", Grip: "one"}
 	for _, command := range []Object{

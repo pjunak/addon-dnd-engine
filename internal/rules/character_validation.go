@@ -72,10 +72,6 @@ func validateCharacter(input character.Inputs, decisions Object, records Records
 		plan := Object(result.Plan)
 		descriptor := findCharacterChoice(plan, choice.ID, decisions, records, profile)
 		if descriptor == nil {
-			if ambiguousCharacterFeatChoice(Object(result.Plan), choice.ID) {
-				block("ambiguous-feat-choice:"+key, choice.ID, "This saved feat choice has more than one granting source. Assign it to a specific acquisition before saving.")
-				continue
-			}
 			block("unavailable-choice:"+key, choice.ID, "This earlier selection is no longer granted. Remove it or choose a replacement.")
 			continue
 		}

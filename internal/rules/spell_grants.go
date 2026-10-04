@@ -70,7 +70,7 @@ func hydrateSpellGrants(
 		if _, exists := castingKeys[key]; !exists {
 			castingKeys[key] = struct{}{}
 			castingChoices = append(castingChoices, Object{
-				"key": key, "legacyKey": grantLegacyOwner(source) + ":" + localID, "source": source, "options": anyStrings(options), "selected": nullableString(selected),
+				"key": key, "source": source, "options": anyStrings(options), "selected": nullableString(selected),
 			})
 		}
 		return selected
@@ -145,7 +145,7 @@ func hydrateSpellGrants(
 			addGrant(reference, source, options)
 		}
 		pendingChoices = append(pendingChoices, Object{
-			"key": key, "legacyKey": grantLegacyOwner(source) + ":" + choiceID, "source": source, "choose": count,
+			"key": key, "source": source, "choose": count,
 			"spellLevel":    optionalInteger(spell, "spellLevel"),
 			"maxSpellLevel": optionalInteger(spell, "maxSpellLevel"),
 			"from":          objectOrEmpty(spell["from"]), "default": nullableText(spell["default"]),
@@ -196,13 +196,6 @@ func hydrateSpellGrants(
 	for _, grant := range objects(granted) {
 		if text(grant["resourceKey"]) == "" {
 			delete(grant, "resourceKey")
-		}
-	}
-	for _, choices := range [][]any{pendingChoices, castingChoices} {
-		for _, choice := range objects(choices) {
-			if choice["legacyKey"] == choice["key"] {
-				delete(choice, "legacyKey")
-			}
 		}
 	}
 	spellcasting["granted"] = granted

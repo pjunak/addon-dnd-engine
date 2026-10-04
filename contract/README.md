@@ -61,10 +61,6 @@ can improve an existing proficiency. Source-declared replaceable training uses
 current proficiencies after permanent choices. Individual tools and
 instrument/game variants remain provider-owned IDs.
 
-A single historical unscoped repeatable choice normalizes to its sole owner in
-the detached `evaluation.inputs`. Ambiguous ownership produces
-`ambiguous-feat-choice:<id>#<slot>` and retains the original input for explicit
-assignment. Consumers must not treat this issue as automatic withdrawal.
 Conditional repetition supports the provider's `repeatable: { by: "choice",
 choice: "<local-choice-id>" }` shape. It refers to one finite, single-slot
 `enumerated` grant choice. Acquisition order follows character level prefixes;
@@ -452,7 +448,7 @@ no legacy envelopes or provider-free manually writable projection.
 
 Repeatable feat spell selections, casting abilities, resource pools, bonus slots and activations use the same stable acquisition owner as Builder choices. A free-cast counter belongs to its source and, for a single selected spell, its granting choice. Replacing that spell does not refresh its spent allowance. Cast commands can spend only that grant's free counter or an eligible spell slot.
 
-Returned descriptors provide `source.acquisition` and a `legacyKey` when an older unscoped key differs. Detached character evaluation moves an old key only to one unoccupied owner; ambiguous choices, abilities, activations and spent counters remain authored input for explicit assignment. Play commands use this normalized input, so an old spent allowance cannot refresh during its first command. Reading never commits a migration.
+Returned descriptors provide `source.acquisition`. Choices, casting abilities, activations and spent counters are keyed by that owner; a saved key with no current owner is reported as unavailable rather than reassigned.
 
 Generic `choicePackages` resolve against each acquisition. Source `originFeatChoices` presets constrain the corresponding origin-granted feat choice; the Engine applies those defaults without rewriting the source record. Unknown conditional-repeat rules remain closed.
 

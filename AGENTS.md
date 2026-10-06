@@ -17,7 +17,7 @@ go run ./tools/check.go          # gofmt, vet, staticcheck, all tests, race test
 go run ./tools/check.go fast     # static checks only
 go run ./tools/check.go format   # apply gofmt
 go run ./cmd/build-package       # dist/dnd-engine-<version>.zip
-go tool -modfile=go.tools.mod codex-addon-inspect dist/dnd-engine-4.0.0.zip
+go tool -modfile=go.tools.mod codex-addon-inspect dist/dnd-engine-<version>.zip
 ```
 
 The repository builds from a plain clone: the host's worker SDK is a normal Go

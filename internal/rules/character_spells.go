@@ -38,7 +38,8 @@ func validateCharacterSpells(input character.Inputs, records Records, result *ch
 		name   string
 		values map[string][]string
 	}{{"cantrips", input.Build.Spells.Cantrips}, {"spellbook", input.Build.Spells.Spellbook}, {"prepared", input.Play.PreparedSpells}} {
-		for classID, ids := range selection.values {
+		for _, classID := range sortedKeys(selection.values) {
+			ids := selection.values[classID]
 			caster := casters[classID]
 			uniqueIDs := map[string]bool{}
 			limit := integer(caster["preparedLimit"], 0)
@@ -77,7 +78,8 @@ func validateCharacterSpells(input character.Inputs, records Records, result *ch
 			}
 		}
 	}
-	for classID, caster := range casters {
+	for _, classID := range sortedKeys(casters) {
+		caster := casters[classID]
 		if len(input.Build.Spells.Cantrips[classID]) != integer(caster["cantripsKnown"], 0) {
 			block("cantrip-count:"+classID, "Choose the cantrips granted by this class level.")
 		}
@@ -85,7 +87,8 @@ func validateCharacterSpells(input character.Inputs, records Records, result *ch
 			block("spellbook-count:"+classID, "Choose the spellbook spells granted by the recorded class levels.")
 		}
 	}
-	for key, ids := range input.Build.Spells.GrantChoices {
+	for _, key := range sortedKeys(input.Build.Spells.GrantChoices) {
+		ids := input.Build.Spells.GrantChoices[key]
 		choice := choices[key]
 		seen := map[string]bool{}
 		if choice == nil && len(ids) > 0 || len(ids) > integer(choice["choose"], 0) {
@@ -102,7 +105,8 @@ func validateCharacterSpells(input character.Inputs, records Records, result *ch
 	for _, choice := range objects(result.SpellOptions["castingAbilityChoices"]) {
 		abilityChoices[text(choice["key"])] = choice
 	}
-	for key, ability := range input.Build.Spells.CastingAbilities {
+	for _, key := range sortedKeys(input.Build.Spells.CastingAbilities) {
+		ability := input.Build.Spells.CastingAbilities[key]
 		choice := abilityChoices[key]
 		eligible := stringsOf(choice["options"])
 		if !contains(eligible, ability) {
@@ -114,7 +118,8 @@ func validateCharacterSpells(input character.Inputs, records Records, result *ch
 		activations[text(activation["key"])] = activation
 	}
 	groups := map[string]string{}
-	for key, enabled := range input.Play.ActiveFeatures {
+	for _, key := range sortedKeys(input.Play.ActiveFeatures) {
+		enabled := input.Play.ActiveFeatures[key]
 		if !enabled {
 			continue
 		}

@@ -3,6 +3,8 @@ package rules
 import (
 	"fmt"
 	"github.com/pjunak/addon-dnd-engine/character"
+	"slices"
+	"strings"
 	"testing"
 )
 
@@ -126,6 +128,23 @@ func TestSaveBlockersIncludeUnknownScoresAndUnavailableOrigins(t *testing.T) {
 					t.Fatal("invalid supplied value must block both saving and play with a reason", result.Ready, result.Issues, result.Guidance["saveIssues"])
 				}
 			})
+		}
+	}
+}
+
+func TestMapDrivenIssuesKeepAStableOrder(t *testing.T) {
+	input, records, profile := characterFixture(t)
+	input.Play.Currency = map[string]float64{"dd": 1, "aa": 1, "cc": 1, "bb": 1}
+	want := []string{"currency:aa", "currency:bb", "currency:cc", "currency:dd"}
+	for range 20 {
+		var got []string
+		for _, issue := range EvaluateCharacter(input, records, profile).Issues {
+			if strings.HasPrefix(issue.ID, "currency:") {
+				got = append(got, issue.ID)
+			}
+		}
+		if !slices.Equal(got, want) {
+			t.Fatalf("currency issues = %v, want %v", got, want)
 		}
 	}
 }

@@ -2,7 +2,9 @@ package rules
 
 import (
 	"encoding/json"
+	"maps"
 	"math"
+	"slices"
 	"strings"
 )
 
@@ -186,6 +188,12 @@ func text(value any) string {
 func truth(value any) bool {
 	result, _ := value.(bool)
 	return result
+}
+
+// sortedKeys gives map-driven checks a stable order, so issue lists are
+// deterministic.
+func sortedKeys[V any](values map[string]V) []string {
+	return slices.Sorted(maps.Keys(values))
 }
 
 func contains(values []string, candidate string) bool {

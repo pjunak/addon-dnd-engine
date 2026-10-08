@@ -188,7 +188,8 @@ func validateCharacter(input character.Inputs, decisions Object, records Records
 	if input.Play.TemporaryHP < 0 {
 		block("temporary-hp", "temporaryHp", "Temporary HP cannot be negative.")
 	}
-	for key, value := range input.Play.Currency {
+	for _, key := range sortedKeys(input.Play.Currency) {
+		value := input.Play.Currency[key]
 		if !contains([]string{"cp", "sp", "ep", "gp", "pp"}, key) || value < 0 {
 			block("currency:"+key, "currency", "Currency must use supported coins and non-negative amounts.")
 		}
@@ -197,7 +198,8 @@ func validateCharacter(input character.Inputs, decisions Object, records Records
 	for _, resource := range objects(result.Sheet["resources"]) {
 		resources[text(resource["key"])] = integer(resource["max"], 0)
 	}
-	for key, used := range input.Play.ResourceUses {
+	for _, key := range sortedKeys(input.Play.ResourceUses) {
+		used := input.Play.ResourceUses[key]
 		maximum, exists := resources[key]
 		if used < 0 || !exists && used != 0 || exists && used > maximum {
 			block("resource:"+key, "resources", "Resolve the spent resource against its current capacity: "+key)

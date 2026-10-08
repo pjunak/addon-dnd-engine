@@ -14,6 +14,9 @@ type characterRecordSnapshot struct {
 }
 
 func newCharacterRecordSnapshot(source Records) *characterRecordSnapshot {
+	if snapshot, ok := source.(*characterRecordSnapshot); ok {
+		return snapshot
+	}
 	return &characterRecordSnapshot{source: source, objects: map[string]Object{}, lists: map[string][]Object{}}
 }
 func (records *characterRecordSnapshot) Value(kind, id string) (json.RawMessage, bool) {

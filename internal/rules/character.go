@@ -220,6 +220,9 @@ func characterDecisions(input character.Inputs, records Records, profile Ruleset
 }
 
 func ApplyCharacterPlay(input character.Inputs, change Object, records Records, profile Ruleset) (character.Result, error) {
+	// Play commands resolve records by ID only, like evaluation, and share one
+	// decode cache across the evaluations of this command.
+	records = newCharacterRecordSnapshot(records)
 	if text(change["operation"]) == "replace-class-choice" {
 		return replaceClassChoice(input, change, records, profile)
 	}

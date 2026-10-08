@@ -56,7 +56,7 @@ func TestAuthoredConditionsPreserveInputsAndBoundCalculation(t *testing.T) {
 	}
 	input.Play.Conditions = append(input.Play.Conditions, character.Condition{ID: "held", Level: 1})
 	result = EvaluateCharacter(input, records, profile)
-	if object(result.Sheet["derived"])["speed"] != 0 {
+	if object(result.Sheet["derived"])["speed"] != 0 || result.Sheet["speed"] != 0 {
 		t.Fatal("zero Speed did not win")
 	}
 	input.Play.Conditions = []character.Condition{{ID: "fatigue", Level: 6}}

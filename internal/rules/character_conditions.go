@@ -127,6 +127,10 @@ func characterConditions(input character.Inputs, records Records, profile Rulese
 				after = 0
 			}
 			parent[key] = after
+			if key == "speed" {
+				// The top-level copy mirrors derived.speed, as in applyCharacterEffects.
+				result.Sheet["speed"] = after
+			}
 			explanation := result.Explanations[path]
 			explanation.Value = after
 			explanation.Formula += " Apply source-declared condition restrictions after other speed effects; zero Speed takes precedence."

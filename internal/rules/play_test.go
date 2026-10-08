@@ -6,19 +6,13 @@ import (
 	"testing"
 )
 
-func TestPlayRestAndHitDicePreserveAuthoredState(t *testing.T) {
+// Spending hit dice is covered through ApplyCharacterPlay, which records rolls.
+func TestPlayRestPreservesAuthoredState(t *testing.T) {
 	profile := syntheticRuleset(t)
-	decisions := Object{"classes": []any{Object{"classId": "wizard", "level": 5}}, "baseStats": Object{"CON": 14}, "hp": 2, "tempHp": 4,
-		"resourceUses": Object{"hit-dice-d6": 2, "slot-1": 0}, "notes": "Keep me", "resources": []any{Object{"id": "manual", "current": 0, "max": 3}}}
+	decisions := Object{"classes": []any{Object{"classId": "wizard", "level": 5}}, "baseStats": Object{"CON": 14}, "hp": 8, "tempHp": 4,
+		"resourceUses": Object{"hit-dice-d6": 1, "slot-1": 0}, "notes": "Keep me", "resources": []any{Object{"id": "manual", "current": 0, "max": 3}}}
 	before, _ := json.Marshal(decisions)
-	spent, err := applyPlayFixture(decisions, Object{"operation": "spend-hit-die", "key": "hit-dice-d6"}, syntheticRecords(), profile)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if integer(spent["hp"], 0) != 8 || integer(object(spent["resourceUses"])["hit-dice-d6"], 0) != 1 {
-		t.Fatalf("spent = %+v", spent)
-	}
-	short, err := applyPlayFixture(spent, Object{"operation": "rest", "rest": "short"}, syntheticRecords(), profile)
+	short, err := applyPlayFixture(decisions, Object{"operation": "rest", "rest": "short"}, syntheticRecords(), profile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,10 +31,6 @@ func TestPlayRestAndHitDicePreserveAuthoredState(t *testing.T) {
 	manualAfter, _ := json.Marshal(long["resources"])
 	if string(before) != string(after) || string(manualBefore) != string(manualAfter) || text(long["notes"]) != "Keep me" {
 		t.Fatal("Play changes altered authored or input state")
-	}
-	_, err = applyPlayFixture(decisions, Object{"operation": "spend-hit-die", "key": "slot-1"}, syntheticRecords(), profile)
-	if err == nil {
-		t.Fatal("Accepted a spell slot as a hit die")
 	}
 	if _, err := applyPlayFixture(Object{"maxHp": 32, "hp": 12}, Object{"operation": "rest", "rest": "long"}, syntheticRecords(), profile); err == nil {
 		t.Fatal("Replaced a hand-filled HP maximum without a valid class")

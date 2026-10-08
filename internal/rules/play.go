@@ -13,15 +13,6 @@ func applyPlayWithSheet(decisions, change Object, records Records, profile Rules
 	switch text(change["operation"]) {
 	case "rest":
 		applyRest(next, sheet, text(change["rest"]))
-	case "spend-hit-die":
-		resource := findPlayResource(sheet, text(change["key"]))
-		if text(resource["kind"]) != "hitdice" {
-			return nil, fmt.Errorf("Choose an available hit die.")
-		}
-		if err = spendResource(next, resource); err == nil {
-			healing := max(1, HitDieAverage(text(resource["die"]))+integer(object(object(sheet["abilities"])["CON"])["mod"], 0))
-			next["hp"] = min(playMaximumHP(next, sheet), max(0, integer(next["hp"], 0))+healing)
-		}
 	case "toggle-feature":
 		var selected Object
 		for _, activation := range objects(sheet["activations"]) {
@@ -79,7 +70,7 @@ func applyPlayWithSheet(decisions, change Object, records Records, profile Rules
 
 func validatePlayChange(change Object) error {
 	fields := map[string][]string{
-		"rest": {"rest"}, "spend-hit-die": {"key"}, "toggle-feature": {"key", "enabled"},
+		"rest": {"rest"}, "toggle-feature": {"key", "enabled"},
 		"select-spell": {"classId", "ref", "selection", "selected"}, "cast-spell": {"classId", "ref", "slot"},
 		"select-grant-spell": {"key", "ref", "selected"}, "select-casting-ability": {"key", "ability"},
 		"cast-granted-spell": {"key", "slot"}, "cast-ritual": {"classId", "ref"},

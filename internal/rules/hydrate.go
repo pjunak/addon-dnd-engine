@@ -977,8 +977,13 @@ func inventoryRecord(item Object, records Records, kind string) Object {
 	return recordByName(records, kind, text(item["name"]))
 }
 
+var (
+	hitDiePattern = regexp.MustCompile(`(?i)^d(\d+)$`)
+	digitsPattern = regexp.MustCompile(`\d+`)
+)
+
 func hitDieSize(hitDie string) int {
-	match := regexp.MustCompile(`(?i)^d(\d+)$`).FindStringSubmatch(hitDie)
+	match := hitDiePattern.FindStringSubmatch(hitDie)
 	if len(match) != 2 {
 		return 8
 	}
@@ -986,7 +991,7 @@ func hitDieSize(hitDie string) int {
 }
 
 func strengthRequirement(value any) int {
-	match := regexp.MustCompile(`\d+`).FindString(text(value))
+	match := digitsPattern.FindString(text(value))
 	if match != "" {
 		return integer(match, 0)
 	}

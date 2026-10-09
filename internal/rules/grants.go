@@ -160,6 +160,15 @@ func activeGrantModifiers(
 	return modifiers
 }
 
+// modifierFlySpeed is the flying speed one modifier grants: a number of feet,
+// or "speed" for a flying speed equal to the walking speed.
+func modifierFlySpeed(modifier Object, walking int) int {
+	if text(modifier["value"]) == "speed" {
+		return walking
+	}
+	return integer(modifier["value"], 0)
+}
+
 func applyGenericGrants(
 	decisions Object,
 	sheet Object,
@@ -210,11 +219,7 @@ func applyGenericGrants(
 				senses[key] = max(integer(senses[key], 0), integer(modifier["value"], 0))
 			}
 		case "flySpeed":
-			candidate := integer(modifier["value"], 0)
-			if text(modifier["value"]) == "speed" {
-				candidate = integer(sheet["speed"], 0) + speedBonus
-			}
-			flySpeed = max(flySpeed, candidate)
+			flySpeed = max(flySpeed, modifierFlySpeed(modifier, integer(sheet["speed"], 0)+speedBonus))
 		case "concentrationSave":
 			concentrationBonus += integer(modifier["add"], 0)
 			concentrationBonus += integer(object(abilities[text(modifier["addAbility"])])["mod"], 0)

@@ -174,11 +174,7 @@ func applyCharacterEffects(input character.Inputs, sheet Object, result *charact
 			}
 			for _, modifier := range objects(definition["modifiers"]) {
 				if text(modifier["target"]) == "flySpeed" {
-					value := integer(modifier["value"], 0)
-					if text(modifier["value"]) == "speed" {
-						value = integer(sheet["speed"], 0)
-					}
-					flight = max(flight, value)
+					flight = max(flight, modifierFlySpeed(modifier, integer(sheet["speed"], 0)))
 				}
 			}
 		}

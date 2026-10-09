@@ -84,3 +84,17 @@ func TestMalformedHitDieIsReportedNotAssumed(t *testing.T) {
 		t.Fatal("assumed a hit die for a malformed record", result.Issues)
 	}
 }
+
+func TestHydratedHitPointsApplyTheMinimumGainPerLevel(t *testing.T) {
+	_, _, profile := characterFixture(t)
+	records := syntheticRecords()
+	// A d6 wizard with Constitution 3 (-4): level 1 gains 6-4=2, level 2 gains
+	// the average 4-4=0, raised to the profile's minimum of 1.
+	sheet := Hydrate(Object{
+		"baseStats": Object{"STR": 10, "DEX": 10, "CON": 3, "INT": 15, "WIS": 10, "CHA": 10},
+		"classes":   []any{Object{"classId": "wizard", "level": 2}},
+	}, records, &profile).Sheet
+	if maximum := integer(object(sheet["derived"])["maxHp"], 0); maximum != 3 {
+		t.Fatalf("max HP = %d, want 3", maximum)
+	}
+}

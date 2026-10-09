@@ -168,6 +168,26 @@ func (ruleset Ruleset) FixedHitPoints(hitDie int) int {
 	return hitDie/2 + ruleset.Constants.FixedHitDieBonus
 }
 
+// LevelHitPoints is one character level's hit-point gain: the hit die's
+// maximum at the first character level, otherwise a recorded roll or the
+// fixed value; plus Constitution, never below the profile's minimum gain, then
+// any per-level bonus. It also returns the die result and how it was chosen.
+func (ruleset Ruleset) LevelHitPoints(characterLevel, hitDie int, recorded *int, constitution, perLevel int) (gained, result int, method string) {
+	switch {
+	case characterLevel == 1:
+		result, method = hitDie, "first level maximum"
+	case recorded != nil:
+		result, method = *recorded, "recorded roll"
+	default:
+		result, method = ruleset.FixedHitPoints(hitDie), "average"
+	}
+	minimum := 0
+	if ruleset.Constants.Character != nil {
+		minimum = ruleset.Constants.Character.MinimumHPGain
+	}
+	return max(minimum, result+constitution) + perLevel, result, method
+}
+
 func (ruleset Ruleset) Validate() error {
 	if !validStableID(ruleset.StableID()) || ruleset.RulesetVersion < 1 ||
 		len(ruleset.Edition) > 80 || strings.TrimSpace(ruleset.Edition) != ruleset.Edition {

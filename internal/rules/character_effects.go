@@ -256,19 +256,10 @@ func applyCharacterHitDice(input character.Inputs, sheet Object, records Records
 	for index, level := range input.Build.Levels {
 		record := recordByID(records, "class", level.ClassID)
 		size := hitDieSize(text(record["hitDie"]))
-		rolled := profile.FixedHitPoints(size)
-		method := "average"
-		if index == 0 {
-			rolled = size
-			method = "first level maximum"
-		} else if level.HitPoints != nil {
-			rolled = *level.HitPoints
-			method = "recorded roll"
-			if rolled < 1 || rolled > size {
-				addCharacterIssue(result, "hit-die:"+level.ID, level.ID, fmt.Sprintf("Recorded hit die must be between 1 and %d.", size), "blocker", &character.Reference{Kind: "class", ID: level.ClassID})
-			}
+		gained, rolled, method := profile.LevelHitPoints(index+1, size, level.HitPoints, con, bonus)
+		if method == "recorded roll" && (rolled < 1 || rolled > size) {
+			addCharacterIssue(result, "hit-die:"+level.ID, level.ID, fmt.Sprintf("Recorded hit die must be between 1 and %d.", size), "blocker", &character.Reference{Kind: "class", ID: level.ClassID})
 		}
-		gained := max(minimum, rolled+con) + bonus
 		maximum += gained
 		rows = append(rows, Object{"levelId": level.ID, "classId": level.ClassID, "die": size, "result": rolled, "method": method, "constitution": con, "minimum": minimum, "bonus": bonus, "gained": gained})
 	}

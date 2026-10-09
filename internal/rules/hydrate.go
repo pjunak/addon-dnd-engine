@@ -281,22 +281,18 @@ func hydrateHitPoints(sheet Object, classes []resolvedClass, conMod int, sources
 	fixedBonus := grantTotal(sources, "hpBonus")
 	dice := 0
 	level := 0
-	maxAwarded := false
+	maximum := 0
 	for _, current := range classes {
 		die := hitDieSize(text(current.Record["hitDie"]))
 		for index := 0; index < current.Level; index++ {
 			level++
-			if !maxAwarded {
-				dice += die
-				maxAwarded = true
-			} else {
-				dice += ruleset.FixedHitPoints(die)
-			}
+			gained, result, _ := ruleset.LevelHitPoints(level, die, nil, conMod, perLevel)
+			dice += result
+			maximum += gained
 		}
 	}
-	maximum := 0
 	if level > 0 {
-		maximum = dice + conMod*level + perLevel*level + fixedBonus
+		maximum += fixedBonus
 	}
 	sheet["hp"] = Object{
 		"max": maximum,

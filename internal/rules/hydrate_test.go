@@ -237,17 +237,17 @@ func (records memoryRecords) Values(kind string) []json.RawMessage {
 
 func syntheticRecords() memoryRecords {
 	return newMemoryRecords([]Object{
-		{"kind": "class", "id": "wizard", "name": "Wizard", "hitDie": "d6", "savingThrows": []any{"INT", "WIS"},
+		{"kind": "class", "id": "wizard", "name": "Wizard", "hitDie": "d6", "subclassLevel": 3, "savingThrows": []any{"INT", "WIS"},
 			"spellcasting": Object{"ability": "INT", "type": "full", "prepares": "spellbook", "ritual": true},
 			"progression": []any{
 				Object{"level": 1, "spellSlots": []any{2}, "features": []any{"Arcane Recovery"}},
 				Object{"level": 2, "spellSlots": []any{3}, "features": []any{"Scholar", "Spell Mastery"}},
 				Object{"level": 5, "preparedSpells": 9, "cantripsKnown": 4, "spellSlots": []any{4, 3, 2}},
 			}},
-		{"kind": "class", "id": "warlock", "name": "Warlock", "hitDie": "d8", "savingThrows": []any{"WIS", "CHA"},
+		{"kind": "class", "id": "warlock", "name": "Warlock", "hitDie": "d8", "subclassLevel": 3, "savingThrows": []any{"WIS", "CHA"},
 			"spellcasting": Object{"ability": "CHA", "type": "pact", "prepares": "list"},
 			"progression":  []any{Object{"level": 1, "preparedSpells": 2}, Object{"level": 5, "preparedSpells": 6}}},
-		{"kind": "class", "id": "fighter", "name": "Fighter", "hitDie": "d10", "savingThrows": []any{"STR", "CON"},
+		{"kind": "class", "id": "fighter", "name": "Fighter", "hitDie": "d10", "subclassLevel": 3, "savingThrows": []any{"STR", "CON"},
 			"abilityScoreImprovementLevels": []any{6, 14}},
 		{"kind": "class", "id": "paladin", "name": "Paladin", "hitDie": "d10", "savingThrows": []any{"WIS", "CHA"},
 			"spellcasting": Object{"ability": "CHA", "type": "half", "prepares": "list"}},

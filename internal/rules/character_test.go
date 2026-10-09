@@ -118,7 +118,7 @@ func characterFixture(t testing.TB) (character.Inputs, Records, Ruleset) {
 	profile.Constants.Character = &CharacterPolicy{MaximumLevel: 20, MinimumHPGain: 1, StandardArray: []int{15, 14, 13, 12, 10, 8}, RollDice: 4, RollSides: 6, RollKeep: 3, DistanceUnit: "ft"}
 	profile.Builder.BackgroundAbilityGrant = json.RawMessage("false")
 	records := newMemoryRecords([]Object{
-		{"kind": "class", "id": "fighter", "name": "Fighter", "hitDie": "d10"},
+		{"kind": "class", "id": "fighter", "name": "Fighter", "hitDie": "d10", "subclassLevel": 3},
 		{"kind": "species", "id": "dwarf", "name": "Dwarf", "speeds": Object{"walk": 30}, "senses": Object{"darkvision": 120}},
 		{"kind": "background", "id": "artisan", "name": "Artisan"},
 	})

@@ -197,7 +197,7 @@ func collectClassChoices(classes []any, selections Object, records Records, rule
 		subclass := recordView(records, "subclass", subclassID)
 		context = choiceContext{
 			owner: subclassID, classID: classID, classLevel: classLevel, sourceType: "subclass",
-			fallbackLevel: integer(subclass["subclassLevel"], 3), records: records, masteryEnabled: masteryEnabled, selections: selections,
+			fallbackLevel: integer(subclass["subclassLevel"], classSubclassLevel(record)), records: records, masteryEnabled: masteryEnabled, selections: selections,
 		}
 		appendRecordChoices(&result, subclass["grants"], context)
 		for _, feature := range recordCatalog(records, "feature") {

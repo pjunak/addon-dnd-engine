@@ -144,7 +144,7 @@ every slot in that group.
 Removing a class level can strand other selections; the Engine reports them so
 a consumer withdraws exactly those instead of re-deriving the rules:
 `subclass-level:<classId>` marks a subclass recorded for a missing class, below
-that class record's `subclassLevel` (default 3) or belonging to another class,
+that class record's required `subclassLevel` or belonging to another class,
 and `spell-class:<cantrips|spellbook|prepared>:<classId>` marks spells selected
 for a spellcasting class the character no longer has (`spell-count:` remains
 over-capacity only). Each spellbook caster in `sheet.spellcasting.perClass`

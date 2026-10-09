@@ -3,9 +3,10 @@ package rules
 import "github.com/pjunak/addon-dnd-engine/character"
 
 // classSubclassLevel is the class level at which a class's subclass is chosen,
-// from the class record. Records without the field use the common third level.
+// from the class record, or 0 when the record declares none: the engine does
+// not assume an edition's usual level.
 func classSubclassLevel(class Object) int {
-	return max(1, integer(class["subclassLevel"], 3))
+	return max(0, integer(class["subclassLevel"], 0))
 }
 
 // validateCharacterSubclasses rejects a subclass recorded for a class the
@@ -24,7 +25,8 @@ func validateCharacterSubclasses(input character.Inputs, records Records, result
 		}
 		class := recordView(records, "class", classID)
 		subclass := recordView(records, "subclass", subclassID)
-		if class == nil || subclass == nil || text(subclass["classId"]) != classID || levels[classID] < classSubclassLevel(class) {
+		level := classSubclassLevel(class)
+		if class == nil || subclass == nil || text(subclass["classId"]) != classID || level < 1 || levels[classID] < level {
 			addCharacterIssue(result, "subclass-level:"+classID, "levels", "This subclass is not available at the recorded class level.", "blocker", &character.Reference{Kind: "subclass", ID: subclassID})
 		}
 	}

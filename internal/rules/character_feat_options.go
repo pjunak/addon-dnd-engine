@@ -6,28 +6,30 @@ import (
 	"github.com/pjunak/addon-dnd-engine/character"
 )
 
-// Most catalog prerequisites need only acquisition level or a DM waiver.
-// Keep those on the same predicate interpreter without hydrating every earlier
-// level for every option. Sheet-dependent predicates retain full progression.
-func simpleFeatOptionAllowed(input character.Inputs, descriptor, choice, feat Object, acquisitions []featAcquisition) (bool, bool) {
-	if integer(choice["count"], 1) > 1 || prerequisiteNeedsSheet(object(feat["prerequisites"]), 0) {
-		return false, false
+// featOptionLevels finds the character levels (prefix lengths) at which a
+// feat option, and every other acquisition of the same feat, is first
+// acquired. known is false when a multi-slot choice, replacement history or a
+// feat granted by another feat makes that mapping uncertain; repeatable is
+// false when the feat cannot be acquired that many times.
+func featOptionLevels(input character.Inputs, descriptor, choice, feat Object, acquisitions []featAcquisition) (ends []int, repeatable, known bool) {
+	if integer(choice["count"], 1) > 1 {
+		return nil, true, false
 	}
 	// A replacement can move this acquisition, or another copy of the same
 	// feat, to a later level. The progression validator reconstructs that history.
 	for _, entry := range input.Build.Replacements {
 		if entry.Kind == "feat" && (entry.Key == text(choice["id"]) || entry.In == text(feat["id"]) || entry.Out == text(feat["id"])) {
-			return false, false
+			return nil, true, false
 		}
 	}
 	source := object(descriptor["source"])
 	classID := text(descriptor["classId"])
 	if classID == "" && text(source["type"]) != "background" && text(source["type"]) != "species" {
-		return false, false
+		return nil, true, false
 	}
 	at := featAcquisitionIndex(input, classID, integer(source["level"], 1))
 	if at < 0 {
-		return false, false
+		return nil, true, false
 	}
 	// Replacing a feat can also remove the feats it granted. Let the full
 	// candidate plan resolve those descendants before checking duplicates.
@@ -37,11 +39,11 @@ func simpleFeatOptionAllowed(input character.Inputs, descriptor, choice, feat Ob
 		}
 		for _, acquired := range acquisitions {
 			if len(acquired.ancestors) > 1 && contains(acquired.ancestors[:len(acquired.ancestors)-1], selected.featID) {
-				return false, false
+				return nil, true, false
 			}
 		}
 	}
-	prefixes := []int{at}
+	ends = []int{at}
 	count := 1
 	for _, acquired := range acquisitions {
 		if acquired.id == text(choice["id"]) || acquired.featID != text(feat["id"]) {
@@ -49,29 +51,47 @@ func simpleFeatOptionAllowed(input character.Inputs, descriptor, choice, feat Ob
 		}
 		count++
 		if !featRepetitionAllowed(feat, count) {
-			return false, true
+			return nil, false, true
 		}
 		if acquired.classID == "" && !strings.HasPrefix(acquired.id, "background:") && !strings.HasPrefix(acquired.id, "species:") && !strings.HasPrefix(acquired.id, "grant:") {
-			return false, false
+			return nil, true, false
 		}
 		prior := featAcquisitionIndex(input, acquired.classID, acquired.level)
 		if prior < 0 {
-			return false, false
+			return nil, true, false
 		}
-		prefixes = append(prefixes, prior)
+		ends = append(ends, prior)
 	}
-	for _, end := range prefixes {
+	return ends, true, true
+}
+
+// levelPrerequisitesMet checks prerequisites that need no sheet (level or a
+// DM waiver) at each acquisition level.
+func levelPrerequisitesMet(input character.Inputs, feat Object, ends []int) bool {
+	for _, end := range ends {
 		prefix := input
 		prefix.Build.Levels = prefix.Build.Levels[:end]
 		check := character.Result{}
 		validatePrerequisite(feat["prerequisites"], "feat:"+text(feat["id"]), "choices", prefix, Object{"totalLevel": end}, &check, nil)
 		for _, issue := range check.Issues {
 			if issue.Severity == "blocker" {
-				return false, true
+				return false
 			}
 		}
 	}
-	return true, true
+	return true
+}
+
+// acquisitionLevels lists the progression level indexes that decide whether
+// a feat acquired at these prefix lengths is allowed: each acquisition level
+// and the level before it, which supplies what was already acquired.
+func acquisitionLevels(ends []int) map[int]bool {
+	levels := map[int]bool{}
+	for _, end := range ends {
+		levels[end-1] = true
+		levels[end-2] = true
+	}
+	return levels
 }
 
 func featAcquisitionIndex(input character.Inputs, classID string, level int) int {

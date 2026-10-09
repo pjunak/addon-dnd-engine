@@ -82,13 +82,23 @@ func characterEditorGuidance(input character.Inputs, decisions Object, records R
 			}
 			filtered := []any{}
 			for _, option := range objects(entry[key]) {
+				var levels map[int]bool
 				if simpleLevels {
 					feat := recordByID(records, "feat", text(option["id"]))
-					if allowed, handled := simpleFeatOptionAllowed(input, descriptor, choice, feat, acquisitions); handled {
-						if allowed {
+					ends, repeatable, known := featOptionLevels(input, descriptor, choice, feat, acquisitions)
+					if known && !repeatable {
+						continue
+					}
+					// Most catalog prerequisites need only acquisition level or a
+					// DM waiver; others hydrate just the levels that decide them.
+					if known && !prerequisiteNeedsSheet(object(feat["prerequisites"]), 0) {
+						if levelPrerequisitesMet(input, feat, ends) {
 							filtered = append(filtered, option)
 						}
 						continue
+					}
+					if known {
+						levels = acquisitionLevels(ends)
 					}
 				}
 				candidate := cloneCharacter(input)
@@ -104,7 +114,7 @@ func characterEditorGuidance(input character.Inputs, decisions Object, records R
 				value, _ := json.Marshal(text(option["id"]))
 				candidate.Build.Choices = append(choices, character.Choice{ID: text(choice["id"]), Value: value})
 				check := character.Result{Issues: []character.Issue{}}
-				validateSelectedProgression(candidate, records, profile, &check, progressionChecks{feats: true, featID: text(option["id"])})
+				validateSelectedProgression(candidate, records, profile, &check, progressionChecks{feats: true, featID: text(option["id"]), levels: levels})
 				allowed := true
 				for _, issue := range check.Issues {
 					if issue.ID == "feat:"+text(option["id"]) && issue.Severity == "blocker" {

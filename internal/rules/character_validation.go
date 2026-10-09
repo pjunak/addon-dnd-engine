@@ -305,6 +305,9 @@ type progressionChecks struct {
 	classes bool
 	feats   bool
 	featID  string
+	// levels, when set, limits a featID check to these level indexes. Each
+	// listed acquisition level must also list the level before it.
+	levels map[int]bool
 }
 
 func validateCharacterProgression(input character.Inputs, records Records, profile Ruleset, result *character.Result) {
@@ -318,6 +321,9 @@ func validateSelectedProgression(input character.Inputs, records Records, profil
 	seenFeats := map[string]bool{}
 	seenAcquisitions := map[string]string{}
 	for index, level := range input.Build.Levels {
+		if checks.levels != nil && !checks.levels[index] {
+			continue
+		}
 		if !checks.feats && (index == 0 || seenClasses[level.ClassID]) {
 			seenClasses[level.ClassID] = true
 			continue

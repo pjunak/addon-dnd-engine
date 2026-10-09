@@ -83,7 +83,7 @@ func builderGuidance(decisions, plan Object, records Records, profile Ruleset, c
 			}
 		}
 		sortGuidanceOptions(subclasses)
-		level, subclassLevel := max(1, integer(selected["level"], 1)), max(1, integer(class["subclassLevel"], 3))
+		level, subclassLevel := max(1, integer(selected["level"], 1)), classSubclassLevel(class)
 		if level >= subclassLevel && len(subclasses) > 0 {
 			valid := false
 			for _, sub := range objects(subclasses) {

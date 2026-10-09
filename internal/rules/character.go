@@ -34,6 +34,7 @@ func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset)
 		object(hydrated.Sheet["derived"])["size"] = size
 	}
 	result.Sheet = hydrated.Sheet
+	annotateSpellbookCapacity(input, hydrated.Sheet)
 	result.Sheet["feats"] = acquiredFeatRows(selectedFeats(normalized, tracked), objects(normalized["featAcquisitions"]))
 	for _, ability := range Abilities {
 		object(object(hydrated.Sheet["abilities"])[ability])["cap"] = object(normalized["scoreCaps"])[ability]

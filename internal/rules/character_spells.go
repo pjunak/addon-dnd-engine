@@ -42,19 +42,22 @@ func validateCharacterSpells(input character.Inputs, records Records, result *ch
 			ids := selection.values[classID]
 			caster := casters[classID]
 			uniqueIDs := map[string]bool{}
+			if caster == nil {
+				// The character no longer has this spellcasting class, for
+				// example after a level was removed.
+				if len(ids) > 0 {
+					block("spell-class:"+selection.name+":"+classID, "These spells belong to a spellcasting class the character no longer has.")
+				}
+				continue
+			}
 			limit := integer(caster["preparedLimit"], 0)
 			if selection.name == "cantrips" {
 				limit = integer(caster["cantripsKnown"], 0)
 			}
 			if selection.name == "spellbook" {
-				limit = integer(caster["spellbookKnown"], 0)
-				for _, id := range ids {
-					if copies[classID][id] {
-						limit++
-					}
-				}
+				limit = integer(caster["spellbookCapacity"], 0)
 			}
-			if len(ids) > limit || caster == nil && len(ids) > 0 {
+			if len(ids) > limit {
 				block("spell-count:"+selection.name+":"+classID, "The selected spells exceed the currently granted capacity.")
 			}
 			for _, id := range ids {

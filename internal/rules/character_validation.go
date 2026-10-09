@@ -243,6 +243,7 @@ func validateCharacter(input character.Inputs, decisions Object, records Records
 		}
 	}
 	validateCharacterProgression(input, records, profile, result)
+	validateCharacterSubclasses(input, records, result)
 	validateCharacterSpells(input, records, result)
 }
 

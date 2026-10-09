@@ -169,19 +169,7 @@ func hydrateAbilities(decisions Object, sheet Object, mods map[string]int, rules
 	grants := objects(decisions["abilityGrants"])
 	result := object(sheet["abilities"])
 	for _, ability := range Abilities {
-		bonus := 0
-		capValue := ruleset.Constants.AbilityCap
-		for _, grant := range grants {
-			assign := object(grant["assign"])
-			amount := integer(assign[ability], 0)
-			if amount == 0 {
-				continue
-			}
-			bonus += amount
-			if raised := integer(grant["cap"], 0); raised > capValue {
-				capValue = min(ruleset.Constants.AbilityCapHard, raised)
-			}
-		}
+		bonus, capValue := abilityGrantTotal(grants, ability, ruleset)
 		if cap, exists := object(decisions["scoreCaps"])[ability]; exists {
 			capValue = integer(cap, capValue)
 		}

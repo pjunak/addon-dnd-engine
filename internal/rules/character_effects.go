@@ -93,18 +93,29 @@ func abilityScoreFloor(sources []characterEffectSource, ability string) int {
 	return floor
 }
 
+// abilityGrantTotal sums one ability's score grants and the cap they allow:
+// the normal cap, raised by any contributing grant that names a higher one, up
+// to the hard limit.
+func abilityGrantTotal(grants []Object, ability string, ruleset Ruleset) (bonus, cap int) {
+	cap = ruleset.Constants.AbilityCap
+	for _, grant := range grants {
+		amount := integer(object(grant["assign"])[ability], 0)
+		if amount == 0 {
+			continue
+		}
+		bonus += amount
+		cap = max(cap, min(ruleset.Constants.AbilityCapHard, integer(grant["cap"], cap)))
+	}
+	return bonus, cap
+}
+
 func applyCharacterAbilityEffects(input character.Inputs, decisions Object, result *character.Result, profile Ruleset, records Records) {
 	sources := characterEffectSources(input, records)
 	caps, scores := Object{}, Object{}
+	grants := objects(decisions["abilityGrants"])
 	for _, ability := range Abilities {
 		base := integer(object(decisions["baseStats"])[ability], 0)
-		cap, bonus := profile.Constants.AbilityCap, 0
-		for _, grant := range objects(decisions["abilityGrants"]) {
-			bonus += integer(object(grant["assign"])[ability], 0)
-			if integer(object(grant["assign"])[ability], 0) != 0 {
-				cap = max(cap, min(profile.Constants.AbilityCapHard, integer(grant["cap"], cap)))
-			}
-		}
+		bonus, cap := abilityGrantTotal(grants, ability, profile)
 		caps[ability] = effectNumber(cap, "abilityCap", ability, sources, result)
 		score := effectNumber(min(integer(caps[ability], cap), base+bonus), "abilityScore", ability, sources, result)
 		// A "set" or "minimum" score (a Giant Strength belt) replaces the score

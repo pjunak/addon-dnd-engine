@@ -393,3 +393,21 @@ func TestCharacterProfileDoesNotDefaultOmittedZeroValuedPolicy(t *testing.T) {
 		t.Fatalf("complete policy rejected: %v", err)
 	}
 }
+
+func TestSetAbilityScoresAboveTheCapReachTheSheet(t *testing.T) {
+	input, records, profile := characterFixture(t)
+	score := func(effect character.Effect) float64 {
+		input.Grants = []character.Grant{{ID: "belt", Name: "Giant belt", Reason: "Treasure", ActorID: "dm", GrantedAt: input.Play.AsOf, Active: true, EffectiveLevel: 1, Condition: "always", Effects: []character.Effect{effect}}}
+		abilities := object(EvaluateCharacter(input, records, profile).Sheet["abilities"])
+		return number(object(abilities["STR"])["score"], 0)
+	}
+	if got := score(character.Effect{Target: "abilityScore", Key: "STR", Mode: "set", Value: 23}); got != 23 {
+		t.Fatalf("set STR 23 shows %v", got)
+	}
+	if got := score(character.Effect{Target: "abilityScore", Key: "STR", Mode: "minimum", Value: 21}); got != 21 {
+		t.Fatalf("minimum STR 21 shows %v", got)
+	}
+	if got := score(character.Effect{Target: "abilityScore", Key: "STR", Mode: "add", Value: 30}); got > float64(profile.Constants.AbilityCap) {
+		t.Fatalf("an addition passed the cap: %v", got)
+	}
+}

@@ -78,6 +78,21 @@ func effectNumber(base int, target, key string, sources []characterEffectSource,
 	return min(maximum, max(minimum, value+addition))
 }
 
+func abilityScoreFloor(sources []characterEffectSource, ability string) int {
+	floor := 0
+	for _, grant := range sources {
+		if !grant.Active {
+			continue
+		}
+		for _, effect := range grant.Effects {
+			if effect.Target == "abilityScore" && effect.Key == ability && (effect.Mode == "set" || effect.Mode == "minimum") {
+				floor = max(floor, effect.Value)
+			}
+		}
+	}
+	return floor
+}
+
 func applyCharacterAbilityEffects(input character.Inputs, decisions Object, result *character.Result, profile Ruleset, records Records) {
 	sources := characterEffectSources(input, records)
 	caps, scores := Object{}, Object{}
@@ -92,6 +107,11 @@ func applyCharacterAbilityEffects(input character.Inputs, decisions Object, resu
 		}
 		caps[ability] = effectNumber(cap, "abilityCap", ability, sources, result)
 		score := effectNumber(min(integer(caps[ability], cap), base+bonus), "abilityScore", ability, sources, result)
+		// A "set" or "minimum" score (a Giant Strength belt) replaces the score
+		// rather than adding to it, so it lifts the cap up to the hard limit.
+		if floor := abilityScoreFloor(sources, ability); floor > integer(caps[ability], 0) {
+			caps[ability] = min(profile.Constants.AbilityCapHard, floor)
+		}
 		if score < 1 || integer(caps[ability], 0) < 1 {
 			addCharacterIssue(result, "ability-bound:"+ability, "abilities", ability+" must have a positive score and cap.", "blocker", nil)
 		}

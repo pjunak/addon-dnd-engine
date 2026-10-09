@@ -676,29 +676,18 @@ func cloneObjectDeep(source Object) Object {
 	if source == nil {
 		return Object{}
 	}
-	body, _ := json.Marshal(source)
-	result, _ := DecodeObject(body)
-	return result
+	return copyJSONObject(source)
 }
 
 func cloneArray(source []any) []any {
 	if source == nil {
 		return []any{}
 	}
-	body, _ := json.Marshal(source)
-	var result []any
-	_ = json.Unmarshal(body, &result)
-	return result
+	return copyJSONValue(source).([]any)
 }
 
 func cloneValue(source any) any {
-	if source == nil {
-		return nil
-	}
-	body, _ := json.Marshal(source)
-	var result any
-	_ = json.Unmarshal(body, &result)
-	return result
+	return copyJSONValue(source)
 }
 
 func stringIntObject(source map[string]int) Object {

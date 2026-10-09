@@ -386,9 +386,7 @@ func characterRemainingResources(input character.Inputs, sheet Object) Object {
 }
 
 func cloneCharacter(input character.Inputs) character.Inputs {
-	var result character.Inputs
-	decodeInto(input, &result)
-	return result
+	return deepCopy(input)
 }
 func toObject(value any) Object {
 	var result Object

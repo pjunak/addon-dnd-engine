@@ -970,12 +970,14 @@ var (
 	digitsPattern = regexp.MustCompile(`\d+`)
 )
 
+// hitDieSize reads a "dN" hit die, or 0 when the record's value is malformed;
+// validation reports that class instead of assuming a die.
 func hitDieSize(hitDie string) int {
 	match := hitDiePattern.FindStringSubmatch(hitDie)
 	if len(match) != 2 {
-		return 8
+		return 0
 	}
-	return integer(match[1], 8)
+	return integer(match[1], 0)
 }
 
 func strengthRequirement(value any) int {

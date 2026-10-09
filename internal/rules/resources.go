@@ -8,7 +8,6 @@ import (
 )
 
 var frequencyPattern = regexp.MustCompile(`(?i)(\d+)\s*/\s*(shortOrLong|short|long)`)
-var pactSlotsPattern = regexp.MustCompile(`\bpact[- ]slots?\b`)
 
 func hydrateResources(
 	decisions Object,
@@ -91,11 +90,6 @@ func hydrateResources(
 		for _, pool := range pools {
 			resource := pool.resource
 			if text(resource["key"]) == "" || integer(resource["minLevel"], 1) > current.Level {
-				continue
-			}
-			identifier := strings.ToLower(text(resource["key"]) + " " + text(resource["name"]))
-			if text(pool.source["type"]) == "class" && classHasPact(sheet, text(pool.source["id"])) &&
-				pactSlotsPattern.MatchString(identifier) {
 				continue
 			}
 			maximum := resolveMaximum(resource, current.Level)
@@ -242,16 +236,6 @@ func appendHitDiceAndSpellSlots(resources *[]any, sheet Object, classes []resolv
 			"source":   Object{"type": "pactMagic", "id": text(entry["classId"])},
 		})
 	}
-}
-
-func classHasPact(sheet Object, classID string) bool {
-	for _, raw := range values(object(sheet["spellcasting"])["perClass"]) {
-		entry := object(raw)
-		if text(entry["classId"]) == classID && object(entry["pact"]) != nil {
-			return true
-		}
-	}
-	return false
 }
 
 func parseFrequency(value string) (int, []string) {

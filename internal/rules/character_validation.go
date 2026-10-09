@@ -57,8 +57,10 @@ func validateCharacter(input character.Inputs, decisions Object, records Records
 			block("level-id:"+level.ID, "levels", "Level decisions need unique IDs.")
 		}
 		seen[level.ID] = true
-		if recordByID(records, "class", level.ClassID) == nil {
+		if class := recordView(records, "class", level.ClassID); class == nil {
 			block("class:"+level.ID, level.ID, "Choose an available class.")
+		} else if hitDieSize(text(class["hitDie"])) < 1 {
+			block("class-hit-die:"+level.ClassID, level.ID, "This class record has no valid hit die.")
 		}
 	}
 	choiceIDs := map[string]bool{}

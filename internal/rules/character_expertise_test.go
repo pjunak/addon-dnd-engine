@@ -92,7 +92,7 @@ func TestCharacterExpertiseUsesAcquisitionSkillsAndKeepsItsOwnSelections(t *test
 }
 func TestCharacterExpertiseHonorsClassLevelRestrictedPoolsAndCombinedGrants(t *testing.T) {
 	input, records, profile := expertiseFixture(t)
-	records.byKind["class"]["scout"] = mustJSON(Object{"kind": "class", "id": "scout", "multiclassPrerequisites": Object{}})
+	records.byKind["class"]["scout"] = mustJSON(Object{"kind": "class", "id": "scout", "hitDie": "d8", "multiclassPrerequisites": Object{}})
 	class := recordByID(records, "class", "fighter")
 	class["multiclassPrerequisites"] = Object{}
 	records.byKind["class"]["fighter"] = mustJSON(class)

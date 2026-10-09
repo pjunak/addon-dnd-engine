@@ -69,3 +69,18 @@ func TestSpellbookCapacityCountsGrantedAndCopiedSpells(t *testing.T) {
 		t.Fatal("non-spellbook caster got a spellbook capacity")
 	}
 }
+
+func TestMalformedHitDieIsReportedNotAssumed(t *testing.T) {
+	input, records, profile := characterFixture(t)
+	broken := newMemoryRecords([]Object{
+		{"kind": "class", "id": "fighter", "name": "Fighter", "hitDie": "ten"},
+		{"kind": "species", "id": "dwarf", "name": "Dwarf", "speeds": Object{"walk": 30}},
+		{"kind": "background", "id": "artisan", "name": "Artisan"},
+	})
+	if result := EvaluateCharacter(input, records, profile); characterIssue(result, "class-hit-die:fighter") {
+		t.Fatal("rejected a valid hit die")
+	}
+	if result := EvaluateCharacter(input, broken, profile); !characterIssue(result, "class-hit-die:fighter") {
+		t.Fatal("assumed a hit die for a malformed record", result.Issues)
+	}
+}

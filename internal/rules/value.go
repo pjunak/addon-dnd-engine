@@ -77,8 +77,8 @@ func recordList(records Records, kind string) []Object {
 	return result
 }
 
-// recordCatalog lends read-only records for catalog scans. Callers construct
-// their own decisions/results; mutable records still use recordByID/recordList.
+// recordCatalog lends read-only records for catalog scans. Within an
+// evaluation the list is shared and sorted by ID; callers copy before changing.
 func recordCatalog(records Records, kind string) []Object {
 	if cached, ok := records.(interface{ recordCatalog(string) []Object }); ok {
 		return cached.recordCatalog(kind)

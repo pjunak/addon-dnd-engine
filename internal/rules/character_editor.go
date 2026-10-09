@@ -42,7 +42,7 @@ func characterEditorGuidance(input character.Inputs, decisions Object, records R
 	result.Sheet["equipment"] = slots
 	options := []any{}
 	if len(input.Build.Levels) < profile.Constants.Character.MaximumLevel {
-		for _, class := range recordList(records, "class") {
+		for _, class := range recordCatalog(records, "class") {
 			candidate := cloneCharacter(input)
 			candidate.Build.Levels = append(candidate.Build.Levels, character.Level{ID: "editor-next-level", ClassID: text(class["id"])})
 			check := character.Result{Issues: []character.Issue{}}

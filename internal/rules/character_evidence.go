@@ -24,6 +24,11 @@ func (records *characterRecords) Value(kind, id string) (json.RawMessage, bool) 
 	if !ok {
 		return nil, false
 	}
+	// Evidence depends only on the record and its source, so reads after the
+	// first need not rebuild it.
+	if _, recorded := records.selected[kind+":"+id]; recorded {
+		return body, true
+	}
 	record, valid := DecodeObject(body)
 	if !valid {
 		return nil, false
@@ -45,6 +50,17 @@ func (records *characterRecords) Value(kind, id string) (json.RawMessage, bool) 
 	}
 	records.selected[kind+":"+id] = character.Evidence{Reference: character.Reference{Kind: kind, ID: id}, Name: firstText(record["name"], id), Book: text(record["book"]), Hash: hex.EncodeToString(sum[:]), Summary: summary, Facts: facts, PackageID: identity.PackageID, PackageGeneration: identity.PackageGeneration, ContentRevision: identity.ContentRevision}
 	return body, true
+}
+// recordObject and recordView record evidence, then lend the evaluation's
+// shared, read-only decoded record instead of decoding the body again.
+func (records *characterRecords) recordObject(kind, id string) Object {
+	return records.recordView(kind, id)
+}
+func (records *characterRecords) recordView(kind, id string) Object {
+	if _, ok := records.Value(kind, id); !ok {
+		return nil
+	}
+	return recordView(records.source, kind, id)
 }
 func (records *characterRecords) ValueByName(kind, name string) (json.RawMessage, bool) {
 	return nil, false

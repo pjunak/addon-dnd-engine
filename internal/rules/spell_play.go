@@ -2,6 +2,7 @@ package rules
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -12,7 +13,8 @@ import (
 func SpellOptions(decisions, sheet Object, records Records, profile Ruleset) Object {
 	casting := object(sheet["spellcasting"])
 	classes, choices, grants, slots := []any{}, []any{}, []any{}, []any{}
-	spells := recordList(records, "spell")
+	// The shared catalog is read-only; sort a copy of its entries.
+	spells := slices.Clone(recordCatalog(records, "spell"))
 	sort.Slice(spells, func(i, j int) bool { return text(spells[i]["id"]) < text(spells[j]["id"]) })
 	for _, caster := range objects(casting["perClass"]) {
 		classID := text(caster["classId"])

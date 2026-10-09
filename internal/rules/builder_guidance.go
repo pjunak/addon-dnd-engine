@@ -77,7 +77,7 @@ func builderGuidance(decisions, plan Object, records Records, profile Ruleset, c
 			continue
 		}
 		subclasses := []any{}
-		for _, sub := range recordList(records, "subclass") {
+		for _, sub := range recordCatalog(records, "subclass") {
 			if text(sub["classId"]) == id {
 				subclasses = append(subclasses, guidanceOption(text(sub["id"]), sub))
 			}
@@ -233,11 +233,11 @@ func builderChoiceOptions(choice, sheet Object, records Records) []any {
 				pool = append(pool, skill)
 			}
 		case "weaponMastery":
-			for _, weapon := range recordList(records, "weapon") {
+			for _, weapon := range recordCatalog(records, "weapon") {
 				pool = append(pool, text(weapon["id"]))
 			}
 		case "feat":
-			for _, feat := range recordList(records, "feat") {
+			for _, feat := range recordCatalog(records, "feat") {
 				pool = append(pool, text(feat["id"]))
 			}
 		}

@@ -256,9 +256,9 @@ func copyPlaySpell(decisions, sheet, change Object, records Records, profile Rul
 			if text(item["id"]) != scrollID {
 				continue
 			}
-			name := strings.ToLower(text(item["name"]))
-			matches := text(item["spellRef"]) == ref || strings.Contains(name, "scroll") && text(spell["name"]) != "" && strings.Contains(name, strings.ToLower(text(spell["name"])))
-			if !matches || integer(item["qty"], 0) < 1 {
+			// Only an explicit link counts: item names are free text, in any
+			// language, and one spell's name can be part of another's.
+			if text(item["spellRef"]) != ref || integer(item["qty"], 0) < 1 {
 				return fmt.Errorf("Choose a remaining scroll for this spell.")
 			}
 			found = true

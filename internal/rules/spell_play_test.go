@@ -84,7 +84,7 @@ func TestGrantedSpellsChooseAbilityAndUseFreeCast(t *testing.T) {
 func TestCopyingSpellsAndRitualsAreAtomicAndPreserveInventory(t *testing.T) {
 	records, profile := spellPlayRecords(), syntheticRuleset(t)
 	cost := ScrollCopyCost(1, profile)
-	state := Object{"classes": []any{Object{"classId": "wizard", "level": 5}}, "currency": Object{"gp": cost + 7, "sp": 11}, "inventory": []any{Object{"id": "scroll", "name": "Scroll of Find Path", "qty": 2, "notes": "retain"}, Object{"id": "other", "name": "Ward shield", "qty": 1}}}
+	state := Object{"classes": []any{Object{"classId": "wizard", "level": 5}}, "currency": Object{"gp": cost + 7, "sp": 11}, "inventory": []any{Object{"id": "scroll", "name": "Scroll of Find Path", "spellRef": "find-path", "qty": 2, "notes": "retain"}, Object{"id": "other", "name": "Scroll of Ward", "qty": 1}}}
 	change := Object{"operation": "copy-spell", "classId": "wizard", "ref": "find-path", "scrollId": "scroll"}
 	next, err := applyPlayFixture(state, change, records, profile)
 	if err != nil {

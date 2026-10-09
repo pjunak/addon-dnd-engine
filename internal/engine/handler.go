@@ -7,6 +7,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strconv"
+	"strings"
 
 	"github.com/pjunak/addon-dnd-engine/character"
 	"github.com/pjunak/addon-dnd-engine/internal/provider"
@@ -192,22 +194,6 @@ func (handler *Handler) derive(
 			return nil, nil, invalidDerive()
 		}
 		return rules.AbilityModifier(*input.Score), nil, nil
-	case "proficiency-bonus":
-		var input struct {
-			TotalLevel *float64 `json:"totalLevel"`
-		}
-		if jsonexact.Decode(request.Input, &input) != nil || input.TotalLevel == nil {
-			return nil, nil, invalidDerive()
-		}
-		return rules.ProficiencyBonus(*input.TotalLevel), nil, nil
-	case "hit-die-average":
-		var input struct {
-			HitDie string `json:"hitDie"`
-		}
-		if jsonexact.Decode(request.Input, &input) != nil || input.HitDie == "" {
-			return nil, nil, invalidDerive()
-		}
-		return rules.HitDieAverage(input.HitDie), nil, nil
 	case "clamp-hp":
 		var input struct {
 			HitPoints *float64 `json:"hitPoints"`
@@ -217,15 +203,6 @@ func (handler *Handler) derive(
 			return nil, nil, invalidDerive()
 		}
 		return rules.ClampHP(*input.HitPoints, *input.Maximum), nil, nil
-	case "save-dc":
-		var input struct {
-			AbilityScore *float64 `json:"abilityScore"`
-			TotalLevel   *float64 `json:"totalLevel"`
-		}
-		if jsonexact.Decode(request.Input, &input) != nil || input.AbilityScore == nil || input.TotalLevel == nil {
-			return nil, nil, invalidDerive()
-		}
-		return rules.SaveDC(*input.AbilityScore, *input.TotalLevel), nil, nil
 	case "feat-asi-from":
 		var input struct {
 			Grant map[string]any `json:"grant"`
@@ -285,6 +262,35 @@ func (handler *Handler) derive(
 			return nil, nil, invalidDerive()
 		}
 		return rules.PactMagic(*input.Level, profile.Ruleset), &identity, nil
+	case "proficiency-bonus":
+		var input struct {
+			TotalLevel *int `json:"totalLevel"`
+		}
+		if jsonexact.Decode(request.Input, &input) != nil || input.TotalLevel == nil || *input.TotalLevel < 1 || *input.TotalLevel > 20 {
+			return nil, nil, invalidDerive()
+		}
+		return profile.Ruleset.ProficiencyBonus(*input.TotalLevel), &identity, nil
+	case "hit-die-average":
+		var input struct {
+			HitDie string `json:"hitDie"`
+		}
+		size, err := 0, jsonexact.Decode(request.Input, &input)
+		if err == nil {
+			size, err = strconv.Atoi(strings.TrimPrefix(strings.ToLower(input.HitDie), "d"))
+		}
+		if err != nil || !strings.HasPrefix(strings.ToLower(input.HitDie), "d") || size < 2 || size > 100 {
+			return nil, nil, invalidDerive()
+		}
+		return profile.Ruleset.FixedHitPoints(size), &identity, nil
+	case "save-dc":
+		var input struct {
+			AbilityScore *float64 `json:"abilityScore"`
+			TotalLevel   *int     `json:"totalLevel"`
+		}
+		if jsonexact.Decode(request.Input, &input) != nil || input.AbilityScore == nil || input.TotalLevel == nil || *input.TotalLevel < 1 || *input.TotalLevel > 20 {
+			return nil, nil, invalidDerive()
+		}
+		return profile.Ruleset.Constants.SpellSaveDCBase + profile.Ruleset.ProficiencyBonus(*input.TotalLevel) + rules.AbilityModifier(*input.AbilityScore), &identity, nil
 	case "feat-ability-cap":
 		var input struct {
 			Feat map[string]any `json:"feat"`
@@ -299,7 +305,8 @@ func (handler *Handler) derive(
 
 func rulesetOperation(operation string) bool {
 	switch operation {
-	case "scroll-copy-cost", "point-buy-cost", "points-spent", "multiclass-slots", "pact-magic", "feat-ability-cap":
+	case "proficiency-bonus", "hit-die-average", "save-dc",
+		"scroll-copy-cost", "point-buy-cost", "points-spent", "multiclass-slots", "pact-magic", "feat-ability-cap":
 		return true
 	default:
 		return false

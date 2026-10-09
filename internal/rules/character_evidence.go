@@ -112,7 +112,7 @@ func compactCharacterProjection(sheet Object) {
 	}
 }
 
-func characterExplanations(input character.Inputs, sheet Object, evidence []character.Evidence) map[string]character.Explanation {
+func characterExplanations(input character.Inputs, sheet Object, evidence []character.Evidence, profile Ruleset) map[string]character.Explanation {
 	result := map[string]character.Explanation{}
 	if size := object(sheet["derived"])["size"]; size != nil {
 		source := character.Reference{Kind: "species", ID: input.Build.Species}
@@ -255,7 +255,7 @@ func characterExplanations(input character.Inputs, sheet Object, evidence []char
 		ability := text(caster["ability"])
 		modifier := object(object(sheet["abilities"])[ability])["mod"]
 		prefix := fmtIndex("spellcasting.perClass", index)
-		makeExplanation(prefix+".saveDC", "Spell save DC", "8 + proficiency bonus + spellcasting ability modifier", caster["saveDC"], character.Term{Label: "Base", Value: 8}, character.Term{Label: "Proficiency bonus", Value: pb}, character.Term{Label: ability + " modifier", Value: modifier})
+		makeExplanation(prefix+".saveDC", "Spell save DC", "base + proficiency bonus + spellcasting ability modifier", caster["saveDC"], character.Term{Label: "Base", Value: profile.Constants.SpellSaveDCBase}, character.Term{Label: "Proficiency bonus", Value: pb}, character.Term{Label: ability + " modifier", Value: modifier})
 		makeExplanation(prefix+".spellAttack", "Spell attack", "proficiency bonus + spellcasting ability modifier", caster["spellAttack"], character.Term{Label: "Proficiency bonus", Value: pb}, character.Term{Label: ability + " modifier", Value: modifier})
 	}
 	for index, weapon := range objects(sheet["weapons"]) {

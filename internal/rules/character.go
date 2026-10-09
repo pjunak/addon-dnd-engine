@@ -90,7 +90,7 @@ func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset)
 	}
 	result.Evidence = tracked.evidence()
 	compactCharacterProjection(hydrated.Sheet)
-	result.Explanations = characterExplanations(input, hydrated.Sheet, calculationEvidence)
+	result.Explanations = characterExplanations(input, hydrated.Sheet, calculationEvidence, profile)
 	for key, explanation := range result.Explanations {
 		if explanation.Unit != "" {
 			explanation.Unit = profile.Constants.Character.DistanceUnit

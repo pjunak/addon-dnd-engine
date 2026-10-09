@@ -88,6 +88,34 @@ func TestRulesetDeriveCarriesProviderIdentity(t *testing.T) {
 	}
 }
 
+func TestFormulaDerivesReadTheRuleset(t *testing.T) {
+	t.Parallel()
+	data := engineProvider{ruleset: engineRuleset(t)}
+	handler, _ := New(&data)
+	for _, check := range []struct {
+		operation, input string
+		want             int
+	}{
+		{"proficiency-bonus", `{"totalLevel":17}`, 6},
+		{"hit-die-average", `{"hitDie":"d10"}`, 6},
+		{"save-dc", `{"abilityScore":16,"totalLevel":5}`, 14},
+	} {
+		value, err := handler.HandleRPC(context.Background(), rpcRequest("derive", `{
+			"contractVersion":"rules-engine-derive.v1","operation":"`+check.operation+`","input":`+check.input+`}`))
+		if err != nil {
+			t.Fatal(check.operation, err)
+		}
+		if derived := value.(deriveResponse); derived.Value != check.want || derived.Identity == nil {
+			t.Fatalf("%s = %+v", check.operation, derived)
+		}
+	}
+	for _, input := range []string{`{"hitDie":"broken"}`, `{"hitDie":"10"}`, `{"hitDie":"d0"}`} {
+		_, err := handler.HandleRPC(context.Background(), rpcRequest("derive", `{
+			"contractVersion":"rules-engine-derive.v1","operation":"hit-die-average","input":`+input+`}`))
+		assertRPCError(t, err, workerrpc.KindInvalidRequest)
+	}
+}
+
 func TestHandlerRejectsMissingInputsAndUnknownMethods(t *testing.T) {
 	t.Parallel()
 	data := engineProvider{ruleset: engineRuleset(t)}

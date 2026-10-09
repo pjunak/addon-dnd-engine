@@ -100,8 +100,9 @@ func TestHydrateWithoutProviderKeepsUniversalMath(t *testing.T) {
 	result := Hydrate(Object{
 		"abilities": Object{"STR": 16, "DEX": 14}, "level": 5,
 	}, nil, nil)
-	if AbilityModifier(number(object(object(result.Sheet["abilities"])["STR"])["score"], 0)) != 3 ||
-		integer(object(result.Sheet["derived"])["proficiencyBonus"], 0) != 3 ||
+	// The proficiency bonus is edition data, so it is absent without a ruleset.
+	_, proficiency := object(result.Sheet["derived"])["proficiencyBonus"]
+	if AbilityModifier(number(object(object(result.Sheet["abilities"])["STR"])["score"], 0)) != 3 || proficiency ||
 		integer(object(result.Sheet["derived"])["initiative"], 0) != 2 || len(result.Warnings) != 1 {
 		t.Fatalf("result = %+v", result)
 	}

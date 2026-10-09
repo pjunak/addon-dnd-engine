@@ -4,12 +4,17 @@
   "name": "Synthetic D&D 2024 Rules",
   "rulesetId": "synthetic-dnd-2024",
   "edition": "2024",
-  "rulesetVersion": 2,
+  "rulesetVersion": 4,
   "constants": {
     "abilityCap": 20,
     "abilityCapHard": 30,
     "attunementLimit": 3,
     "scrollCopyGpPerLevel": 50,
+    "proficiencyBonus": { "1": 2, "2": 2, "3": 2, "4": 2, "5": 3, "6": 3, "7": 3, "8": 3, "9": 4, "10": 4, "11": 4, "12": 4, "13": 5, "14": 5, "15": 5, "16": 5, "17": 6, "18": 6, "19": 6, "20": 6 },
+    "spellSaveDCBase": 8,
+    "passiveCheckBase": 10,
+    "unarmoredArmorClassBase": 10,
+    "fixedHitDieBonus": 1,
     "pointBuy": {
       "budget": 27,
       "min": 8,

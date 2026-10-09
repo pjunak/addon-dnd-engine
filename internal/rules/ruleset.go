@@ -55,12 +55,18 @@ type RulesetConstants struct {
 	AbilityCapHard       int              `json:"abilityCapHard"`
 	AttunementLimit      int              `json:"attunementLimit"`
 	ScrollCopyGPPerLevel float64          `json:"scrollCopyGpPerLevel"`
-	PointBuy             PointBuyPolicy   `json:"pointBuy"`
-	MulticlassSlots      map[string][]int `json:"multiclassSlots"`
-	CasterFractions      CasterFractions  `json:"casterFractions"`
-	PactMagic            PactMagicPolicy  `json:"pactMagic"`
-	Spellbook            SpellbookPolicy  `json:"spellbook"`
-	Rest                 RestPolicy       `json:"rest"`
+	// Core formulas, published by the edition rather than assumed here.
+	ProficiencyBonusByLevel map[string]int   `json:"proficiencyBonus"`
+	SpellSaveDCBase         int              `json:"spellSaveDCBase"`
+	PassiveCheckBase        int              `json:"passiveCheckBase"`
+	UnarmoredArmorClassBase int              `json:"unarmoredArmorClassBase"`
+	FixedHitDieBonus        int              `json:"fixedHitDieBonus"`
+	PointBuy                PointBuyPolicy   `json:"pointBuy"`
+	MulticlassSlots         map[string][]int `json:"multiclassSlots"`
+	CasterFractions         CasterFractions  `json:"casterFractions"`
+	PactMagic               PactMagicPolicy  `json:"pactMagic"`
+	Spellbook               SpellbookPolicy  `json:"spellbook"`
+	Rest                    RestPolicy       `json:"rest"`
 }
 
 type PointBuyPolicy struct {
@@ -148,12 +154,37 @@ func (ruleset Ruleset) StableID() string {
 	return ruleset.ID
 }
 
+// minimumRulesetVersion is the first ruleset shape that publishes the core
+// formula constants this engine reads.
+const minimumRulesetVersion = 4
+
+// ProficiencyBonus is the profile's proficiency bonus at a total character level.
+func (ruleset Ruleset) ProficiencyBonus(totalLevel int) int {
+	return ruleset.Constants.ProficiencyBonusByLevel[strconv.Itoa(min(max(totalLevel, 1), 20))]
+}
+
+// FixedHitPoints is the fixed hit-point gain for a level with this hit die.
+func (ruleset Ruleset) FixedHitPoints(hitDie int) int {
+	return hitDie/2 + ruleset.Constants.FixedHitDieBonus
+}
+
 func (ruleset Ruleset) Validate() error {
 	if !validStableID(ruleset.StableID()) || ruleset.RulesetVersion < 1 ||
 		len(ruleset.Edition) > 80 || strings.TrimSpace(ruleset.Edition) != ruleset.Edition {
 		return errors.New("ruleset identity is invalid")
 	}
+	if ruleset.RulesetVersion < minimumRulesetVersion {
+		return fmt.Errorf("ruleset version %d predates the core formula constants; update the rules-data provider", ruleset.RulesetVersion)
+	}
 	constants := ruleset.Constants
+	for level := 1; level <= 20; level++ {
+		if bonus, ok := constants.ProficiencyBonusByLevel[strconv.Itoa(level)]; !ok || bonus < 0 {
+			return fmt.Errorf("proficiency bonus row %d is missing", level)
+		}
+	}
+	if constants.SpellSaveDCBase < 0 || constants.PassiveCheckBase < 0 || constants.UnarmoredArmorClassBase < 0 || constants.FixedHitDieBonus < 0 {
+		return errors.New("ruleset formula bases are invalid")
+	}
 	if policy := constants.Character; policy != nil {
 		if policy.MaximumLevel < 1 || policy.MaximumLevel > 20 || policy.MinimumHPGain < 0 || policy.MinimumHPGain > 100 || len(policy.StandardArray) != 6 || policy.RollDice < 1 || policy.RollDice > 20 || policy.RollSides < 2 || policy.RollSides > 100 || policy.RollKeep < 1 || policy.RollKeep > policy.RollDice || strings.TrimSpace(policy.DistanceUnit) == "" || len(policy.DistanceUnit) > 30 {
 			return errors.New("character policy is invalid")

@@ -12,17 +12,28 @@ func TestUniversalArithmetic(t *testing.T) {
 	if AbilityModifier(9) != -1 || AbilityModifier(16) != 3 {
 		t.Fatal("ability modifier regression")
 	}
-	if ProficiencyBonus(1) != 2 || ProficiencyBonus(17) != 6 {
-		t.Fatal("proficiency bonus regression")
-	}
-	if HitDieAverage("d10") != 6 || HitDieAverage("broken") != 5 {
-		t.Fatal("hit-die average regression")
-	}
 	if ClampHP(-2, 10) != 0 || ClampHP(12, 10) != 10 || ClampHP(4, 0) != 4 {
 		t.Fatal("hit point clamp regression")
 	}
-	if SaveDC(16, 5) != 14 {
-		t.Fatal("save DC regression")
+}
+
+func TestRulesetPublishesTheCoreFormulas(t *testing.T) {
+	t.Parallel()
+	profile := syntheticRuleset(t)
+	if profile.ProficiencyBonus(1) != 2 || profile.ProficiencyBonus(17) != 6 || profile.ProficiencyBonus(0) != 2 || profile.ProficiencyBonus(30) != 6 {
+		t.Fatal("proficiency bonus does not follow the ruleset table")
+	}
+	if profile.FixedHitPoints(10) != 6 {
+		t.Fatal("fixed hit points do not follow the ruleset bonus")
+	}
+	profile.Constants.ProficiencyBonusByLevel = map[string]int{}
+	if profile.Validate() == nil {
+		t.Fatal("accepted a ruleset without a proficiency bonus table")
+	}
+	profile = syntheticRuleset(t)
+	profile.RulesetVersion = 3
+	if profile.Validate() == nil {
+		t.Fatal("accepted a ruleset shape without the formula constants")
 	}
 }
 

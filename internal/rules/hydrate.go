@@ -72,7 +72,7 @@ func Hydrate(decisions Object, records Records, ruleset *Ruleset) HydrationResul
 	if totalLevel < 1 {
 		totalLevel = 1
 	}
-	pb := ProficiencyBonus(float64(totalLevel))
+	pb := ruleset.ProficiencyBonus(totalLevel)
 	classValues := make([]any, 0, len(classes))
 	for _, current := range classes {
 		classValues = append(classValues, Object{
@@ -103,11 +103,11 @@ func Hydrate(decisions Object, records Records, ruleset *Ruleset) HydrationResul
 	activeModifiers := activeGrantModifiers(decisions, sheet, grantSources, records)
 	sheet["speed"] = integer(sheet["speed"], 0) + grantTotal(grantSources, "speedBonus")
 	derived["speed"] = sheet["speed"]
-	hydrateHitPoints(sheet, classes, mods["CON"], grantSources)
-	hydrateArmorClass(decisions, sheet, classes, mods, records, species, grantSources, activeModifiers)
+	hydrateHitPoints(sheet, classes, mods["CON"], grantSources, *ruleset)
+	hydrateArmorClass(decisions, sheet, classes, mods, records, species, grantSources, activeModifiers, *ruleset)
 	derived["initiative"] = initiative(decisions, records, mods["DEX"], pb)
 	hydrateSaves(decisions, sheet, classes, mods, pb, grantSources)
-	hydrateSkills(decisions, sheet, background, mods, pb, grantSources)
+	hydrateSkills(decisions, sheet, background, mods, pb, grantSources, *ruleset)
 	hydrateProficiencies(decisions, sheet, classes, background, records, grantSources)
 	applyGenericGrants(decisions, sheet, grantSources, activeModifiers)
 	hydrateSpellcasting(decisions, sheet, classes, featRecords, records, *ruleset, mods, pb)
@@ -145,10 +145,8 @@ func HydrateWithoutRulesData(decisions Object, status string) HydrationResult {
 	return HydrationResult{
 		Sheet: Object{
 			"abilities": abilities, "totalLevel": totalLevel,
-			"derived": Object{
-				"proficiencyBonus": ProficiencyBonus(float64(totalLevel)),
-				"initiative":       object(abilities["DEX"])["mod"],
-			},
+			// The proficiency bonus is edition data, unknown without a ruleset.
+			"derived": Object{"initiative": object(abilities["DEX"])["mod"]},
 			"proficiencies": Object{
 				"saves": Object{}, "skills": Object{}, "armor": []any{}, "weapons": []any{},
 				"tools": []any{}, "languages": []any{},
@@ -278,7 +276,7 @@ func hydrateSpecies(
 	return species, lineage
 }
 
-func hydrateHitPoints(sheet Object, classes []resolvedClass, conMod int, sources []grantSource) {
+func hydrateHitPoints(sheet Object, classes []resolvedClass, conMod int, sources []grantSource, ruleset Ruleset) {
 	perLevel := grantTotal(sources, "hpPerLevel")
 	fixedBonus := grantTotal(sources, "hpBonus")
 	dice := 0
@@ -292,7 +290,7 @@ func hydrateHitPoints(sheet Object, classes []resolvedClass, conMod int, sources
 				dice += die
 				maxAwarded = true
 			} else {
-				dice += die/2 + 1
+				dice += ruleset.FixedHitPoints(die)
 			}
 		}
 	}
@@ -330,6 +328,7 @@ func hydrateArmorClass(
 	species Object,
 	sources []grantSource,
 	activeModifiers []Object,
+	ruleset Ruleset,
 ) {
 	var bodyArmor Object
 	var shield Object
@@ -402,7 +401,7 @@ func hydrateArmorClass(
 		}
 	}
 	if bodyArmor == nil {
-		candidates = append(candidates, Object{"id": "unarmored", "label": "Unarmored", "value": 10 + mods["DEX"]})
+		candidates = append(candidates, Object{"id": "unarmored", "label": "Unarmored", "value": ruleset.Constants.UnarmoredArmorClassBase + mods["DEX"]})
 	}
 	best := object(candidates[0])
 	for _, candidate := range candidates[1:] {
@@ -491,6 +490,7 @@ func hydrateSkills(
 	mods map[string]int,
 	pb int,
 	sources []grantSource,
+	ruleset Ruleset,
 ) {
 	manual := object(decisions["skillProf"])
 	resolved := stringsOf(decisions["skillProficiencies"])
@@ -541,7 +541,7 @@ func hydrateSkills(
 		}
 	}
 	sheet["skills"] = skills
-	passive := 10 + integer(object(skills["perception"])["total"], 0)
+	passive := ruleset.Constants.PassiveCheckBase + integer(object(skills["perception"])["total"], 0)
 	sheet["passives"] = Object{"perception": passive}
 	object(sheet["derived"])["passivePerception"] = passive
 }
@@ -636,7 +636,7 @@ func hydrateSpellcasting(
 			"classId": current.ID, "level": current.Level, "ability": ability,
 			"type": text(casting["type"]), "prepares": prepares, "ritual": truth(casting["ritual"]),
 			"spellListClassId": firstText(casting["spellListClassId"], current.ID),
-			"saveDC":           8 + pb + mods[ability], "spellAttack": pb + mods[ability],
+			"saveDC":           ruleset.Constants.SpellSaveDCBase + pb + mods[ability], "spellAttack": pb + mods[ability],
 			"preparedLimit":  integer(progression["preparedSpells"], 0),
 			"cantripsKnown":  integer(progression["cantripsKnown"], 0),
 			"spellbookKnown": spellbookKnown, "maxSpellLevel": maxSpellLevel,

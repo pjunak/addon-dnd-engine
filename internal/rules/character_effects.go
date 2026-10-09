@@ -256,7 +256,7 @@ func applyCharacterHitDice(input character.Inputs, sheet Object, records Records
 	for index, level := range input.Build.Levels {
 		record := recordByID(records, "class", level.ClassID)
 		size := hitDieSize(text(record["hitDie"]))
-		rolled := size/2 + 1
+		rolled := profile.FixedHitPoints(size)
 		method := "average"
 		if index == 0 {
 			rolled = size

@@ -8,13 +8,15 @@ It provides `dnd5e.rules-engine` **4.0.0** and consumes all compatible
 The engine has no character storage or UI. The sheets package owns its retained
 decisions and accepted results. Each evaluation uses the instance's complete
 rules profile and enabled books. Missing providers make character evaluation
-unavailable; universal `derive` operations remain usable.
+unavailable; `ability-modifier`, `clamp-hp` and `feat-asi-from` remain usable.
+It requires a ruleset of version 4 or later (Compendium 3.3.0).
 
 ## Public operations
 
 - `context`: availability and current provider/rules identity.
 - `get-record`, `query-records`: provider-neutral structured records.
-- `derive`: named universal or profile-backed arithmetic.
+- `derive`: named arithmetic; formula operations read the rules profile and
+  return its identity.
 - `evaluate-character`: detached character inputs to a complete result,
   including unresolved choices and blockers.
 - `character-play`: one bounded play command followed by the same evaluation.

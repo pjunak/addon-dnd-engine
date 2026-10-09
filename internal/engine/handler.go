@@ -7,13 +7,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"io"
 
 	"github.com/pjunak/addon-dnd-engine/character"
 	"github.com/pjunak/addon-dnd-engine/internal/provider"
 	"github.com/pjunak/addon-dnd-engine/internal/rules"
 	"github.com/pjunak/ttrpg-codex/sdk/go/workerrpc"
+
+	"github.com/pjunak/addon-dnd-engine/internal/jsonexact"
 )
 
 const (
@@ -100,7 +100,7 @@ func (handler *Handler) HandleRPC(ctx context.Context, request workerrpc.Request
 			Inputs          character.Inputs `json:"inputs"`
 			Change          rules.Object     `json:"change,omitempty"`
 		}
-		if decodeExact(request.Params, &input) != nil || input.ContractVersion != character.ContractVersion || len(request.Params) > 180000 {
+		if jsonexact.Decode(request.Params, &input) != nil || input.ContractVersion != character.ContractVersion || len(request.Params) > 180000 {
 			return nil, invalidRequest("character request is invalid")
 		}
 		identity, records, profile, err := handler.provider.Evaluation(ctx, request.Meta)
@@ -133,7 +133,7 @@ func (handler *Handler) HandleRPC(ctx context.Context, request workerrpc.Request
 		}, nil
 	case methodPrefix + "get-record":
 		var input getRequest
-		if decodeExact(request.Params, &input) != nil || input.ContractVersion != "rules-engine-get.v1" {
+		if jsonexact.Decode(request.Params, &input) != nil || input.ContractVersion != "rules-engine-get.v1" {
 			return nil, invalidRequest("rules engine get request is invalid")
 		}
 		identity, record, err := handler.provider.Get(ctx, request.Meta, input.Kind, input.ID)
@@ -145,7 +145,7 @@ func (handler *Handler) HandleRPC(ctx context.Context, request workerrpc.Request
 		}, nil
 	case methodPrefix + "query-records":
 		var input queryRequest
-		if decodeExact(request.Params, &input) != nil || input.ContractVersion != "rules-engine-query.v1" {
+		if jsonexact.Decode(request.Params, &input) != nil || input.ContractVersion != "rules-engine-query.v1" {
 			return nil, invalidRequest("rules engine query request is invalid")
 		}
 		result, err := handler.provider.Query(ctx, request.Meta, provider.Query{
@@ -160,7 +160,7 @@ func (handler *Handler) HandleRPC(ctx context.Context, request workerrpc.Request
 		}, nil
 	case methodPrefix + "derive":
 		var input deriveRequest
-		if decodeExact(request.Params, &input) != nil || input.ContractVersion != "rules-engine-derive.v1" ||
+		if jsonexact.Decode(request.Params, &input) != nil || input.ContractVersion != "rules-engine-derive.v1" ||
 			input.Operation == "" || !objectPayload(input.Input) {
 			return nil, invalidRequest("rules engine derive request is invalid")
 		}
@@ -188,7 +188,7 @@ func (handler *Handler) derive(
 		var input struct {
 			Score *float64 `json:"score"`
 		}
-		if decodeExact(request.Input, &input) != nil || input.Score == nil {
+		if jsonexact.Decode(request.Input, &input) != nil || input.Score == nil {
 			return nil, nil, invalidDerive()
 		}
 		return rules.AbilityModifier(*input.Score), nil, nil
@@ -196,7 +196,7 @@ func (handler *Handler) derive(
 		var input struct {
 			TotalLevel *float64 `json:"totalLevel"`
 		}
-		if decodeExact(request.Input, &input) != nil || input.TotalLevel == nil {
+		if jsonexact.Decode(request.Input, &input) != nil || input.TotalLevel == nil {
 			return nil, nil, invalidDerive()
 		}
 		return rules.ProficiencyBonus(*input.TotalLevel), nil, nil
@@ -204,7 +204,7 @@ func (handler *Handler) derive(
 		var input struct {
 			HitDie string `json:"hitDie"`
 		}
-		if decodeExact(request.Input, &input) != nil || input.HitDie == "" {
+		if jsonexact.Decode(request.Input, &input) != nil || input.HitDie == "" {
 			return nil, nil, invalidDerive()
 		}
 		return rules.HitDieAverage(input.HitDie), nil, nil
@@ -213,7 +213,7 @@ func (handler *Handler) derive(
 			HitPoints *float64 `json:"hitPoints"`
 			Maximum   *float64 `json:"maximum"`
 		}
-		if decodeExact(request.Input, &input) != nil || input.HitPoints == nil || input.Maximum == nil {
+		if jsonexact.Decode(request.Input, &input) != nil || input.HitPoints == nil || input.Maximum == nil {
 			return nil, nil, invalidDerive()
 		}
 		return rules.ClampHP(*input.HitPoints, *input.Maximum), nil, nil
@@ -222,7 +222,7 @@ func (handler *Handler) derive(
 			AbilityScore *float64 `json:"abilityScore"`
 			TotalLevel   *float64 `json:"totalLevel"`
 		}
-		if decodeExact(request.Input, &input) != nil || input.AbilityScore == nil || input.TotalLevel == nil {
+		if jsonexact.Decode(request.Input, &input) != nil || input.AbilityScore == nil || input.TotalLevel == nil {
 			return nil, nil, invalidDerive()
 		}
 		return rules.SaveDC(*input.AbilityScore, *input.TotalLevel), nil, nil
@@ -230,7 +230,7 @@ func (handler *Handler) derive(
 		var input struct {
 			Grant map[string]any `json:"grant"`
 		}
-		if decodeExact(request.Input, &input) != nil || input.Grant == nil {
+		if jsonexact.Decode(request.Input, &input) != nil || input.Grant == nil {
 			return nil, nil, invalidDerive()
 		}
 		return rules.FeatASIFrom(input.Grant), nil, nil
@@ -249,7 +249,7 @@ func (handler *Handler) derive(
 		var input struct {
 			Level *float64 `json:"level"`
 		}
-		if decodeExact(request.Input, &input) != nil || input.Level == nil {
+		if jsonexact.Decode(request.Input, &input) != nil || input.Level == nil {
 			return nil, nil, invalidDerive()
 		}
 		return rules.ScrollCopyCost(*input.Level, profile.Ruleset), &identity, nil
@@ -257,7 +257,7 @@ func (handler *Handler) derive(
 		var input struct {
 			Score *int `json:"score"`
 		}
-		if decodeExact(request.Input, &input) != nil || input.Score == nil {
+		if jsonexact.Decode(request.Input, &input) != nil || input.Score == nil {
 			return nil, nil, invalidDerive()
 		}
 		return rules.PointBuyCost(*input.Score, profile.Ruleset), &identity, nil
@@ -265,7 +265,7 @@ func (handler *Handler) derive(
 		var input struct {
 			Scores map[string]int `json:"scores"`
 		}
-		if decodeExact(request.Input, &input) != nil || input.Scores == nil {
+		if jsonexact.Decode(request.Input, &input) != nil || input.Scores == nil {
 			return nil, nil, invalidDerive()
 		}
 		return rules.PointsSpent(input.Scores, profile.Ruleset), &identity, nil
@@ -273,7 +273,7 @@ func (handler *Handler) derive(
 		var input struct {
 			CasterLevel *int `json:"casterLevel"`
 		}
-		if decodeExact(request.Input, &input) != nil || input.CasterLevel == nil {
+		if jsonexact.Decode(request.Input, &input) != nil || input.CasterLevel == nil {
 			return nil, nil, invalidDerive()
 		}
 		return rules.MulticlassSlots(*input.CasterLevel, profile.Ruleset), &identity, nil
@@ -281,7 +281,7 @@ func (handler *Handler) derive(
 		var input struct {
 			Level *int `json:"level"`
 		}
-		if decodeExact(request.Input, &input) != nil || input.Level == nil {
+		if jsonexact.Decode(request.Input, &input) != nil || input.Level == nil {
 			return nil, nil, invalidDerive()
 		}
 		return rules.PactMagic(*input.Level, profile.Ruleset), &identity, nil
@@ -289,7 +289,7 @@ func (handler *Handler) derive(
 		var input struct {
 			Feat map[string]any `json:"feat"`
 		}
-		if decodeExact(request.Input, &input) != nil || input.Feat == nil {
+		if jsonexact.Decode(request.Input, &input) != nil || input.Feat == nil {
 			return nil, nil, invalidDerive()
 		}
 		return rules.FeatAbilityCap(input.Feat, profile.Ruleset), &identity, nil
@@ -322,23 +322,11 @@ func objectPayload(body json.RawMessage) bool {
 
 func decodeEmpty(body json.RawMessage) error {
 	var value map[string]json.RawMessage
-	if err := decodeExact(body, &value); err != nil {
+	if err := jsonexact.Decode(body, &value); err != nil {
 		return err
 	}
 	if value == nil || len(value) != 0 {
 		return errors.New("expected an empty object")
-	}
-	return nil
-}
-
-func decodeExact(body json.RawMessage, destination any) error {
-	decoder := json.NewDecoder(bytes.NewReader(body))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(destination); err != nil {
-		return err
-	}
-	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		return fmt.Errorf("JSON contains more than one value")
 	}
 	return nil
 }

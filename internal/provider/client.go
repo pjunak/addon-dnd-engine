@@ -3,18 +3,17 @@
 package provider
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"io"
 	"sort"
 	"strings"
 	"sync"
 
 	"github.com/pjunak/addon-dnd-engine/internal/rules"
 	"github.com/pjunak/ttrpg-codex/sdk/go/workerrpc"
+
+	"github.com/pjunak/addon-dnd-engine/internal/jsonexact"
 )
 
 const (
@@ -178,7 +177,7 @@ func (client *Client) Catalog(
 			Groups       json.RawMessage `json:"groups,omitempty"`
 		} `json:"sets"`
 	}
-	if err := decodeExact(call.Result, &response); err != nil ||
+	if err := jsonexact.Decode(call.Result, &response); err != nil ||
 		response.ContractVersion != "content-catalog.v1" {
 		return CatalogResult{}, incompatible("rules-data catalog is invalid")
 	}
@@ -413,7 +412,7 @@ func (client *Client) Get(
 		Revision        string `json:"revision"`
 		Record          Record `json:"record"`
 	}
-	if err := decodeExact(call.Result, &response); err != nil ||
+	if err := jsonexact.Decode(call.Result, &response); err != nil ||
 		response.ContractVersion != "content-record.v1" || response.SetID != RulesSetID ||
 		response.Revision == "" || response.Record.Kind != kind || response.Record.ID != id ||
 		!validRecord(response.Record) {
@@ -450,7 +449,7 @@ func (client *Client) Query(
 		Records         []Record `json:"records"`
 		NextCursor      string   `json:"nextCursor,omitempty"`
 	}
-	if err := decodeExact(call.Result, &response); err != nil ||
+	if err := jsonexact.Decode(call.Result, &response); err != nil ||
 		response.ContractVersion != "content-query-result.v1" || response.SetID != RulesSetID ||
 		response.Revision == "" || len(response.Records) > query.Limit || len(response.NextCursor) > 32 {
 		return QueryResult{}, incompatible("rules-data query response is invalid")
@@ -650,16 +649,4 @@ func boundedMessage(err error) string {
 		message = message[:300]
 	}
 	return message
-}
-
-func decodeExact(body json.RawMessage, destination any) error {
-	decoder := json.NewDecoder(bytes.NewReader(body))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(destination); err != nil {
-		return err
-	}
-	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		return fmt.Errorf("JSON contains more than one value")
-	}
-	return nil
 }

@@ -12,7 +12,11 @@ import (
 // EvaluateCharacter evaluates detached decisions. Completion, eligibility and
 // numerical constraints all belong here, never in the persistence or UI layer.
 func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset) character.Result {
-	records = newCharacterRecordSnapshot(records)
+	snapshot := newCharacterRecordSnapshot(records)
+	if verifyRecords != nil {
+		defer verifyRecords(snapshot)
+	}
+	records = snapshot
 	input = cloneCharacter(input)
 	result := character.Result{ContractVersion: character.ContractVersion, Inputs: input, Sheet: map[string]any{}, Guidance: map[string]any{}, Plan: map[string]any{}, SpellOptions: map[string]any{}, Explanations: map[string]character.Explanation{}, Evidence: []character.Evidence{}, Issues: []character.Issue{}}
 	if profile.Constants.Character == nil {
@@ -222,7 +226,11 @@ func characterDecisions(input character.Inputs, records Records, profile Ruleset
 func ApplyCharacterPlay(input character.Inputs, change Object, records Records, profile Ruleset) (character.Result, error) {
 	// Play commands resolve records by ID only, like evaluation, and share one
 	// decode cache across the evaluations of this command.
-	records = newCharacterRecordSnapshot(records)
+	snapshot := newCharacterRecordSnapshot(records)
+	if verifyRecords != nil {
+		defer verifyRecords(snapshot)
+	}
+	records = snapshot
 	if text(change["operation"]) == "replace-class-choice" {
 		return replaceClassChoice(input, change, records, profile)
 	}

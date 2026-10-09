@@ -153,7 +153,8 @@ func TestLearnedSpellsRetainEvidenceWithoutMultiplyingStatSources(t *testing.T) 
 func TestCharacterRecordCopiesKeepNestedStatePrivate(t *testing.T) {
 	source := newMemoryRecords([]Object{{"kind": "feat", "id": "nested", "grants": Object{"choices": []any{Object{"id": "choice", "from": []any{"one", "two"}}}}}})
 	cached := newCharacterRecordSnapshot(source)
-	first := recordByID(cached, "feat", "nested")
+	// Shared records are read-only; a rule that changes one copies it first.
+	first := copyRecordObject(recordByID(cached, "feat", "nested"))
 	values(objects(object(first["grants"])["choices"])[0]["from"])[0] = "changed"
 	second := recordByID(cached, "feat", "nested")
 	if stringsOf(objects(object(second["grants"])["choices"])[0]["from"])[0] != "one" {

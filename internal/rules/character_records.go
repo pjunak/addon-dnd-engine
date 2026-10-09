@@ -7,10 +7,19 @@ import (
 
 // A character evaluation owns this cache. Source identity and policy are supplied
 // by its provider snapshot; no decoded values survive into a later evaluation.
+// Every reader shares the decoded records, so rules treat them as read-only and
+// copy one (copyRecordObject) before changing it. Tests verify this.
 type characterRecordSnapshot struct {
 	source  Records
 	objects map[string]Object
 	lists   map[string][]Object
+	// decoded keeps each record with its source body while tests verify records.
+	decoded []decodedRecord
+}
+
+type decodedRecord struct {
+	value Object
+	body  json.RawMessage
 }
 
 func newCharacterRecordSnapshot(source Records) *characterRecordSnapshot {
@@ -43,11 +52,7 @@ func (records *characterRecordSnapshot) Provenance(kind, id string) SourceIdenti
 	return SourceIdentity{}
 }
 func (records *characterRecordSnapshot) recordObject(kind, id string) Object {
-	value := records.recordView(kind, id)
-	if value == nil {
-		return nil
-	}
-	return copyRecordObject(value)
+	return records.recordView(kind, id)
 }
 func (records *characterRecordSnapshot) recordView(kind, id string) Object {
 	key := kind + ":" + id
@@ -56,8 +61,14 @@ func (records *characterRecordSnapshot) recordView(kind, id string) Object {
 		body, _ := records.Value(kind, id)
 		value, _ = DecodeObject(body)
 		records.objects[key] = value
+		records.remember(value, body)
 	}
 	return value
+}
+func (records *characterRecordSnapshot) remember(value Object, body json.RawMessage) {
+	if verifyRecords != nil && value != nil {
+		records.decoded = append(records.decoded, decodedRecord{value, body})
+	}
 }
 func (records *characterRecordSnapshot) recordCatalog(kind string) []Object {
 	list, loaded := records.lists[kind]
@@ -66,14 +77,19 @@ func (records *characterRecordSnapshot) recordCatalog(kind string) []Object {
 		for _, body := range records.Values(kind) {
 			if value, valid := DecodeObject(body); valid {
 				list = append(list, value)
+				records.remember(value, body)
 			}
 		}
 		// Provider enumeration order is not an authored decision order.
 		sort.Slice(list, func(i, j int) bool { return text(list[i]["id"]) < text(list[j]["id"]) })
 		records.lists[kind] = list
 	}
-	return append([]Object(nil), list...)
+	return list
 }
+
+// verifyRecords lets tests check, after each evaluation, that no rule changed
+// a shared record.
+var verifyRecords func(*characterRecordSnapshot)
 
 // Individual lookups may be modified by calculations, so they stay detached.
 func copyRecordObject(value Object) Object {

@@ -336,8 +336,7 @@ func collectOriginChoices(source Object, records Records) []any {
 		result = append(result, descriptor)
 	}
 	for _, origin := range selectedOrigins(source, records) {
-		record := object(origin["record"])
-		typeID := text(origin["type"])
+		record, typeID := origin.record, origin.kind
 		if typeID == "species" {
 			if choice := speciesSizeChoice(record); choice != nil {
 				result = append(result, choice)
@@ -347,7 +346,7 @@ func collectOriginChoices(source Object, records Records) []any {
 			descriptor := Object{
 				"id": typeID + ":" + text(record["id"]) + ":tool", "kind": "tools",
 				"count": max(1, integer(choice["count"], 1)), "from": anyStrings(stringsOf(choice["from"])),
-				"source": origin["source"],
+				"source": origin.source(),
 			}
 			if prompt, exists := choice["prompt"]; exists {
 				descriptor["prompt"] = cloneValue(prompt)
@@ -355,7 +354,7 @@ func collectOriginChoices(source Object, records Records) []any {
 			result = append(result, descriptor)
 		}
 		for _, choice := range objects(object(record["grants"])["choices"]) {
-			appendChoice(choice, typeID+":"+text(record["id"]), object(origin["source"]))
+			appendChoice(choice, typeID+":"+text(record["id"]), origin.source())
 		}
 	}
 	return result
@@ -378,44 +377,44 @@ func collectCreationChoices(source Object, records Records, classChoices []any) 
 func collectCreationAbilityChoices(source Object, records Records, ruleset Ruleset) []any {
 	result := make([]any, 0)
 	for _, origin := range selectedOrigins(source, records) {
-		typeID := text(origin["type"])
+		typeID := origin.kind
 		config := originGrantPolicy(ruleset.Builder.BackgroundAbilityGrant)
 		choiceID := "bgasi"
 		if typeID == "species" {
 			config = originGrantPolicy(ruleset.Builder.SpeciesAbilityGrant)
 			choiceID = "speciesasi"
 		}
-		eligible := stringsOf(object(origin["record"])["abilityScores"])
+		eligible := stringsOf(origin.record["abilityScores"])
 		if config == nil || len(eligible) == 0 {
 			continue
 		}
 		result = append(result, Object{
 			"id": choiceID, "kind": "abilityBudget", "eligible": anyStrings(eligible),
 			"budget": integer(config["budget"], 0), "perAbilityMax": integer(config["perAbilityMax"], 0),
-			"source": origin["source"],
+			"source": origin.source(),
 		})
 	}
 	return result
 }
 
-func selectedOrigins(source Object, records Records) []Object {
-	result := make([]Object, 0, 2)
-	if selected := text(source["background"]); selected != "" {
-		if record := selectedRecord(selected, records, "background"); record != nil {
-			result = append(result, Object{
-				"type": "background", "record": record,
-				"source": Object{"type": "background", "id": text(record["id"]), "level": 1},
-			})
-		}
+// characterOrigin is a selected background or species and its shared record.
+type characterOrigin struct {
+	kind   string
+	record Object
+}
+
+// source describes the origin as the grant source of its choices.
+func (origin characterOrigin) source() Object {
+	return Object{"type": origin.kind, "id": text(origin.record["id"]), "level": 1}
+}
+
+func selectedOrigins(source Object, records Records) []characterOrigin {
+	result := make([]characterOrigin, 0, 2)
+	if record := selectedRecord(text(source["background"]), records, "background"); record != nil {
+		result = append(result, characterOrigin{"background", record})
 	}
-	speciesID := firstText(source["species"], source["race"])
-	if speciesID != "" {
-		if record := selectedRecord(speciesID, records, "species"); record != nil {
-			result = append(result, Object{
-				"type": "species", "record": record,
-				"source": Object{"type": "species", "id": text(record["id"]), "level": 1},
-			})
-		}
+	if record := selectedRecord(firstText(source["species"], source["race"]), records, "species"); record != nil {
+		result = append(result, characterOrigin{"species", record})
 	}
 	return result
 }
@@ -429,7 +428,7 @@ func resolveBuilderChoices(source, plan Object, records Records) Object {
 	}
 	featIDs := make([]string, 0)
 	for _, origin := range selectedOrigins(source, records) {
-		featIDs = append(featIDs, text(object(origin["record"])["originFeat"]))
+		featIDs = append(featIDs, text(origin.record["originFeat"]))
 	}
 	for _, raw := range values(source["feats"]) {
 		if id, ok := raw.(string); ok {

@@ -34,9 +34,9 @@ func selectedFeatAcquisitions(source Object, records Records, classChoices []any
 			ancestors: append(append([]string{}, ancestors...), featID)})
 	}
 	for _, origin := range selectedOrigins(source, records) {
-		record := object(origin["record"])
-		add(text(origin["type"])+":"+text(record["id"]), text(record["originFeat"]), firstText(record["name"], record["id"]), "", 1, nil)
-		if len(result) > 0 && result[len(result)-1].id == text(origin["type"])+":"+text(record["id"]) {
+		record := origin.record
+		add(origin.kind+":"+text(record["id"]), text(record["originFeat"]), firstText(record["name"], record["id"]), "", 1, nil)
+		if len(result) > 0 && result[len(result)-1].id == origin.kind+":"+text(record["id"]) {
 			result[len(result)-1].presets = object(record["originFeatChoices"])
 		}
 	}

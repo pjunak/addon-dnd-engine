@@ -113,20 +113,7 @@ func activeGrantModifiers(
 	records Records,
 ) []Object {
 	active := object(decisions["activeFeatures"])
-	wearingArmor := false
-	usingShield := false
-	for _, item := range objects(decisions["inventory"]) {
-		if text(item["location"]) != "equipped" {
-			continue
-		}
-		armor := inventoryRecord(item, records, "armor")
-		switch text(armor["armorType"]) {
-		case "shield":
-			usingShield = true
-		case "light", "medium", "heavy":
-			wearingArmor = true
-		}
-	}
+	armor := equippedArmor(decisions, records)
 	activations := make([]any, 0)
 	modifiers := make([]Object, 0)
 	for _, source := range sources {
@@ -138,9 +125,7 @@ func activeGrantModifiers(
 				continue
 			}
 			key := grantOwner(source.Source) + ":" + id
-			restrictions := object(activation["restrictions"])
-			available := !(truth(restrictions["noArmor"]) && wearingArmor) &&
-				!(truth(restrictions["noShield"]) && usingShield)
+			available := armorRequirementMet(activation["restrictions"], armor)
 			enabled := truth(active[key]) && available
 			activations = append(activations, Object{
 				"key": key, "id": id, "name": firstText(activation["name"], id),

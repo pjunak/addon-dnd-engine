@@ -441,6 +441,27 @@ retains applied/inactive terms and source references; maximum HP retains
 fixed-grant terms. See the provider's [field shapes](../../addon-dnd-2024-compendium/data/SCHEMA.md).
 Neither the Engine nor the sheet identifies these rules by feat or book ID.
 
+### Class tables and conditional bonuses
+
+A class's `tableColumns` are printed per-level values (Rage Damage, Martial
+Arts, Sneak Attack); `sheet.classValues` lists each reached value as
+`{classId, key, name, value}`. `weaponMastery.progression` raises the mastery
+count at the listed class levels.
+
+`grants.speedBonuses` entries add a number (`add`) or the granting class's
+column (`column`) after worn-armor penalties. `requires` accepts `noArmor`,
+`noShield` and `notArmorTypes`; anything else keeps the bonus inactive.
+`sheet.speedBonuses` keeps every row with its applied/inactive status.
+
+`grants.skillBonuses` and `grants.saveBonuses` add `add` (a number or
+`"halfProficiency"`, rounded down) and/or `addAbility`, with an optional `min`.
+`skills` or `abilities` narrow the scope; `notProficient: true` limits a skill
+bonus to skills without proficiency. Applied bonuses appear as `bonuses` on the
+skill or save row and in its explanation.
+
+A feature's `grants.abilityScoreBonus` (`{assign, cap}`) becomes an ordinary
+ability grant once the class reaches the feature's level.
+
 ## Provider contract
 
 The worker reaches `catalog`, `get` and `query` through host-issued

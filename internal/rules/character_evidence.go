@@ -175,7 +175,9 @@ func characterExplanations(input character.Inputs, sheet Object, evidence []char
 			if truth(row["expertise"]) {
 				multiplier = 2
 			}
-			makeExplanation(group+"."+key+".total", guidanceLabel(key), "ability modifier + proficiency multiplier × proficiency bonus", row["total"], character.Term{Label: "Ability modifier", Value: row["mod"]}, character.Term{Label: "Proficiency multiplier", Value: multiplier}, character.Term{Label: "Proficiency bonus", Value: pb})
+			terms := []character.Term{{Label: "Ability modifier", Value: row["mod"]}, {Label: "Proficiency multiplier", Value: multiplier}, {Label: "Proficiency bonus", Value: pb}}
+			terms = append(terms, bonusTerms(objects(row["bonuses"]))...)
+			makeExplanation(group+"."+key+".total", guidanceLabel(key), "ability modifier + proficiency multiplier × proficiency bonus + feature bonuses", row["total"], terms...)
 		}
 	}
 	hp := object(sheet["hp"])
@@ -210,6 +212,7 @@ func characterExplanations(input character.Inputs, sheet Object, evidence []char
 			}
 		}
 	}
+	speedTerms = append(speedTerms, bonusTerms(objects(sheet["speedBonuses"]))...)
 	makeExplanation("derived.speed", "Speed", "species movement + applicable grants and active effects", derived["speed"], speedTerms...)
 	attunement := object(sheet["attunement"])
 	makeExplanation("attunement.limit", "Attunement capacity", "maximum of the ruleset limit and unlocked class capacities", attunement["limit"], character.Term{Label: "Class progression", Value: sheet["classes"]})
@@ -280,3 +283,17 @@ func characterExplanations(input character.Inputs, sheet Object, evidence []char
 }
 
 func fmtIndex(path string, index int) string { return path + "." + jsonNumber(index) }
+
+func bonusTerms(bonuses []Object) []character.Term {
+	terms := make([]character.Term, 0, len(bonuses))
+	for _, bonus := range bonuses {
+		source := object(bonus["source"])
+		value := bonus["value"]
+		if bonus["requires"] != nil {
+			value = Object{"bonus": bonus["value"], "requires": bonus["requires"]}
+		}
+		terms = append(terms, character.Term{Label: text(bonus["name"]), Value: value, Status: text(bonus["status"]),
+			Source: &character.Reference{Kind: text(source["type"]), ID: text(source["id"])}})
+	}
+	return terms
+}

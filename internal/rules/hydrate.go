@@ -76,6 +76,7 @@ func Hydrate(decisions Object, records Records, ruleset *Ruleset) HydrationResul
 		})
 	}
 	sheet["classes"] = classValues
+	hydrateClassValues(sheet, classes)
 	sheet["totalLevel"] = totalLevel
 	derived := object(sheet["derived"])
 	derived["proficiencyBonus"] = pb
@@ -106,6 +107,7 @@ func Hydrate(decisions Object, records Records, ruleset *Ruleset) HydrationResul
 	derived["speed"] = sheet["speed"]
 	hydrateHitPoints(sheet, classes, mods["CON"], grantSources, *ruleset)
 	hydrateArmorClass(decisions, sheet, classes, mods, records, species, grantSources, activeModifiers, *ruleset)
+	applySpeedBonuses(sheet, grantSources, classes, equippedArmor(decisions, records))
 	derived["initiative"] = initiative(decisions, records, mods["DEX"], pb)
 	hydrateSaves(decisions, sheet, classes, mods, pb, grantSources)
 	hydrateSkills(decisions, sheet, background, mods, pb, grantSources, *ruleset)
@@ -436,11 +438,12 @@ func hydrateSaves(
 	for _, ability := range Abilities {
 		proficient := contains(first, ability) || contains(granted, ability) || truth(manual[ability])
 		proficiencies[ability] = proficient
-		total := mods[ability]
+		bonus, bonuses := grantCheckBonuses(sources, "saveBonuses", ability, proficient, mods, pb)
+		total := mods[ability] + bonus
 		if proficient {
 			total += pb
 		}
-		saves[ability] = Object{"mod": mods[ability], "proficient": proficient, "total": total}
+		saves[ability] = withBonuses(Object{"mod": mods[ability], "proficient": proficient, "total": total}, bonuses)
 	}
 	sheet["saves"] = saves
 }
@@ -496,10 +499,11 @@ func hydrateSkills(
 			status, multiplier = "proficient", 1
 		}
 		proficiencies[id] = status
-		skills[id] = Object{
+		bonus, bonuses := grantCheckBonuses(sources, "skillBonuses", id, proficient, mods, pb)
+		skills[id] = withBonuses(Object{
 			"ability": ability, "mod": mods[ability], "proficient": proficient,
-			"expertise": expert, "total": mods[ability] + multiplier*pb,
-		}
+			"expertise": expert, "total": mods[ability] + multiplier*pb + bonus,
+		}, bonuses)
 	}
 	sheet["skills"] = skills
 	passive := ruleset.Constants.PassiveCheckBase + integer(object(skills["perception"])["total"], 0)
@@ -648,7 +652,7 @@ func hydrateWeaponMastery(decisions, sheet Object, classes []resolvedClass, feat
 	count := 0
 	if ruleset.Capabilities.WeaponMastery != nil && *ruleset.Capabilities.WeaponMastery {
 		for _, current := range classes {
-			count = max(count, integer(object(current.Record["weaponMastery"])["count"], 0))
+			count = max(count, weaponMasteryCount(current.Record, current.Level))
 		}
 		for _, feat := range feats {
 			count += max(0, integer(object(feat["grants"])["weaponMasterySlots"], 0))

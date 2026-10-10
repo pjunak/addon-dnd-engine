@@ -68,12 +68,33 @@ func NormalizeBuilderDecisions(decisions Object, records Records, ruleset Rulese
 		acquisitions = append(acquisitions, source)
 	}
 	copy["featAcquisitions"] = acquisitions
+	applyFeatureAbilityBonuses(copy, records)
 	for _, choice := range objects(plan["creationChoices"]) {
 		if value := text(choice["default"]); value != "" && text(object(copy["featureChoices"])[text(choice["id"])]) == "" {
 			playMap(copy, "featureChoices")[text(choice["id"])] = value
 		}
 	}
 	return copy
+}
+
+// Fixed class-feature increases, such as Primal Champion, become ordinary
+// ability grants with their printed cap once the class reaches the feature.
+func applyFeatureAbilityBonuses(copy Object, records Records) {
+	features := recordCatalog(records, "feature")
+	for _, raw := range values(copy["classes"]) {
+		current := object(raw)
+		classID, level, subclass := text(current["classId"]), integer(current["level"], 1), text(current["subclass"])
+		for _, feature := range features {
+			bonus := object(object(feature["grants"])["abilityScoreBonus"])
+			if bonus == nil || text(feature["classId"]) != classID || integer(feature["level"], 0) > level ||
+				text(feature["subclassId"]) != "" && text(feature["subclassId"]) != subclass {
+				continue
+			}
+			id := text(feature["id"])
+			upsertGrant(copy, "feature:"+id, Object{"type": "feature", "id": id, "level": integer(feature["level"], 1)},
+				cloneObject(object(bonus["assign"])), integer(bonus["cap"], 0))
+		}
+	}
 }
 
 func ApplyBuilderChoice(

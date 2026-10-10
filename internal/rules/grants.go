@@ -110,6 +110,7 @@ func activeGrantModifiers(
 	decisions Object,
 	sheet Object,
 	sources []grantSource,
+	classes []resolvedClass,
 	records Records,
 ) []Object {
 	active := object(decisions["activeFeatures"])
@@ -137,7 +138,14 @@ func activeGrantModifiers(
 				object(activations[len(activations)-1])["condition"] = condition
 			}
 			if enabled {
-				modifiers = append(modifiers, objects(activation["modifiers"])...)
+				for _, modifier := range objects(activation["modifiers"]) {
+					if text(modifier["target"]) == "attack" {
+						modifier = resolveAttackColumns(modifier, source, classes)
+						modifier["sourceName"] = firstText(activation["name"], id)
+						modifier["source"] = source.Source
+					}
+					modifiers = append(modifiers, modifier)
+				}
 			}
 		}
 	}

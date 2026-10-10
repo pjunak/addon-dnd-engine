@@ -38,18 +38,22 @@ func hydrateClassValues(sheet Object, classes []resolvedClass) {
 
 // The source's own class supplies a column reference, so a multiclass
 // character reads each feature at the level of the class that grants it.
-func sourceClassColumn(source grantSource, classes []resolvedClass, key string) (int, bool) {
+func sourceColumnValue(source grantSource, classes []resolvedClass, key string) (any, bool) {
 	classID := text(source.Record["classId"])
 	if text(source.Source["type"]) == "class" {
 		classID = text(source.Source["id"])
 	}
 	for _, current := range classes {
 		if current.ID == classID {
-			value, found := classColumnValue(current.Record, key, current.Level)
-			return integer(value, 0), found
+			return classColumnValue(current.Record, key, current.Level)
 		}
 	}
-	return 0, false
+	return nil, false
+}
+
+func sourceClassColumn(source grantSource, classes []resolvedClass, key string) (int, bool) {
+	value, found := sourceColumnValue(source, classes, key)
+	return integer(value, 0), found
 }
 
 func weaponMasteryCount(record Object, level int) int {

@@ -462,6 +462,19 @@ skill or save row and in its explanation.
 A feature's `grants.abilityScoreBonus` (`{assign, cap}`) becomes an ordinary
 ability grant once the class reaches the feature's level.
 
+### Attacks
+
+`sheet.weapons` lists one row per equipped or ready weapon, plus an unarmed
+strike when the ruleset declares `constants.unarmedStrike` (`{name, damage,
+damageType}`; everyone is proficient). Each row names the `ability` used.
+`grants.attackModifiers`, and activation modifiers with `target: "attack"`,
+may offer an `ability` (used when higher), add `attackBonus` or `damageBonus`
+(or `damageBonusColumn`), and offer a `damageDie` (or `damageDieColumn`) that
+replaces the weapon's die when its average is higher. `match` is a list of
+alternatives over `unarmed`, `range`, `category`, `property` and
+`attackAbility`; `requires` takes the armor conditions above. Applied entries
+appear as `modifiers` on the row and in its explanations.
+
 ## Provider contract
 
 The worker reaches `catalog`, `get` and `query` through host-issued

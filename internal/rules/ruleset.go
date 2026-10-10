@@ -67,6 +67,14 @@ type RulesetConstants struct {
 	PactMagic               PactMagicPolicy  `json:"pactMagic"`
 	Spellbook               SpellbookPolicy  `json:"spellbook"`
 	Rest                    RestPolicy       `json:"rest"`
+	// Optional: when present every character has this unarmed attack.
+	UnarmedStrike *UnarmedStrike `json:"unarmedStrike,omitempty"`
+}
+
+type UnarmedStrike struct {
+	Name       string `json:"name"`
+	Damage     string `json:"damage"`
+	DamageType string `json:"damageType"`
 }
 
 type PointBuyPolicy struct {
@@ -204,6 +212,10 @@ func (ruleset Ruleset) Validate() error {
 	}
 	if constants.SpellSaveDCBase < 0 || constants.PassiveCheckBase < 0 || constants.UnarmoredArmorClassBase < 0 || constants.FixedHitDieBonus < 0 {
 		return errors.New("ruleset formula bases are invalid")
+	}
+	if unarmed := constants.UnarmedStrike; unarmed != nil &&
+		(strings.TrimSpace(unarmed.Name) == "" || unarmed.DamageType == "" || averageDamage(unarmed.Damage) <= 0) {
+		return errors.New("ruleset unarmed strike is invalid")
 	}
 	if policy := constants.Character; policy != nil {
 		if policy.MaximumLevel < 1 || policy.MaximumLevel > 20 || policy.MinimumHPGain < 0 || policy.MinimumHPGain > 100 || len(policy.StandardArray) != 6 || policy.RollDice < 1 || policy.RollDice > 20 || policy.RollSides < 2 || policy.RollSides > 100 || policy.RollKeep < 1 || policy.RollKeep > policy.RollDice || strings.TrimSpace(policy.DistanceUnit) == "" || len(policy.DistanceUnit) > 30 {

@@ -263,11 +263,22 @@ func characterExplanations(input character.Inputs, sheet Object, evidence []char
 		if truth(weapon["proficient"]) {
 			proficiency = pb
 		}
-		ability := integer(weapon["attackBonus"], 0) - proficiency
+		abilityName := text(weapon["ability"])
+		ability := integer(object(object(sheet["abilities"])[abilityName])["mod"], 0)
+		modifiers := make([]character.Term, 0)
+		for _, row := range objects(weapon["modifiers"]) {
+			source := object(row["source"])
+			value := cloneObject(row)
+			delete(value, "name")
+			delete(value, "source")
+			modifiers = append(modifiers, character.Term{Label: text(row["name"]), Value: value, Status: "applied",
+				Source: &character.Reference{Kind: text(source["type"]), ID: text(source["id"])}})
+		}
 		prefix := fmtIndex("weapons", index)
-		makeExplanation(prefix+".attackBonus", "Weapon attack", "eligible weapon ability modifier + proficiency bonus when proficient", weapon["attackBonus"], character.Term{Label: "Weapon ability modifier", Value: ability}, character.Term{Label: "Applicable proficiency", Value: proficiency})
-		makeExplanation(prefix+".damage", "Weapon damage", "weapon damage dice + eligible ability modifier", weapon["damage"], character.Term{Label: "Ability modifier", Value: ability}, character.Term{Label: "Damage type", Value: weapon["damageType"]})
-		makeExplanation(prefix+".versatileDamage", "Versatile damage", "two-handed weapon dice + eligible ability modifier", weapon["versatileDamage"], character.Term{Label: "Ability modifier", Value: ability})
+		abilityTerm := character.Term{Label: abilityName + " modifier", Value: ability}
+		makeExplanation(prefix+".attackBonus", "Weapon attack", "attack ability modifier + proficiency bonus when proficient + attack bonuses", weapon["attackBonus"], append([]character.Term{abilityTerm, {Label: "Applicable proficiency", Value: proficiency}}, modifiers...)...)
+		makeExplanation(prefix+".damage", "Weapon damage", "largest eligible damage die + attack ability modifier + damage bonuses", weapon["damage"], append([]character.Term{abilityTerm, {Label: "Damage type", Value: weapon["damageType"]}}, modifiers...)...)
+		makeExplanation(prefix+".versatileDamage", "Versatile damage", "two-handed weapon dice + attack ability modifier + damage bonuses", weapon["versatileDamage"], append([]character.Term{abilityTerm}, modifiers...)...)
 	}
 	maximum := integer(derived["maxHp"], 0)
 	zero := 0

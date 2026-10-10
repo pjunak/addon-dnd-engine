@@ -102,7 +102,7 @@ func Hydrate(decisions Object, records Records, ruleset *Ruleset) HydrationResul
 	grantSources := applyChoicePackages(collectGrantSources(
 		classes, species, lineage, background, featRecords, objects(decisions["featAcquisitions"]), records, totalLevel,
 	), object(decisions["featureChoices"]))
-	activeModifiers := activeGrantModifiers(decisions, sheet, grantSources, records)
+	activeModifiers := activeGrantModifiers(decisions, sheet, grantSources, classes, records)
 	sheet["speed"] = integer(sheet["speed"], 0) + grantTotal(grantSources, "speedBonus")
 	derived["speed"] = sheet["speed"]
 	hydrateHitPoints(sheet, classes, mods["CON"], grantSources, *ruleset)
@@ -116,7 +116,7 @@ func Hydrate(decisions Object, records Records, ruleset *Ruleset) HydrationResul
 	hydrateSpellcasting(decisions, sheet, classes, featRecords, records, *ruleset, mods, pb)
 	hydrateSpellGrants(decisions, sheet, classes, featRecords, grantSources, records)
 	hydrateWeaponMastery(decisions, sheet, classes, featRecords, *ruleset)
-	hydrateWeaponsAndAttunement(decisions, sheet, classes, records, mods, pb, *ruleset, activeModifiers, warn)
+	hydrateWeaponsAndAttunement(decisions, sheet, classes, records, mods, pb, *ruleset, grantSources, activeModifiers, warn)
 	hydrateFeatures(sheet, classes, records)
 	hydrateResources(decisions, sheet, classes, grantSources, records, *ruleset, pb)
 
@@ -670,6 +670,7 @@ func hydrateWeaponsAndAttunement(
 	mods map[string]int,
 	pb int,
 	ruleset Ruleset,
+	sources []grantSource,
 	activeModifiers []Object,
 	warn func(string),
 ) {
@@ -687,6 +688,15 @@ func hydrateWeaponsAndAttunement(
 			break
 		}
 	}
+	context := attackContext{
+		mods: mods, pb: pb, proficiency: proficiency, mastery: mastery, preferredAbility: preferredAbility,
+		rules: collectAttackRules(sources, classes, activeModifiers), armor: equippedArmor(decisions, records),
+	}
+	if unarmed := ruleset.Constants.UnarmedStrike; unarmed != nil {
+		weapons = append(weapons, attackRow(Object{
+			"name": unarmed.Name, "damage": unarmed.Damage, "damageType": unarmed.DamageType,
+		}, true, context))
+	}
 	for _, item := range objects(decisions["inventory"]) {
 		if truth(item["attuned"]) {
 			attuned++
@@ -699,7 +709,7 @@ func hydrateWeaponsAndAttunement(
 		if record == nil {
 			continue
 		}
-		attack := weaponAttack(record, mods, pb, proficiency, mastery, preferredAbility)
+		attack := attackRow(record, false, context)
 		if grip := text(item["handGrip"]); grip != "" {
 			attack["itemId"], attack["grip"] = item["id"], grip
 			if grip == "two" && text(attack["versatileDamage"]) != "" {
@@ -755,51 +765,6 @@ func weaponProficiency(classes []resolvedClass, extra []string) weaponProf {
 		apply(token)
 	}
 	return result
-}
-
-func weaponAttack(
-	record Object,
-	mods map[string]int,
-	pb int,
-	prof weaponProf,
-	mastery map[string]struct{},
-	preferredAbility string,
-) Object {
-	properties := stringsOf(record["properties"])
-	_, explicit := prof.ids[text(record["id"])]
-	proficient := explicit || text(record["category"]) == "simple" && prof.simple ||
-		text(record["category"]) == "martial" && (prof.martial ||
-			prof.martialLight && contains(properties, "light") ||
-			prof.martialFinesseLight && (contains(properties, "finesse") || contains(properties, "light")))
-	ability := mods["STR"]
-	if text(record["range"]) == "ranged" {
-		ability = mods["DEX"]
-	}
-	if contains(properties, "finesse") {
-		ability = max(mods["STR"], mods["DEX"])
-	}
-	if proficient && preferredAbility != "" {
-		ability = max(ability, mods[preferredAbility])
-	}
-	attack := ability
-	if proficient {
-		attack += pb
-	}
-	suffix := ""
-	if ability != 0 {
-		suffix = fmt.Sprintf(" %+d", ability)
-	}
-	_, mastered := mastery[text(record["id"])]
-	var versatile any
-	if text(record["versatileDamage"]) != "" {
-		versatile = text(record["versatileDamage"]) + suffix
-	}
-	return Object{
-		"ref": text(record["id"]), "name": text(record["name"]), "attackBonus": attack,
-		"damage": text(record["damage"]) + suffix, "versatileDamage": versatile,
-		"damageType": text(record["damageType"]), "properties": anyStrings(properties),
-		"mastery": text(record["mastery"]), "masteryActive": mastered, "proficient": proficient,
-	}
 }
 
 func progressionAt(progression []Object, level int) Object {

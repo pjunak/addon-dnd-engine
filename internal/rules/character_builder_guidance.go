@@ -8,8 +8,8 @@ import (
 	"github.com/pjunak/addon-dnd-engine/character"
 )
 
-// Human-readable fallback labels remain usable by older consumers. Templates
-// translate engine-owned UI wording without translating authored record names.
+// Each guidance entry carries an English label plus a template key, so
+// consumers translate engine-owned wording without translating record names.
 func builderGuidanceText(template string, args ...any) Object {
 	replacements := []string{}
 	for index, arg := range args {

@@ -21,8 +21,8 @@ func selectedSpeciesSize(decisions, species Object) any {
 		}
 		return nil
 	}
-	// Older providers may still use a compound display string. An unresolved
-	// alternative is not a selected size, and must not become a hidden default.
+	// A species without size options has one fixed size. A compound display
+	// string such as "Medium or Small" is not a selection and never a default.
 	switch size := text(species["size"]); size {
 	case "Tiny", "Small", "Medium", "Large", "Huge", "Gargantuan":
 		return size

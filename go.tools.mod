@@ -1,6 +1,6 @@
 module github.com/pjunak/addon-dnd-engine/tools
 
-go 1.27.1
+go 1.27.2
 
 tool (
 	github.com/pjunak/ttrpg-codex/cmd/codex-addon-inspect

@@ -157,18 +157,16 @@ DM. Narrative content and encounter effects remain visible source facts.
 ## Authored Inspiration
 
 The optional boolean `inputs.play.inspiration` records the current allocation.
-Omission remains valid for earlier characters and displays as unavailable;
+Omission is valid and displays as unavailable;
 explicit `false` records spending it. Evaluation does not populate an omitted
 input, and calculation, rests and other play commands preserve its value.
 This is authored state, with no automatic award, reroll or encounter resolution.
 
 Supporting engines return `guidance.authoredPlay.inspiration: true`, the boolean
 `sheet.inspiration` and its saved explanation, including for incomplete builds.
-Consumers enable editing only with that guidance. Existing requests that omit
-the field remain supported in v4; older providers may reject a request containing
-it. Consumers must retain saved reading and fail changes without silently
-dropping the value. The Sheets schema includes the same optional DTO field;
-its reviewed upgrade is documented by the [persistence owner](../../addon-dnd-character-sheets/docs/RULES_EDGE_CASES.md#inspiration-and-compatible-schema-upgrades).
+Consumers enable editing only with that guidance and fail changes without
+silently dropping the value. The Sheets schema includes the same optional DTO
+field.
 
 ## Authored conditions
 
@@ -198,9 +196,8 @@ Evaluation and ordinary play/rest preserve the input list. Adding/removing
 conditions and changing levels are explicit authored edits. Expiry, rest
 exceptions, advantage, targeting, concentration, dropping items, inferred
 conditions, death and condition-implied conditions are not automated. No HP,
-inventory or core status is changed by a condition. Optional inputs remain in
-v4; older providers may reject them. Sheets must preserve saved reading and
-reject a provider that drops or rewrites the authored list.
+inventory or core status is changed by a condition. Sheets rejects a provider
+that drops or rewrites the authored list.
 
 ## Hands and grip
 
@@ -231,10 +228,8 @@ projection; stable reasons are `missing`, `empty`, `changed`, `ineligible` and
 or stowed selections stay available for explicit repair with an inactive
 warning; malformed identities/grips and excess equipped hand capacity block saves.
 
-Existing v4 requests without hands remain compatible. Consumers must retain
-saved reading when an older provider rejects the optional input. The Sheets
-coordinator additionally checks that provider responses preserve unrelated
-authored values; its schema upgrade uses the existing compatible-data review.
+The Sheets coordinator additionally checks that provider responses preserve
+unrelated authored values.
 
 ## Species size
 
@@ -283,8 +278,7 @@ identity, notes and acquisition. Other evaluation/play operations preserve it.
 `sheet.equipment[id].bodyPlacements` retains the source facts for reading;
 `sheet.bodyPlacement` retains authored `{itemId,name,placement}` rows and a
 saved explanation. Neither saved projection authorizes an action.
-The optional field remains in v4; older providers may reject it and must never
-silently remove it. The Sheets owner supplies the reviewed schema-4 upgrade.
+A provider must never silently remove the field.
 
 ## Storage containers and membership
 
@@ -305,7 +299,7 @@ references are blockers, never automatically deleted or redirected.
 `guidance.storage` supplies `maximumContainers` and `maximumNameLength`.
 Saved `sheet.storage.containers` retains each ID, name and ordered `itemIds`,
 including empty groups and depleted entries. Evaluation and play preserve authored
-groups and membership; absent optional fields stay absent for older characters.
+groups and membership; absent optional fields stay absent.
 Invalid inputs remain intact for correction, including unfinished builds.
 
 ## Quick-use inventory references
@@ -499,7 +493,7 @@ snapshot. Returned values are detached from provider caches.
 
 The manifest and [service schema](../contracts/rules-engine.service.json) also
 specify context, record queries and derivation. Public character evaluation has
-no legacy envelopes or provider-free manually writable projection.
+no provider-free manually writable projection.
 
 ### Acquisition-owned spell grants
 

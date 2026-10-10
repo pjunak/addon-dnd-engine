@@ -32,14 +32,8 @@ func TestCharacterBoundaryUsesOneIdentifiedEvaluation(t *testing.T) {
 	_, err = handler.HandleRPC(context.Background(), rpcRequest("evaluate-character", string(params)))
 	assertRPCError(t, err, workerrpc.KindUnavailable)
 }
-func TestCharacterBoundaryRejectsRetiredHandlersAndUnknownInputs(t *testing.T) {
+func TestCharacterBoundaryRejectsUnknownInputs(t *testing.T) {
 	handler, _ := New(&engineProvider{ruleset: engineRuleset(t)})
-	for _, method := range []string{"hydrate", "builder-plan", "apply-builder-choice", "reconcile-builder-decisions", "apply-play-change", "spell-options"} {
-		_, err := handler.HandleRPC(context.Background(), rpcRequest(method, `{}`))
-		if err == nil {
-			t.Fatalf("retired handler %s remains callable", method)
-		}
-	}
 	_, err := handler.HandleRPC(context.Background(), rpcRequest("evaluate-character", `{"contractVersion":"rules-character.v1","inputs":{"manualStats":{"STR":99}}}`))
 	assertRPCError(t, err, workerrpc.KindInvalidRequest)
 	for _, value := range []string{`"one"`, `1`, `[1]`, `{}`} {

@@ -22,8 +22,7 @@ It requires a ruleset of version 4 or later (Compendium 3.3.0).
 - `character-play`: one bounded play command followed by the same evaluation.
 
 See [the service contract](contract/README.md), [calculation ownership](rules/README.md)
-and [generated schemas](contracts/rules-engine.service.json). Version 4 replaces
-the previous public Builder/hydration/play handlers. Shared arithmetic helpers remain internal. Fixture-only play/reconciliation
+and [generated schemas](contracts/rules-engine.service.json). Shared arithmetic helpers remain internal. Fixture-only play/reconciliation
 adapters live in test files and are excluded from the production package.
 
 ## Development and packaging

@@ -8,7 +8,7 @@ import (
 
 func TestBuilderGuidanceLabelsOptionsAndCountsValidChoices(t *testing.T) {
 	records, profile := syntheticRecords(), syntheticRuleset(t)
-	state := Object{"classes": []any{Object{"classId": "wizard", "level": 5}}, "baseStats": Object{"STR": 8, "DEX": 15, "CON": 15, "INT": 15, "WIS": 8, "CHA": 8}, "species": "Dwarf", "background": "Acolyte", "featureChoices": Object{"study#0": "wizard-scholar", "study#1": "wizard-scholar"}}
+	state := Object{"classes": []any{Object{"classId": "wizard", "level": 5}}, "baseStats": Object{"STR": 8, "DEX": 15, "CON": 15, "INT": 15, "WIS": 8, "CHA": 8}, "species": "dwarf", "background": "acolyte", "featureChoices": Object{"study#0": "wizard-scholar", "study#1": "wizard-scholar"}}
 	plan := BuilderPlan(state, records, profile)
 	plan["classChoices"] = append(values(plan["classChoices"]), Object{"id": "study", "kind": "enumerated", "classId": "wizard", "count": 2, "from": []any{"wizard-scholar", "wizard-arcane-recovery"}, "source": Object{"level": 2}})
 	before, _ := json.Marshal(state)
@@ -83,7 +83,7 @@ func TestPlayDoesNotPromoteDerivedFeatsToManualFeats(t *testing.T) {
 
 func TestBuilderSkillSpellingsCalculateWithoutRewritingAuthoredKeys(t *testing.T) {
 	records, profile := syntheticRecords(), syntheticRuleset(t)
-	state := Object{"level": 5, "abilities": Object{"WIS": 12, "DEX": 14}, "skillProficiencies": []any{"animal-handling", "sleight of hand"}, "skillExpertise": Object{"animal_handling": true}}
+	state := Object{"classes": []any{Object{"classId": "fighter", "level": 5}}, "baseStats": Object{"WIS": 12, "DEX": 14}, "skillProficiencies": []any{"animal-handling", "sleight of hand"}, "skillExpertise": Object{"animal_handling": true}}
 	before, _ := json.Marshal(state)
 	sheet := Hydrate(state, records, &profile).Sheet
 	animal := object(object(sheet["skills"])["animalHandling"])

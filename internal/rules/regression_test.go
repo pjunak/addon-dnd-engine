@@ -44,16 +44,6 @@ func (records vectorRecords) Value(kind, id string) (json.RawMessage, bool) {
 	return nil, false
 }
 
-func (records vectorRecords) ValueByName(kind, name string) (json.RawMessage, bool) {
-	for _, body := range records[kind] {
-		value, _ := DecodeObject(body)
-		if strings.EqualFold(text(value["name"]), name) {
-			return body, true
-		}
-	}
-	return nil, false
-}
-
 func (records vectorRecords) Values(kind string) []json.RawMessage { return records[kind] }
 
 func TestRegressionVectors(t *testing.T) {

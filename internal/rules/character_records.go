@@ -34,9 +34,6 @@ func (records *characterRecordSnapshot) Value(kind, id string) (json.RawMessage,
 	}
 	return records.source.Value(kind, id)
 }
-func (records *characterRecordSnapshot) ValueByName(string, string) (json.RawMessage, bool) {
-	return nil, false
-}
 func (records *characterRecordSnapshot) Values(kind string) []json.RawMessage {
 	if records.source == nil {
 		return nil

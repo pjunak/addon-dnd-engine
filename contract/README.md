@@ -478,6 +478,11 @@ and does not count as a second Spellcasting class: one Spellcasting class
 keeps its declared slot table; multiple use profile-owned fractions and slots.
 Spell preparation limits always use each class's own level.
 
+Feat prerequisites additionally accept `spellcastingFeature: true` (a class or
+subclass Spellcasting or Pact Magic feature only), `feat`, `featCategory` and
+`withoutFeatCategory` (earlier feats, from the sheet's `featIdentities`), and
+`armorTraining` / `weaponTraining` (the sheet's armor and weapon training).
+
 Item `attunementPrerequisites` accepts generic `classes` minimum-level maps
 and `spellcaster: true`, including inside `all`/`any`. Intrinsic class spell
 capacity, trait/feat cantrips and granted free spells qualify independently of

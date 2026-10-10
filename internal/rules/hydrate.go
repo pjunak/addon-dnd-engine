@@ -62,16 +62,11 @@ func Hydrate(decisions Object, records Records, ruleset *Ruleset) HydrationResul
 	hydrateAbilities(decisions, sheet, mods, *ruleset)
 
 	classes := resolveClasses(decisions, records, warn)
-	totalLevel := integer(decisions["level"], 1)
-	if len(classes) > 0 {
-		totalLevel = 0
-		for _, current := range classes {
-			totalLevel += current.Level
-		}
+	totalLevel := 0
+	for _, current := range classes {
+		totalLevel += current.Level
 	}
-	if totalLevel < 1 {
-		totalLevel = 1
-	}
+	totalLevel = max(1, totalLevel)
 	pb := ruleset.ProficiencyBonus(totalLevel)
 	classValues := make([]any, 0, len(classes))
 	for _, current := range classes {
@@ -92,11 +87,17 @@ func Hydrate(decisions Object, records Records, ruleset *Ruleset) HydrationResul
 	}
 
 	species, lineage := hydrateSpecies(decisions, records, sheet, warn)
-	background := selectedRecord(decisions["background"], records, "background")
+	background := recordByID(records, "background", text(decisions["background"]))
 	if decisions["background"] != nil && background == nil && records != nil {
 		warn("Unknown background: " + text(decisions["background"]))
 	}
 	featRecords := selectedFeats(decisions, records)
+	// Feat prerequisites check earlier feats by identity and category.
+	identities := make([]any, 0, len(featRecords))
+	for _, feat := range featRecords {
+		identities = append(identities, Object{"id": text(feat["id"]), "category": text(feat["category"])})
+	}
+	sheet["featIdentities"] = identities
 	grantSources := applyChoicePackages(collectGrantSources(
 		classes, species, lineage, background, featRecords, objects(decisions["featAcquisitions"]), records, totalLevel,
 	), object(decisions["featureChoices"]))
@@ -122,9 +123,6 @@ func Hydrate(decisions Object, records Records, ruleset *Ruleset) HydrationResul
 
 func HydrateWithoutRulesData(decisions Object, status string) HydrationResult {
 	base := object(decisions["baseStats"])
-	if len(base) == 0 {
-		base = object(decisions["abilities"])
-	}
 	abilities := Object{}
 	for _, ability := range Abilities {
 		score := number(base[ability], 10)
@@ -132,16 +130,11 @@ func HydrateWithoutRulesData(decisions Object, status string) HydrationResult {
 			"base": score, "score": score, "mod": AbilityModifier(score), "bonus": 0,
 		}
 	}
-	totalLevel := integer(decisions["level"], 1)
-	if classes := objects(decisions["classes"]); len(classes) > 0 {
-		totalLevel = 0
-		for _, current := range classes {
-			totalLevel += max(0, integer(current["level"], 0))
-		}
+	totalLevel := 0
+	for _, current := range objects(decisions["classes"]) {
+		totalLevel += max(0, integer(current["level"], 0))
 	}
-	if totalLevel < 1 {
-		totalLevel = 1
-	}
+	totalLevel = max(1, totalLevel)
 	return HydrationResult{
 		Sheet: Object{
 			"abilities": abilities, "totalLevel": totalLevel,
@@ -161,9 +154,6 @@ func HydrateWithoutRulesData(decisions Object, status string) HydrationResult {
 
 func hydrateAbilities(decisions Object, sheet Object, mods map[string]int, ruleset Ruleset) {
 	base := object(decisions["baseStats"])
-	if len(base) == 0 {
-		base = object(decisions["abilities"])
-	}
 	grants := objects(decisions["abilityGrants"])
 	result := object(sheet["abilities"])
 	for _, ability := range Abilities {
@@ -189,9 +179,6 @@ func resolveClasses(decisions Object, records Records, warn func(string)) []reso
 			continue
 		}
 		record := recordByID(records, "class", id)
-		if record == nil {
-			record = recordByName(records, "class", id)
-		}
 		if record == nil && records != nil {
 			warn("Unknown class: " + id)
 		}
@@ -204,25 +191,6 @@ func resolveClasses(decisions Object, records Records, warn func(string)) []reso
 			Subclass: text(current["subclass"]), Record: record,
 		})
 	}
-	if len(result) == 0 && text(decisions["className"]) != "" {
-		name := text(decisions["className"])
-		record := recordByName(records, "class", name)
-		if record == nil {
-			record = recordByID(records, "class", name)
-		}
-		if record == nil && records != nil {
-			warn("Unknown class: " + name)
-		}
-		id := name
-		if record != nil {
-			id = text(record["id"])
-			name = text(record["name"])
-		}
-		result = append(result, resolvedClass{
-			ID: id, Name: name, Level: max(1, integer(decisions["level"], 1)),
-			Subclass: text(decisions["subclass"]), Record: record,
-		})
-	}
 	return result
 }
 
@@ -232,11 +200,8 @@ func hydrateSpecies(
 	sheet Object,
 	warn func(string),
 ) (Object, Object) {
-	selected := text(decisions["race"])
-	if selected == "" {
-		selected = text(decisions["species"])
-	}
-	species := selectedRecord(selected, records, "species")
+	selected := text(decisions["species"])
+	species := recordByID(records, "species", selected)
 	if selected != "" && species == nil && records != nil {
 		warn("Unknown species: " + selected)
 	}
@@ -565,11 +530,8 @@ func hydrateProficiencies(
 		tools = append(tools, stringsOf(source["tools"])...)
 		weapons = append(weapons, stringsOf(source["weapons"])...)
 	}
-	if declared := text(background["toolProficiency"]); declared != "" && background["toolProficiencyChoice"] == nil {
-		tool := selectedRecord(declared, records, "tool")
-		if tool != nil {
-			tools = append(tools, text(tool["id"]))
-		}
+	if background["toolProficiencyChoice"] == nil {
+		tools = append(tools, text(background["toolProficiency"]))
 	}
 	tools = append(tools, text(decisions["backgroundToolProficiency"]))
 	tools = append(tools, stringsOf(decisions["toolProficiencies"])...)
@@ -771,9 +733,9 @@ func weaponProficiency(classes []resolvedClass, extra []string) weaponProf {
 		case "martial":
 			result.martial = true
 		case "martial-light":
-			result.simple, result.martialLight = true, true
+			result.martialLight = true
 		case "martial-finesse-or-light":
-			result.simple, result.martialFinesseLight = true, true
+			result.martialFinesseLight = true
 		case "":
 		default:
 			result.ids[token] = struct{}{}
@@ -900,17 +862,6 @@ func CasterContribution(kind string, level int, ruleset Ruleset) int {
 	return int(math.Floor(ratio))
 }
 
-func selectedRecord(value any, records Records, kind string) Object {
-	id := text(value)
-	if id == "" {
-		return nil
-	}
-	if record := recordByName(records, kind, id); record != nil {
-		return record
-	}
-	return recordByID(records, kind, id)
-}
-
 func selectedFeats(decisions Object, records Records) []Object {
 	result := make([]Object, 0)
 	for _, value := range values(decisions["feats"]) {
@@ -955,10 +906,7 @@ func inventoryRecord(item Object, records Records, kind string) Object {
 		}
 		return nil
 	}
-	if record := recordByID(records, kind, text(item["ref"])); record != nil {
-		return record
-	}
-	return recordByName(records, kind, text(item["name"]))
+	return recordByID(records, kind, text(item["ref"]))
 }
 
 var (

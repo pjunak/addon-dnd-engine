@@ -12,7 +12,6 @@ import (
 type countedCharacterRecords struct {
 	Records
 	featureReads int
-	nameReads    int
 }
 
 func (records *countedCharacterRecords) Values(kind string) []json.RawMessage {
@@ -20,10 +19,6 @@ func (records *countedCharacterRecords) Values(kind string) []json.RawMessage {
 		records.featureReads++
 	}
 	return records.Records.Values(kind)
-}
-func (records *countedCharacterRecords) ValueByName(kind, name string) (json.RawMessage, bool) {
-	records.nameReads++
-	return records.Records.ValueByName(kind, name)
 }
 func (records *countedCharacterRecords) Provenance(string, string) SourceIdentity {
 	return SourceIdentity{PackageID: "synthetic", PackageGeneration: "generation-one", ContentRevision: "revision-one"}
@@ -52,8 +47,8 @@ func TestHighLevelGuidanceUsesOneFeatureCatalog(t *testing.T) {
 	originalSources := mustJSON(records.byKind)
 	counted := &countedCharacterRecords{Records: records}
 	result := EvaluateCharacter(input, counted, profile)
-	if counted.featureReads != 1 || counted.nameReads != 0 {
-		t.Fatalf("feature scans=%d; name lookups=%d", counted.featureReads, counted.nameReads)
+	if counted.featureReads != 1 {
+		t.Fatalf("feature scans=%d", counted.featureReads)
 	}
 	if result.Ready || !truth(result.Guidance["canSave"]) {
 		t.Fatalf("incomplete build changed legality: %+v", result.Issues)
@@ -97,7 +92,7 @@ func TestCharacterEvaluationCacheIsDetachedAndRefreshesSources(t *testing.T) {
 		t.Fatal("source change was hidden by cached records", changed.Sheet["derived"])
 	}
 	input.Build.Species = "Dwarf"
-	if truth(EvaluateCharacter(input, counted, profile).Guidance["canSave"]) || counted.nameReads != 0 {
+	if truth(EvaluateCharacter(input, counted, profile).Guidance["canSave"]) {
 		t.Fatal("display name used as a durable source identity")
 	}
 }

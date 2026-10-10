@@ -84,7 +84,6 @@ type Repository struct {
 	Identity Identity
 	Ruleset  rules.Ruleset
 	records  map[string]map[string]Record
-	names    map[string]map[string]string
 }
 
 var engineKinds = [...]string{
@@ -222,7 +221,6 @@ func (client *Client) Repository(
 		Identity: profile.Identity,
 		Ruleset:  profile.Ruleset,
 		records:  make(map[string]map[string]Record),
-		names:    make(map[string]map[string]string),
 	}
 	for _, kind := range engineKinds {
 		expected := catalog.Kinds[kind]
@@ -234,21 +232,8 @@ func (client *Client) Repository(
 			return nil, err
 		}
 		repository.records[kind] = make(map[string]Record, len(loaded))
-		repository.names[kind] = make(map[string]string, len(loaded))
 		for _, record := range loaded {
 			repository.records[kind][record.ID] = record
-			name, err := recordName(record.Value)
-			if err != nil {
-				return nil, incompatible("rules-data record name is invalid")
-			}
-			normalized := strings.ToLower(strings.TrimSpace(name))
-			if previous, duplicate := repository.names[kind][normalized]; duplicate && previous != record.ID {
-				// Names are display labels, not identities. Keep every ID usable,
-				// but never guess which record an ambiguous name refers to.
-				repository.names[kind][normalized] = ""
-				continue
-			}
-			repository.names[kind][normalized] = record.ID
 		}
 	}
 	if policy := profile.Ruleset.Constants.Character; policy != nil && policy.ConditionRules != "" {
@@ -327,17 +312,6 @@ func (repository *Repository) Get(kind, id string) (Record, bool) {
 	return cloneRecord(record), true
 }
 
-func (repository *Repository) GetByName(kind, name string) (Record, bool) {
-	if repository == nil {
-		return Record{}, false
-	}
-	id, exists := repository.names[kind][strings.ToLower(strings.TrimSpace(name))]
-	if !exists || id == "" {
-		return Record{}, false
-	}
-	return repository.Get(kind, id)
-}
-
 func (repository *Repository) List(kind string) []Record {
 	if repository == nil {
 		return []Record{}
@@ -363,11 +337,6 @@ func (repository *Repository) Value(kind, id string) (json.RawMessage, bool) {
 func (repository *Repository) Provenance(kind, id string) rules.SourceIdentity {
 	identity := repository.records[kind][id].SourceIdentity
 	return rules.SourceIdentity{PackageID: identity.ProviderAddonID, PackageGeneration: identity.ProviderGeneration, ContentRevision: identity.ContentRevision}
-}
-
-func (repository *Repository) ValueByName(kind, name string) (json.RawMessage, bool) {
-	record, exists := repository.GetByName(kind, name)
-	return record.Value, exists
 }
 
 func (repository *Repository) Values(kind string) []json.RawMessage {
@@ -578,16 +547,6 @@ func validDigest(value string) bool {
 func cloneRecord(record Record) Record {
 	record.Value = append(json.RawMessage(nil), record.Value...)
 	return record
-}
-
-func recordName(value json.RawMessage) (string, error) {
-	var identity struct {
-		Name string `json:"name"`
-	}
-	if err := json.Unmarshal(value, &identity); err != nil || strings.TrimSpace(identity.Name) == "" {
-		return "", errors.New("record name is missing")
-	}
-	return identity.Name, nil
 }
 
 func validRecord(record Record) bool {

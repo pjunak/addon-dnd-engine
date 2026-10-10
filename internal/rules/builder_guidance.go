@@ -41,9 +41,9 @@ func builderGuidance(decisions, plan Object, records Records, profile Ruleset, c
 		}
 	}
 	add(0, scoresValid && (truth(decisions["manualScores"]) || spent == profile.Constants.PointBuy.Budget), "abilities", "Finish base ability scores", "character", 0)
-	species := selectedRecord(firstText(decisions["species"], decisions["race"]), records, "species")
+	species := recordByID(records, "species", text(decisions["species"]))
 	add(0, species != nil, "species", "Choose species", "character", 0)
-	add(0, selectedRecord(text(decisions["background"]), records, "background") != nil, "background", "Choose background", "character", 0)
+	add(0, recordByID(records, "background", text(decisions["background"])) != nil, "background", "Choose background", "character", 0)
 	if lineages := objects(species["lineages"]); len(lineages) > 0 {
 		valid := false
 		for _, lineage := range lineages {

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/pjunak/ttrpg-codex/sdk/go/workerrpc"
@@ -96,7 +97,7 @@ func TestRepositoryLoadsOneConsistentSnapshotAndReusesIt(t *testing.T) {
 	if first != second {
 		t.Fatal("unchanged provider content was loaded twice")
 	}
-	record, exists := first.GetByName("class", "WIZARD")
+	record, exists := first.Get("class", "wizard")
 	if !exists || record.ID != "wizard" {
 		t.Fatalf("record = %+v, exists = %v", record, exists)
 	}
@@ -130,12 +131,6 @@ func TestRepositoryKeepsDuplicateNamesAddressableByID(t *testing.T) {
 			t.Fatalf("ID lookup %s = %+v, %v", record.ID, loaded, ok)
 		}
 	}
-	if _, ok := repository.GetByName("class", "shared"); ok {
-		t.Fatal("ambiguous name selected an arbitrary record")
-	}
-	if record, ok := repository.GetByName("class", " UNIQUE "); !ok || record.ID != "unique" {
-		t.Fatal("unique name no longer resolves")
-	}
 }
 
 func TestRepositoryRefreshesChangedRevisionAndGenerationWithoutServingMissingProvider(t *testing.T) {
@@ -157,15 +152,15 @@ func TestRepositoryRefreshesChangedRevisionAndGenerationWithoutServingMissingPro
 	if err != nil || first == second || second.Identity.ContentRevision != "fixture-2" {
 		t.Fatalf("changed revision = %+v, %v", second, err)
 	}
-	if record, ok := second.GetByName("class", "Revised Wizard"); !ok || record.ID != "wizard" {
-		t.Fatal("changed content retained stale name index")
+	if record, ok := second.Get("class", "wizard"); !ok || !strings.Contains(string(record.Value), "Revised Wizard") {
+		t.Fatal("changed content retained a stale record")
 	}
 	caller.generation = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
 	third, err := client.Repository(context.Background(), nil)
 	if err != nil || second == third || third.Identity.ProviderGeneration != caller.generation {
 		t.Fatalf("changed generation = %+v, %v", third, err)
 	}
-	if _, ok := first.GetByName("class", "Wizard"); !ok {
+	if record, ok := first.Get("class", "wizard"); !ok || strings.Contains(string(record.Value), "Revised") {
 		t.Fatal("loading a replacement mutated the previous snapshot")
 	}
 }

@@ -9,8 +9,8 @@ func TestHydrateCoreCharacterMath(t *testing.T) {
 	t.Parallel()
 	profile := syntheticRuleset(t)
 	result := Hydrate(Object{
-		"abilities": Object{"INT": 16, "CON": 14},
-		"className": "Wizard", "level": 5,
+		"baseStats": Object{"INT": 16, "CON": 14},
+		"classes":   []any{Object{"classId": "wizard", "level": 5}},
 	}, syntheticRecords(), &profile)
 	if len(result.Warnings) != 0 {
 		t.Fatalf("warnings = %v", result.Warnings)
@@ -84,8 +84,8 @@ func TestHydrateInterpretsGenericSpeciesAndWeaponRecords(t *testing.T) {
 	t.Parallel()
 	profile := syntheticRuleset(t)
 	result := Hydrate(Object{
-		"abilities": Object{"STR": 16, "DEX": 14, "CON": 14},
-		"className": "Barbarian", "level": 5, "race": "Dwarf",
+		"baseStats": Object{"STR": 16, "DEX": 14, "CON": 14},
+		"classes":   []any{Object{"classId": "barbarian", "level": 5}}, "species": "dwarf",
 		"inventory": []any{Object{"ref": "longsword", "location": "equipped"}},
 	}, syntheticRecords(), &profile).Sheet
 	if integer(object(result["derived"])["maxHp"], 0) != 55 ||
@@ -98,7 +98,7 @@ func TestHydrateInterpretsGenericSpeciesAndWeaponRecords(t *testing.T) {
 func TestHydrateWithoutProviderKeepsUniversalMath(t *testing.T) {
 	t.Parallel()
 	result := Hydrate(Object{
-		"abilities": Object{"STR": 16, "DEX": 14}, "level": 5,
+		"baseStats": Object{"STR": 16, "DEX": 14}, "classes": []any{Object{"classId": "fighter", "level": 5}},
 	}, nil, nil)
 	// The proficiency bonus is edition data, so it is absent without a ruleset.
 	_, proficiency := object(result.Sheet["derived"])["proficiencyBonus"]
@@ -112,7 +112,7 @@ func TestHydrateAppliesGenericChoicePackagesAndActiveModifiers(t *testing.T) {
 	t.Parallel()
 	profile := syntheticRuleset(t)
 	result := Hydrate(Object{
-		"abilities": Object{"DEX": 14, "CON": 14},
+		"baseStats": Object{"DEX": 14, "CON": 14},
 		"classes":   []any{Object{"classId": "fighter", "level": 3}},
 		"feats":     []any{Object{"featId": "guardian"}, Object{"featId": "adaptable"}},
 		"featureChoices": Object{
@@ -139,7 +139,7 @@ func TestHydrateMaterializesSpellGrantsResourcesAndFeatureIdentity(t *testing.T)
 	t.Parallel()
 	profile := syntheticRuleset(t)
 	result := Hydrate(Object{
-		"abilities": Object{"INT": 16},
+		"baseStats": Object{"INT": 16},
 		"classes":   []any{Object{"classId": "wizard", "level": 2}},
 		"feats":     []any{Object{"featId": "magic-initiate"}, Object{"featId": "guardian"}},
 		"grantChoices": Object{
@@ -167,7 +167,7 @@ func TestBuilderPlanAndMutationsFollowRulesetPolicy(t *testing.T) {
 	profile := syntheticRuleset(t)
 	records := syntheticRecords()
 	decisions := Object{
-		"background":     "Acolyte",
+		"background":     "acolyte",
 		"classes":        []any{Object{"classId": "fighter", "level": 19}},
 		"featureChoices": Object{},
 		"abilityGrants":  []any{},
@@ -215,16 +215,6 @@ type memoryRecords struct {
 func (records memoryRecords) Value(kind, id string) (json.RawMessage, bool) {
 	value, exists := records.byKind[kind][id]
 	return append(json.RawMessage(nil), value...), exists
-}
-
-func (records memoryRecords) ValueByName(kind, name string) (json.RawMessage, bool) {
-	for _, value := range records.byKind[kind] {
-		current, _ := DecodeObject(value)
-		if text(current["name"]) == name {
-			return append(json.RawMessage(nil), value...), true
-		}
-	}
-	return nil, false
 }
 
 func (records memoryRecords) Values(kind string) []json.RawMessage {
@@ -348,4 +338,35 @@ func newMemoryRecords(records []Object) memoryRecords {
 		result.byKind[kind][id] = body
 	}
 	return result
+}
+
+func TestClassTrainingUsesDeclaredToolChoicesAndWeaponSubsets(t *testing.T) {
+	t.Parallel()
+	profile := syntheticRuleset(t)
+	records := syntheticRecords()
+	records.byKind["class"]["monk"] = mustJSON(Object{"kind": "class", "id": "monk", "name": "Monk", "hitDie": "d8",
+		"startingProficiencies": Object{"weapons": []any{"martial-light"},
+			"toolChoice": Object{"count": 1, "from": []any{"lute", "smiths-tools"}}}})
+	records.byKind["weapon"]["scimitar"] = mustJSON(Object{"kind": "weapon", "id": "scimitar", "name": "Scimitar",
+		"category": "martial", "range": "melee", "damage": "1d6", "properties": []any{"finesse", "light"}})
+	records.byKind["weapon"]["club"] = mustJSON(Object{"kind": "weapon", "id": "club", "name": "Club",
+		"category": "simple", "range": "melee", "damage": "1d4", "properties": []any{"light"}})
+	decisions := Object{"classes": []any{Object{"classId": "monk", "level": 1}}}
+	choice := findChoice(objects(BuilderPlan(decisions, records, profile)["classChoices"]), "tools:monk")
+	if choice == nil || integer(choice["count"], 0) != 1 || !contains(stringsOf(choice["from"]), "smiths-tools") {
+		t.Fatalf("class tool choice = %+v", choice)
+	}
+	decisions["toolProficiencies"] = []any{"lute"}
+	decisions["inventory"] = []any{Object{"ref": "scimitar", "location": "equipped"}, Object{"ref": "club", "location": "equipped"}}
+	sheet := Hydrate(decisions, records, &profile).Sheet
+	if !contains(stringsOf(object(sheet["proficiencies"])["tools"]), "lute") {
+		t.Fatalf("tools = %+v", object(sheet["proficiencies"])["tools"])
+	}
+	for _, raw := range values(sheet["weapons"]) {
+		weapon := object(raw)
+		// A martial subset grants only that subset; Simple training is declared separately.
+		if truth(weapon["proficient"]) != (text(weapon["ref"]) == "scimitar") {
+			t.Fatalf("weapon = %+v", weapon)
+		}
+	}
 }

@@ -12,7 +12,6 @@ type Object map[string]any
 
 type Records interface {
 	Value(kind, id string) (json.RawMessage, bool)
-	ValueByName(kind, name string) (json.RawMessage, bool)
 	Values(kind string) []json.RawMessage
 }
 
@@ -50,18 +49,6 @@ func recordView(records Records, kind, id string) Object {
 		return cached.recordView(kind, id)
 	}
 	return recordByID(records, kind, id)
-}
-
-func recordByName(records Records, kind, name string) Object {
-	if records == nil || name == "" {
-		return nil
-	}
-	body, exists := records.ValueByName(kind, name)
-	if !exists {
-		return nil
-	}
-	value, _ := DecodeObject(body)
-	return value
 }
 
 func recordList(records Records, kind string) []Object {

@@ -63,9 +63,6 @@ func (records *characterRecords) recordView(kind, id string) Object {
 	}
 	return recordView(records.source, kind, id)
 }
-func (records *characterRecords) ValueByName(kind, name string) (json.RawMessage, bool) {
-	return nil, false
-}
 func (records *characterRecords) Values(kind string) []json.RawMessage {
 	return records.source.Values(kind)
 }

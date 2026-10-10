@@ -148,10 +148,6 @@ func (records engineRecords) Value(kind, id string) (json.RawMessage, bool) {
 	return records.lookup(kind, "id", id)
 }
 
-func (records engineRecords) ValueByName(kind, name string) (json.RawMessage, bool) {
-	return records.lookup(kind, "name", name)
-}
-
 func (records engineRecords) Values(kind string) []json.RawMessage {
 	result := []json.RawMessage{}
 	for _, record := range records {

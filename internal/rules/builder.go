@@ -11,7 +11,7 @@ import (
 var builderModeSuffix = regexp.MustCompile(`:(ability|feat|featability)$`)
 
 func BuilderPlan(decisions Object, records Records, ruleset Ruleset) Object {
-	modelBase, modelClasses := builderModel(decisions, records)
+	modelBase, modelClasses := builderModel(decisions)
 	classChoices := collectClassChoices(modelClasses, object(decisions["featureChoices"]), records, ruleset)
 	plan := Object{
 		"schemaVersion": 1,
@@ -147,24 +147,12 @@ func applyOwnedBuilderChoice(copy, change Object, records Records, plan Object) 
 	return copy
 }
 
-func builderModel(source Object, records Records) (Object, []any) {
-	baseStats := object(source["baseStats"])
-	if len(baseStats) == 0 {
-		baseStats = object(source["abilities"])
-	}
+func builderModel(source Object) (Object, []any) {
 	classes := cloneArray(values(source["classes"]))
 	if len(classes) == 0 {
-		if className := text(source["className"]); className != "" {
-			record := recordByName(records, "class", className)
-			classes = []any{Object{
-				"classId": text(record["id"]), "level": max(1, integer(source["level"], 1)),
-				"subclass": text(source["subclass"]),
-			}}
-		} else {
-			classes = []any{Object{"classId": "", "level": 1, "subclass": ""}}
-		}
+		classes = []any{Object{"classId": "", "level": 1, "subclass": ""}}
 	}
-	return cloneObjectDeep(baseStats), classes
+	return cloneObjectDeep(object(source["baseStats"])), classes
 }
 
 func collectClassChoices(classes []any, selections Object, records Records, ruleset Ruleset) []any {
@@ -185,6 +173,13 @@ func collectClassChoices(classes []any, selections Object, records Records, rule
 			result = append(result, Object{
 				"id": "skills:" + classID, "kind": "skills", "count": max(1, integer(skills["choose"], 1)),
 				"from": anyStrings(stringsOf(skills["from"])), "classId": classID,
+				"source": Object{"type": "class", "id": classID, "level": 1},
+			})
+		}
+		if tools := object(proficiencies["toolChoice"]); integer(tools["count"], 0) > 0 {
+			result = append(result, Object{
+				"id": "tools:" + classID, "kind": "tools", "count": integer(tools["count"], 1),
+				"from": anyStrings(stringsOf(tools["from"])), "classId": classID,
 				"source": Object{"type": "class", "id": classID, "level": 1},
 			})
 		}
@@ -410,10 +405,10 @@ func (origin characterOrigin) source() Object {
 
 func selectedOrigins(source Object, records Records) []characterOrigin {
 	result := make([]characterOrigin, 0, 2)
-	if record := selectedRecord(text(source["background"]), records, "background"); record != nil {
+	if record := recordByID(records, "background", text(source["background"])); record != nil {
 		result = append(result, characterOrigin{"background", record})
 	}
-	if record := selectedRecord(firstText(source["species"], source["race"]), records, "species"); record != nil {
+	if record := recordByID(records, "species", text(source["species"])); record != nil {
 		result = append(result, characterOrigin{"species", record})
 	}
 	return result

@@ -548,6 +548,43 @@ func prerequisiteMatchesDepth(value Object, sheet Object, depth int) (bool, bool
 				return false, false
 			}
 			valid = valid && hasIntrinsicSpellcasting(sheet)
+		case "spellcastingFeature":
+			// A class or subclass Spellcasting or Pact Magic feature; spells
+			// granted by feats, species or items do not count.
+			if required, ok := raw.(bool); !ok || !required {
+				return false, false
+			}
+			valid = valid && len(objects(object(sheet["spellcasting"])["perClass"])) > 0
+		case "feat", "featCategory", "withoutFeatCategory":
+			wanted := text(raw)
+			if wanted == "" {
+				return false, false
+			}
+			field := "id"
+			if key != "feat" {
+				field = "category"
+			}
+			found := false
+			for _, feat := range objects(sheet["featIdentities"]) {
+				found = found || text(feat[field]) == wanted
+			}
+			valid = valid && found == (key != "withoutFeatCategory")
+		case "weaponTraining":
+			wanted := text(raw)
+			if wanted != "simple" && wanted != "martial" {
+				return false, false
+			}
+			valid = valid && contains(stringsOf(object(sheet["proficiencies"])["weapons"]), wanted)
+		case "armorTraining":
+			wanted := strings.TrimSuffix(text(raw), "s")
+			if !contains([]string{"light", "medium", "heavy", "shield"}, wanted) {
+				return false, false
+			}
+			found := false
+			for _, armor := range stringsOf(object(sheet["proficiencies"])["armor"]) {
+				found = found || strings.TrimSuffix(strings.ToLower(armor), "s") == wanted
+			}
+			valid = valid && found
 		case "feature":
 			if text(raw) == "" {
 				return false, false

@@ -118,7 +118,8 @@ func prerequisiteNeedsSheet(value Object, depth int) bool {
 		return false
 	}
 	for key, raw := range value {
-		if key == "abilities" || key == "feature" || key == "classes" || key == "spellcaster" {
+		if key != "level" && key != "all" && key != "any" && key != "text" {
+			// Every predicate but the character level reads the sheet.
 			return true
 		}
 		if key == "all" || key == "any" {

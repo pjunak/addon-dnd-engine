@@ -109,6 +109,10 @@ func Hydrate(decisions Object, records Records, ruleset *Ruleset) HydrationResul
 	hydrateArmorClass(decisions, sheet, classes, mods, records, species, grantSources, activeModifiers, *ruleset)
 	applySpeedBonuses(sheet, grantSources, classes, equippedArmor(decisions, records))
 	derived["initiative"] = initiative(decisions, records, mods["DEX"], pb)
+	if bonus, rows := grantCheckBonuses(grantSources, "initiativeBonuses", "", false, mods, pb); len(rows) > 0 {
+		derived["initiative"] = integer(derived["initiative"], 0) + bonus
+		sheet["initiativeBonuses"] = rows
+	}
 	hydrateSaves(decisions, sheet, classes, mods, pb, grantSources)
 	hydrateSkills(decisions, sheet, background, mods, pb, grantSources, *ruleset)
 	hydrateProficiencies(decisions, sheet, classes, background, records, grantSources)
@@ -246,6 +250,10 @@ func hydrateSpecies(
 func hydrateHitPoints(sheet Object, classes []resolvedClass, conMod int, sources []grantSource, ruleset Ruleset) {
 	perLevel := grantTotal(sources, "hpPerLevel")
 	fixedBonus := grantTotal(sources, "hpBonus")
+	// hpPerClassLevel counts levels in the granting class (Draconic Resilience).
+	for _, source := range sources {
+		fixedBonus += integer(source.Grants["hpPerClassLevel"], 0) * source.Level
+	}
 	dice := 0
 	level := 0
 	maximum := 0
@@ -272,7 +280,8 @@ func hydrateHitPoints(sheet Object, classes []resolvedClass, conMod int, sources
 		object(object(sheet["hp"])["breakdown"])["fixedBonus"] = fixedBonus
 	}
 	for _, source := range sources {
-		if value := integer(source.Grants["hpBonus"], 0); value != 0 {
+		value := integer(source.Grants["hpBonus"], 0) + integer(source.Grants["hpPerClassLevel"], 0)*source.Level
+		if value != 0 {
 			hp := object(sheet["hp"])
 			hp["fixedBonuses"] = append(values(hp["fixedBonuses"]), Object{
 				"name": firstText(source.Record["name"], source.Source["id"]), "source": source.Source, "value": value,

@@ -99,3 +99,28 @@ func TestFixedFeatureAbilityBonusRaisesItsCap(t *testing.T) {
 		t.Fatal("the increase applied before its feature level")
 	}
 }
+
+func TestClassLevelHitPointsInitiativeAndSenseBonuses(t *testing.T) {
+	t.Parallel()
+	profile := syntheticRuleset(t)
+	records := classMechanicsRecords()
+	records.byKind["feature"]["monk-scales"] = mustJSON(Object{"kind": "feature", "id": "monk-scales", "name": "Scales", "classId": "monk", "level": 3,
+		"grants": Object{"hpPerClassLevel": 1, "initiativeBonuses": []any{Object{"addAbility": "WIS"}}, "senseBonuses": Object{"darkvision": 60}}})
+	hydrate := func(classes ...any) Object {
+		return Hydrate(Object{"baseStats": Object{"WIS": 14}, "species": "dwarf", "classes": classes}, records, &profile).Sheet
+	}
+	base := hydrate(Object{"classId": "monk", "level": 2}, Object{"classId": "wizard", "level": 3})
+	sheet := hydrate(Object{"classId": "monk", "level": 5}, Object{"classId": "wizard", "level": 3})
+	// Five monk levels add 5 HP; the wizard levels do not count.
+	gained := integer(object(sheet["derived"])["maxHp"], 0) - integer(object(base["derived"])["maxHp"], 0)
+	if perLevel := 8/2 + 1 + 1; gained != 3*perLevel+5 {
+		t.Fatalf("hit point gain = %d", gained)
+	}
+	if integer(object(sheet["derived"])["initiative"], 0) != 2 || len(objects(sheet["initiativeBonuses"])) != 1 {
+		t.Fatalf("initiative = %v", object(sheet["derived"])["initiative"])
+	}
+	// A sense bonus extends the dwarf's 120 ft. of Darkvision.
+	if integer(object(sheet["senses"])["darkvision"], 0) != 180 || integer(object(base["senses"])["darkvision"], 0) != 120 {
+		t.Fatalf("senses = %v / %v", sheet["senses"], base["senses"])
+	}
+}

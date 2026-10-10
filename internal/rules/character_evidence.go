@@ -202,7 +202,7 @@ func characterExplanations(input character.Inputs, sheet Object, evidence []char
 	}
 	makeExplanation("derived.armorClass", "Armor Class", "highest eligible AC formula + shield + applicable bonuses", derived["armorClass"], terms...)
 	dex := object(object(sheet["abilities"])["DEX"])["mod"]
-	makeExplanation("derived.initiative", "Initiative", "Dexterity modifier + applicable feature bonuses", derived["initiative"], character.Term{Label: "Dexterity modifier", Value: dex}, character.Term{Label: "Feature bonuses", Value: integer(derived["initiative"], 0) - integer(dex, 0)})
+	makeExplanation("derived.initiative", "Initiative", "Dexterity modifier + applicable feature bonuses", derived["initiative"], append([]character.Term{{Label: "Dexterity modifier", Value: dex}, {Label: "Feature bonuses", Value: integer(derived["initiative"], 0) - integer(dex, 0)}}, bonusTerms(objects(sheet["initiativeBonuses"]))...)...)
 	speedTerms := []character.Term{}
 	for _, entry := range evidence {
 		for _, key := range []string{"speeds", "speed", "grants", "modifiers"} {

@@ -462,6 +462,12 @@ skill or save row and in its explanation.
 A feature's `grants.abilityScoreBonus` (`{assign, cap}`) becomes an ordinary
 ability grant once the class reaches the feature's level.
 
+`grants.hpPerClassLevel` adds that much maximum HP per level in the granting
+class (a fixed-bonus row in the HP explanation). `grants.initiativeBonuses`
+takes the skill/save bonus shape and is listed as `sheet.initiativeBonuses`.
+`grants.senseBonuses` (`{darkvision: 60}`) extends a sense range after the
+greatest granted range, or grants it when the character has none.
+
 ### Attacks
 
 `sheet.weapons` lists one row per equipped or ready weapon, plus an unarmed

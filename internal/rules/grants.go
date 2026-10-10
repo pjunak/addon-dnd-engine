@@ -199,6 +199,12 @@ func applyGenericGrants(
 			senses[id] = max(integer(senses[id], 0), integer(rawDistance, 0))
 		}
 	}
+	// senseBonuses extend a range, or grant it when absent (Umbral Sight).
+	for _, source := range sources {
+		for id, rawDistance := range object(source.Grants["senseBonuses"]) {
+			senses[id] = integer(senses[id], 0) + max(0, integer(rawDistance, 0))
+		}
+	}
 	speedBonus := 0
 	flySpeed := 0
 	concentrationBonus := 0

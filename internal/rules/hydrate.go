@@ -489,6 +489,15 @@ func hydrateSkills(
 	for _, id := range grantValues(sources, "expertise") {
 		expertise[canonicalSkill(id)] = true
 	}
+	// Keen Mind and Observant grant proficiency, or Expertise when the skill is
+	// already proficient from any other source.
+	for _, id := range stringsOf(decisions["skillUpgrades"]) {
+		if id = canonicalSkill(id); contains(resolved, id) {
+			expertise[id] = true
+		} else {
+			resolved = append(resolved, id)
+		}
+	}
 	proficiencies := object(object(sheet["proficiencies"])["skills"])
 	skills := Object{}
 	ids := make([]string, 0, len(SkillAbility))

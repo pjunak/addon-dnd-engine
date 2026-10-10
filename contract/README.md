@@ -468,6 +468,10 @@ takes the skill/save bonus shape and is listed as `sheet.initiativeBonuses`.
 `grants.senseBonuses` (`{darkvision: 60}`) extends a sense range after the
 greatest granted range, or grants it when the character has none.
 
+A `skillProficiencyOrExpertise` choice (Keen Mind, Observant) grants
+proficiency in the chosen skill, or Expertise when another source already
+makes it proficient.
+
 ### Attacks
 
 `sheet.weapons` lists one row per equipped or ready weapon, plus an unarmed

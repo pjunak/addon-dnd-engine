@@ -437,7 +437,7 @@ func selectedOrigins(source Object, records Records) []characterOrigin {
 
 func resolveBuilderChoices(source, plan Object, records Records) Object {
 	resolved := Object{
-		"skillProficiencies": []any{}, "toolProficiencies": []any{}, "skillExpertise": Object{},
+		"skillProficiencies": []any{}, "toolProficiencies": []any{}, "skillExpertise": Object{}, "skillUpgrades": []any{},
 		"feats": []any{}, "weaponMasteryChoices": []any{}, "languageProficiencies": []any{},
 		"saveProficiencies": []any{}, "weaponProficiencies": []any{}, "armorProficiencies": []any{},
 		"damageResistances": []any{}, "conditionImmunities": []any{},
@@ -481,6 +481,8 @@ func resolveBuilderChoices(source, plan Object, records Records) Object {
 				appendResolved(resolved, "skillProficiencies", value)
 				object(resolved["skillExpertise"])[value] = true
 			}
+		case "skillUpgrade":
+			appendResolved(resolved, "skillUpgrades", selected...)
 		case "languages":
 			appendResolved(resolved, "languageProficiencies", selected...)
 		case "savingThrows":
@@ -542,6 +544,7 @@ func choiceKind(choice Object, from any) string {
 		"toolProficiency": "tools", "proficiency": "proficiencies", "weaponMastery": "weaponMastery",
 		"language": "languages", "savingThrowProficiency": "savingThrows", "weaponProficiency": "weapons",
 		"armorProficiency": "armor", "damageResistance": "resistances", "conditionImmunity": "immunities",
+		"skillProficiencyOrExpertise": "skillUpgrade",
 	}
 	if kind := kinds[text(choice["type"])]; kind != "" {
 		return kind

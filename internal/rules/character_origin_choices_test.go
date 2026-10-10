@@ -168,3 +168,33 @@ func TestReplaceableProficiencyUsesCurrentFixedAndPermanentTraining(t *testing.T
 		t.Fatal("rest replacement lost its own valid choice", result.Issues)
 	}
 }
+
+func TestSkillUpgradeChoiceGivesProficiencyOrExpertise(t *testing.T) {
+	input, source, profile := characterFixture(t)
+	records := source.(memoryRecords)
+	background := recordByID(records, "background", "artisan")
+	background["originFeat"] = "observant"
+	records.byKind["background"]["artisan"] = mustJSON(background)
+	records.byKind["feat"] = map[string]json.RawMessage{
+		"observant": mustJSON(Object{"kind": "feat", "id": "observant", "category": "origin", "grants": Object{"choices": []any{
+			Object{"id": "keen-observer", "type": "skillProficiencyOrExpertise", "count": 1, "from": []any{"insight", "investigation", "perception"}},
+		}}}),
+	}
+	evaluate := func(granted ...any) Object {
+		species := recordByID(records, "species", "dwarf")
+		species["grants"] = Object{"skills": granted}
+		records.byKind["species"]["dwarf"] = mustJSON(species)
+		input.Build.Choices = []character.Choice{{ID: "feat:observant:keen-observer", Value: mustJSON("perception")}}
+		result := EvaluateCharacter(input, records, profile)
+		if hasChoiceIssue(result, "invalid-option:feat:observant:keen-observer#0") {
+			t.Fatal("the choice rejected its own option", result.Issues)
+		}
+		return object(object(result.Sheet["skills"])["perception"])
+	}
+	if perception := evaluate(); !truth(perception["proficient"]) || truth(perception["expertise"]) {
+		t.Fatalf("new skill = %+v", perception)
+	}
+	if perception := evaluate("perception"); !truth(perception["expertise"]) {
+		t.Fatalf("already proficient skill = %+v", perception)
+	}
+}

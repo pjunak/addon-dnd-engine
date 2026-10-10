@@ -130,7 +130,7 @@ func characterTrainingFacts(record Object) bool {
 			return true
 		}
 	}
-	if contains([]string{"skillProficiency", "expertise", "skillExpertise", "proficiency", "savingThrowProficiency"}, text(record["type"])) {
+	if contains([]string{"skillProficiency", "expertise", "skillExpertise", "skillProficiencyOrExpertise", "proficiency", "savingThrowProficiency"}, text(record["type"])) {
 		return true
 	}
 	for _, value := range record {

@@ -228,7 +228,7 @@ func builderChoiceOptions(choice, sheet Object, records Records) []any {
 	kind, pool := text(choice["kind"]), stringsOf(choice["from"])
 	if pool == nil {
 		switch kind {
-		case "skills", "expertise", "skillExpertise":
+		case "skills", "expertise", "skillExpertise", "skillUpgrade":
 			for skill := range SkillAbility {
 				pool = append(pool, skill)
 			}

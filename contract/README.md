@@ -446,7 +446,10 @@ Neither the Engine nor the sheet identifies these rules by feat or book ID.
 A class's `tableColumns` are printed per-level values (Rage Damage, Martial
 Arts, Sneak Attack); `sheet.classValues` lists each reached value as
 `{classId, key, name, value}`. `weaponMastery.progression` raises the mastery
-count at the listed class levels.
+count at the listed class levels. `sheet.weaponMastery.slots` sums every
+class's count, because each class's feature grants its own kinds, plus feat
+`weaponMasterySlots`; `weaponMastery` choices from features and feats fill
+`chosen`.
 
 `grants.speedBonuses` entries add a number (`add`) or the granting class's
 column (`column`) after worn-armor penalties. `requires` accepts `noArmor`,

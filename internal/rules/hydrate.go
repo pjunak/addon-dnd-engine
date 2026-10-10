@@ -669,8 +669,9 @@ func hydrateSpellcasting(
 func hydrateWeaponMastery(decisions, sheet Object, classes []resolvedClass, feats []Object, ruleset Ruleset) {
 	count := 0
 	if ruleset.Capabilities.WeaponMastery != nil && *ruleset.Capabilities.WeaponMastery {
+		// Each class's Weapon Mastery feature grants its own kinds of weapons.
 		for _, current := range classes {
-			count = max(count, weaponMasteryCount(current.Record, current.Level))
+			count += weaponMasteryCount(current.Record, current.Level)
 		}
 		for _, feat := range feats {
 			count += max(0, integer(object(feat["grants"])["weaponMasterySlots"], 0))

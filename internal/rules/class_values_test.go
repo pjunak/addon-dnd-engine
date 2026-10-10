@@ -2,6 +2,7 @@ package rules
 
 import (
 	"encoding/json"
+	"reflect"
 	"testing"
 )
 
@@ -122,5 +123,29 @@ func TestClassLevelHitPointsInitiativeAndSenseBonuses(t *testing.T) {
 	// A sense bonus extends the dwarf's 120 ft. of Darkvision.
 	if integer(object(sheet["senses"])["darkvision"], 0) != 180 || integer(object(base["senses"])["darkvision"], 0) != 120 {
 		t.Fatalf("senses = %v / %v", sheet["senses"], base["senses"])
+	}
+}
+
+func TestWeaponMasterySlotsSumClassesAndFeatChoicesFillThem(t *testing.T) {
+	t.Parallel()
+	profile := syntheticRuleset(t)
+	records := classMechanicsRecords()
+	records.byKind["class"]["duelist"] = mustJSON(Object{"kind": "class", "id": "duelist", "name": "Duelist", "hitDie": "d10",
+		"weaponMastery": Object{"count": 3}})
+	records.byKind["feat"]["drill"] = mustJSON(Object{"kind": "feat", "id": "drill", "name": "Drill", "category": "general",
+		"grants": Object{"weaponMasterySlots": 1, "choices": []any{Object{"id": "drill-weapon", "type": "weaponMastery", "count": 1}}}})
+	decisions := Object{
+		"classes":        []any{Object{"classId": "monk", "level": 4}, Object{"classId": "duelist", "level": 1}},
+		"feats":          []any{"drill"},
+		"featureChoices": Object{"feat:drill:drill-weapon": "longsword"},
+	}
+	plan := BuilderPlan(decisions, records, profile)
+	if choice := findChoice(objects(plan["creationChoices"]), "feat:drill:drill-weapon"); choice == nil || text(choice["kind"]) != "weaponMastery" {
+		t.Fatalf("creation choices = %+v", plan["creationChoices"])
+	}
+	mastery := object(Hydrate(NormalizeBuilderDecisions(decisions, records, profile), records, &profile).Sheet["weaponMastery"])
+	// Monk 4 (3) and Duelist 1 (3) are separate class features; the feat adds one.
+	if integer(mastery["slots"], 0) != 7 || !reflect.DeepEqual(stringsOf(mastery["chosen"]), []string{"longsword"}) {
+		t.Fatalf("weapon mastery = %+v", mastery)
 	}
 }

@@ -1,14 +1,14 @@
 # D&D service contracts
 
-The engine provides `dnd5e.rules-engine` 4.0.0 and consumes nonexclusive
+The engine provides `dnd5e.rules-engine` 5.0.0 and consumes nonexclusive
 `dnd5e.rules-data` 3.0.0. Provider selection, compatible books and generation
 lifetime belong to the host. Runtime policy addresses contracts and record IDs.
 
 ## Character evaluation
 
-`evaluate-character` accepts `{contractVersion:"rules-character.v1", inputs}`.
+`evaluate-character` accepts `{contractVersion:"rules-character.v2", inputs}`.
 `character-play` adds a closed operation-specific `change`. The response is
-`{contractVersion:"rules-character-response.v1", identity, evaluation, policy}`.
+`{contractVersion:"rules-character-response.v2", identity, evaluation, policy}`.
 Requests are bounded to 180,000 bytes. The public Go types in
 [character/model.go](../character/model.go) generate the JSON Schemas through
 `go run ./cmd/character-contract`; the sheet uses these same types.

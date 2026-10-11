@@ -6,7 +6,7 @@
       "type": "object"
     },
     "contractVersion": {
-      "const": "rules-character.v1"
+      "const": "rules-character.v2"
     },
     "inputs": {
       "$ref": "character-inputs.schema.json"

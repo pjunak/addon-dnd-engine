@@ -51,7 +51,6 @@ func TestClassChoicePackagesUseTheSameBranchForPlanAndGrants(t *testing.T) {
 	input.Play.HP = 1
 	input.Play.TemporaryHP = 2
 	input.Play.Currency["gp"] = 17
-	input.Notes = "Preserve authored state"
 	before := cloneCharacter(input)
 	result := EvaluateCharacter(input, records, profile)
 	if !result.Ready || !classGrantOffers(result, "training-feat", "guard") || !classGrantOffers(result, "training-feat", "aim") || classGrantOffers(result, "training-feat", "ordinary") {

@@ -571,10 +571,6 @@
         "null"
       ]
     },
-    "notes": {
-      "maxLength": 30000,
-      "type": "string"
-    },
     "play": {
       "additionalProperties": false,
       "properties": {
@@ -902,8 +898,7 @@
   "required": [
     "build",
     "play",
-    "grants",
-    "notes"
+    "grants"
   ],
   "type": "object"
 }

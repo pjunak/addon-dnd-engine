@@ -22,7 +22,6 @@ func TestRemapGrantReferencesPreservesNestedOwnersAndAuthoredValues(t *testing.T
 	input.Play.Rolls = []PlayRoll{{ID: "roll", Resource: nested, Result: 3}}
 	input.Play.Inventory = []Item{{ID: "item", GrantID: "external", Notes: old}, {ID: "unresolved", GrantID: "missing"}}
 	input.Grants = []Grant{{ID: "external", Name: old, ActorID: "original actor", Effects: []Effect{{Target: "resourceMax", Key: "charge:" + nested, Value: 2}}, Waivers: []string{"required-choice:" + old}}}
-	input.Notes = nested
 	before, _ := json.Marshal(input)
 	result, err := RemapGrantReferences(input, map[string]string{"external": "approved"})
 	if err != nil {
@@ -43,9 +42,6 @@ func TestRemapGrantReferencesPreservesNestedOwnersAndAuthoredValues(t *testing.T
 	grant := result.Grants[0]
 	if grant.ID != "external" || grant.ActorID != "original actor" || grant.Name != old || grant.Effects[0].Key != "charge:"+nestedNext || grant.Waivers[0] != "required-choice:"+current {
 		t.Fatal(grant)
-	}
-	if result.Notes != nested {
-		t.Fatal("changed authored notes")
 	}
 	result.Build.Spells.GrantChoices[nestedNext][0] = "changed"
 	result.Build.Choices[0].Value[1] = 'X'

@@ -19,7 +19,7 @@
       "const": "dnd5e.rules-engine"
     },
     "engineContractVersion": {
-      "const": "4.0.0"
+      "const": "5.0.0"
     },
     "available": {
       "type": "boolean"

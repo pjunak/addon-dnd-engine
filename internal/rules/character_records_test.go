@@ -107,7 +107,6 @@ func TestLearnedSpellsRetainEvidenceWithoutMultiplyingStatSources(t *testing.T) 
 	}
 	input.Build.Levels[0].ClassID = "wizard"
 	profile.Constants.Spellbook.BaseKnown = 32
-	input.Notes = "Keep authored notes"
 	input.Play.Currency["gp"] = 37
 	spells := []string{}
 	for index := 0; index < 32; index++ {

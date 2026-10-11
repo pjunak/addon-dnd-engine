@@ -4,7 +4,7 @@ package character
 
 import "encoding/json"
 
-const ContractVersion = "rules-character.v1"
+const ContractVersion = "rules-character.v2"
 
 type Reference struct {
 	Kind string `json:"kind"`
@@ -168,7 +168,6 @@ type Inputs struct {
 	Build  Build   `json:"build"`
 	Play   Play    `json:"play"`
 	Grants []Grant `json:"grants"`
-	Notes  string  `json:"notes"`
 }
 type Issue struct {
 	ID        string     `json:"id"`

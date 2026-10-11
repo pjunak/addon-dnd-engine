@@ -54,7 +54,6 @@ func TestSpeciesSizeChangePreservesAuthoredStateForExplicitRepair(t *testing.T) 
 	input, records, profile := sizeFixture(t)
 	id := "species:" + input.Build.Species + ":size"
 	input.Build.Choices = []character.Choice{{ID: id, Value: mustJSON("Tiny")}}
-	input.Notes = "Keep my notes"
 	input.Play.Currency["gp"] = 37
 	input.Play.ResourceUses["hit-dice-d10"] = 1
 	before := cloneCharacter(input)

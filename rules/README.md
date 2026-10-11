@@ -103,7 +103,7 @@ See the [condition contract](../contract/README.md#authored-conditions).
 Character regressions cover deterministic recalculation, DM revocation/expiry,
 ability caps, multiclass acquisition order, HP bounds, recorded dice, rest and
 spent counters, attunement, item effects, conditional flight/senses, copying costs
-and level replacement budgets. Worker tests exercise the closed v4 boundary.
+and level replacement budgets. Worker tests exercise the closed worker boundary.
 
 `go test ./internal/rules -run '^$' -bench BenchmarkMulticlassCharacterCatalog -benchmem`
 measures a synthetic multiclass calculation with a larger choice catalog.
@@ -114,7 +114,7 @@ to check that caller decisions and borrowed nested records stay separate.
 choice results for 143 synthetic 2014 and 2024 characters. After a deliberate
 behaviour change, regenerate it with
 `go test ./internal/rules -run TestRegressionVectors -update` and review the
-diff. The installed suites exercise current v4 characters and package lifecycle
+diff. The installed suites exercise current characters and package lifecycle
 separately.
 
 Content coverage is indexed in the provider's [coverage document](../../addon-dnd-2024-compendium/data/COVERAGE.md).

@@ -1,7 +1,7 @@
 {
   "$schema": "https://junak.eu/ttrpg-codex/contracts/addons/v3/service-document.schema.json",
   "contract": "dnd5e.rules-engine",
-  "version": "4.0.0",
+  "version": "5.0.0",
   "allowsExclusive": false,
   "methods": {
     "context": {

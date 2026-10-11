@@ -20,7 +20,7 @@ import (
 
 const (
 	Contract        = "dnd5e.rules-engine"
-	ContractVersion = "4.0.0"
+	ContractVersion = "5.0.0"
 	methodPrefix    = "service/" + Contract + "/"
 )
 
@@ -121,7 +121,7 @@ func (handler *Handler) HandleRPC(ctx context.Context, request workerrpc.Request
 			}
 			result = rules.EvaluateCharacter(input.Inputs, records, profile)
 		}
-		return map[string]any{"contractVersion": "rules-character-response.v1", "identity": identity, "evaluation": result, "policy": profile.Constants.Character}, nil
+		return map[string]any{"contractVersion": "rules-character-response.v2", "identity": identity, "evaluation": result, "policy": profile.Constants.Character}, nil
 	case methodPrefix + "context":
 		if err := decodeEmpty(request.Params); err != nil {
 			return nil, invalidRequest("rules engine context request is invalid")

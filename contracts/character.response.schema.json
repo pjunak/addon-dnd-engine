@@ -2,7 +2,7 @@
   "additionalProperties": false,
   "properties": {
     "contractVersion": {
-      "const": "rules-character-response.v1"
+      "const": "rules-character-response.v2"
     },
     "evaluation": {
       "$ref": "character-result.schema.json"

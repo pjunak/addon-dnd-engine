@@ -41,7 +41,6 @@ func multiclassCatalogFixture(t testing.TB) (character.Inputs, memoryRecords, Ru
 		{ID: "asi:fighter:4", Value: mustJSON("feat")}, {ID: "asi:fighter:4:feat", Value: mustJSON("training-00")},
 		{ID: "feat:training-00:language", Value: mustJSON("first-language")}}
 	input.Play.Currency["gp"] = 37
-	input.Notes = "Keep authored session state"
 	return input, records, profile
 }
 

@@ -34,25 +34,25 @@ func TestCharacterBoundaryUsesOneIdentifiedEvaluation(t *testing.T) {
 }
 func TestCharacterBoundaryRejectsUnknownInputs(t *testing.T) {
 	handler, _ := New(&engineProvider{ruleset: engineRuleset(t)})
-	_, err := handler.HandleRPC(context.Background(), rpcRequest("evaluate-character", `{"contractVersion":"rules-character.v1","inputs":{"manualStats":{"STR":99}}}`))
+	_, err := handler.HandleRPC(context.Background(), rpcRequest("evaluate-character", `{"contractVersion":"rules-character.v2","inputs":{"manualStats":{"STR":99}}}`))
 	assertRPCError(t, err, workerrpc.KindInvalidRequest)
 	for _, value := range []string{`"one"`, `1`, `[1]`, `{}`} {
-		_, err := handler.HandleRPC(context.Background(), rpcRequest("evaluate-character", `{"contractVersion":"rules-character.v1","inputs":{"play":{"quickUse":`+value+`}}}`))
+		_, err := handler.HandleRPC(context.Background(), rpcRequest("evaluate-character", `{"contractVersion":"rules-character.v2","inputs":{"play":{"quickUse":`+value+`}}}`))
 		assertRPCError(t, err, workerrpc.KindInvalidRequest)
 	}
 	for _, play := range []string{
 		`{"containers":"pack"}`, `{"containers":[1]}`, `{"containers":[{"id":"pack","name":"Pack","capacity":99}]}`,
 		`{"containers":[{"id":"pack","name":"Pack","parentId":"pouch"}]}`, `{"inventory":[{"containerId":5}]}`,
 	} {
-		_, err := handler.HandleRPC(context.Background(), rpcRequest("evaluate-character", `{"contractVersion":"rules-character.v1","inputs":{"play":`+play+`}}`))
+		_, err := handler.HandleRPC(context.Background(), rpcRequest("evaluate-character", `{"contractVersion":"rules-character.v2","inputs":{"play":`+play+`}}`))
 		assertRPCError(t, err, workerrpc.KindInvalidRequest)
 	}
 	for _, value := range []string{`"true"`, `1`, `[]`, `{}`} {
-		_, err := handler.HandleRPC(context.Background(), rpcRequest("evaluate-character", `{"contractVersion":"rules-character.v1","inputs":{"play":{"inspiration":`+value+`}}}`))
+		_, err := handler.HandleRPC(context.Background(), rpcRequest("evaluate-character", `{"contractVersion":"rules-character.v2","inputs":{"play":{"inspiration":`+value+`}}}`))
 		assertRPCError(t, err, workerrpc.KindInvalidRequest)
 	}
 	for _, value := range []string{`true`, `"held"`, `[1]`, `[{"id":1,"level":1}]`, `[{"id":"held","level":1.5}]`, `[{"id":"held","level":1,"expiresAt":"tomorrow"}]`} {
-		_, err := handler.HandleRPC(context.Background(), rpcRequest("evaluate-character", `{"contractVersion":"rules-character.v1","inputs":{"play":{"conditions":`+value+`}}}`))
+		_, err := handler.HandleRPC(context.Background(), rpcRequest("evaluate-character", `{"contractVersion":"rules-character.v2","inputs":{"play":{"conditions":`+value+`}}}`))
 		assertRPCError(t, err, workerrpc.KindInvalidRequest)
 	}
 	for _, value := range []string{
@@ -60,7 +60,7 @@ func TestCharacterBoundaryRejectsUnknownInputs(t *testing.T) {
 		`{"suspendedOff":"shield"}`, `{"suspendedOff":{"itemId":2}}`, `{"suspendedOff":{"expectedItemSha256":[]}}`,
 		`{"suspendedOff":{"bodyPlacement":false}}`, `{"suspendedOff":{"extra":true}}`,
 	} {
-		_, err := handler.HandleRPC(context.Background(), rpcRequest("evaluate-character", `{"contractVersion":"rules-character.v1","inputs":{"play":{"hands":`+value+`}}}`))
+		_, err := handler.HandleRPC(context.Background(), rpcRequest("evaluate-character", `{"contractVersion":"rules-character.v2","inputs":{"play":{"hands":`+value+`}}}`))
 		assertRPCError(t, err, workerrpc.KindInvalidRequest)
 	}
 }

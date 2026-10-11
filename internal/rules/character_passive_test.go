@@ -15,7 +15,7 @@ func passiveFixture(t *testing.T) (character.Inputs, memoryRecords, Ruleset) {
 	rolled := 3
 	input.Build.Levels[1].HitPoints = &rolled
 	input.Play.HP, input.Play.TemporaryHP = 7, 4
-	input.Play.Currency["gp"], input.Notes = 23, "Keep these notes"
+	input.Play.Currency["gp"] = 23
 	extra := newMemoryRecords([]Object{
 		{"kind": "feat", "id": "vitality", "name": "Vitality", "grants": Object{"hpBonus": 17, "hpPerLevel": 2, "speedBonus": 12, "senses": Object{"blindsight": 10, "truesight": 40}}},
 		{"kind": "feat", "id": "guard", "name": "Guard", "grants": Object{"acBonuses": []any{Object{"add": 2, "requires": Object{"armorTypes": []any{"light", "medium", "heavy"}}}}}},

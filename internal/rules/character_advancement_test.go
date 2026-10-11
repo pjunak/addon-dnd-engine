@@ -32,7 +32,6 @@ func TestUnrestrictedAdvancementsUseAcquiredCharacterLevel(t *testing.T) {
 		{ID: "asi:fighter:4", Value: mustJSON("feat")}, {ID: "asi:fighter:4:feat", Value: mustJSON("late")},
 		{ID: "asi:fighter:4:featability", Value: mustJSON(Object{"STR": 1})},
 	}
-	input.Notes = "Keep advancement notes"
 	input.Play.Currency["gp"] = 37
 	before := cloneCharacter(input)
 	result := EvaluateCharacter(input, records, profile)

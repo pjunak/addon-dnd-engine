@@ -2,7 +2,7 @@
 
 The headless `dnd-engine` Add-on API v3 package evaluates character decisions
 and returns calculated values, choices, constraints and source explanations.
-It provides `dnd5e.rules-engine` **4.0.0** and consumes all compatible
+It provides `dnd5e.rules-engine` **5.0.0** and consumes all compatible
 `dnd5e.rules-data` **^3.0.0** providers through the host service broker.
 
 The engine has no character storage or UI. The sheets package owns its retained
@@ -33,7 +33,7 @@ host's worker SDK and package inspector are ordinary Go module requirements.
 ```text
 go run ./tools/check.go
 go run ./cmd/build-package
-go tool -modfile=go.tools.mod codex-addon-inspect dist/dnd-engine-4.0.0.zip
+go tool -modfile=go.tools.mod codex-addon-inspect dist/dnd-engine-5.0.0.zip
 ```
 
 The check runner uses gofmt, vet and pinned Staticcheck, then runs all tests and

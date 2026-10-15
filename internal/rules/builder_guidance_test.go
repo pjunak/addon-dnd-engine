@@ -115,3 +115,27 @@ func TestBuilderGuidanceIncludesRequiredClassSpellSelections(t *testing.T) {
 		}
 	}
 }
+
+func TestBuilderChoiceHeadingsNameWhatIsChosenAndItsSource(t *testing.T) {
+	records := newMemoryRecords([]Object{
+		{"kind": "class", "id": "ranger", "name": "Ranger"},
+		{"kind": "species", "id": "elf", "name": "Elf"},
+		{"kind": "feature", "id": "ranger-weapon-mastery", "name": "Weapon Mastery"},
+	})
+	for _, test := range []struct {
+		choice Object
+		label  string
+	}{
+		{Object{"id": "skills:ranger", "kind": "skills", "source": Object{"type": "class", "id": "ranger"}}, "Skills · Ranger"},
+		{Object{"id": "species:elf:elf-keen-senses", "kind": "skills", "source": Object{"type": "species", "id": "elf"}}, "Skills · Elf"},
+		{Object{"id": "species:elf:elf-lineage-spell", "kind": "enumerated", "source": Object{"type": "species", "id": "elf"}}, "Lineage Spell · Elf"},
+		{Object{"id": "species:elf:size", "kind": "size", "prompt": "Size", "source": Object{"type": "species", "id": "elf"}}, "Size"},
+		{Object{"id": "study", "kind": "enumerated"}, "Study"},
+		{Object{"id": "ranger-weapon-mastery-weapons", "kind": "weaponMastery", "classId": "ranger", "source": Object{"type": "feature", "id": "ranger-weapon-mastery"}}, "Weapon Mastery · Ranger"},
+	} {
+		entry := builderChoiceGuidance(Object{}, test.choice, Object{}, records, []any{})
+		if text(entry["label"]) != test.label {
+			t.Errorf("%s heading = %q, want %q", text(test.choice["id"]), text(entry["label"]), test.label)
+		}
+	}
+}

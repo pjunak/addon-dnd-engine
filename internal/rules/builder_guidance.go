@@ -137,8 +137,7 @@ func builderGuidance(decisions, plan Object, records Records, profile Ruleset, c
 
 func builderChoiceGuidance(decisions, choice, sheet Object, records Records, options []any) Object {
 	kind, id := text(choice["kind"]), text(choice["id"])
-	label := firstText(choice["prompt"], guidanceLabel(id))
-	args := []any{}
+	label, args := choiceHeading(choice, records)
 	if acquired := object(choice["acquisition"]); acquired != nil {
 		label = "{0} · {1} · {2}"
 		args = []any{choice["name"], choice["choiceName"], acquired["name"]}
@@ -286,6 +285,58 @@ func guidanceOption(id string, record Object) Object {
 		result["description"] = string(runes[:min(1200, len(runes))])
 	}
 	return result
+}
+
+// Headings for choices whose data has no prompt: what is chosen, then where it
+// comes from, so internal IDs such as "species:elf:elf-keen-senses" never
+// reach the page. Templates are labelKeys that clients translate.
+var choiceKindHeadings = map[string]string{
+	"skills":         "Skills · {0}",
+	"expertise":      "Expertise · {0}",
+	"skillExpertise": "Expertise · {0}",
+	"skillUpgrade":   "Skill or expertise · {0}",
+	"tools":          "Tools · {0}",
+	"proficiencies":  "Proficiencies · {0}",
+	"weaponMastery":  "Weapon Mastery · {0}",
+	"languages":      "Languages · {0}",
+	"savingThrows":   "Saving throws · {0}",
+	"weapons":        "Weapon training · {0}",
+	"armor":          "Armor training · {0}",
+	"resistances":    "Damage resistance · {0}",
+	"immunities":     "Condition immunity · {0}",
+	"feat":           "Feat · {0}",
+}
+
+func choiceHeading(choice Object, records Records) (string, []any) {
+	id := text(choice["id"])
+	if prompt := text(choice["prompt"]); prompt != "" {
+		return prompt, []any{}
+	}
+	source := object(choice["source"])
+	sourceID := text(source["id"])
+	sourceName := firstText(recordByID(records, text(source["type"]), sourceID)["name"], guidanceLabel(sourceID))
+	if sourceName == "" {
+		return guidanceLabel(id), []any{}
+	}
+	if template := choiceKindHeadings[text(choice["kind"])]; template != "" {
+		// A class feature named after its choice ("Weapon Mastery") would repeat
+		// the kind; the class names the choice better.
+		if noun := strings.TrimSuffix(template, " · {0}"); strings.EqualFold(noun, sourceName) {
+			if class := text(recordByID(records, "class", text(choice["classId"]))["name"]); class != "" {
+				return template, []any{class}
+			}
+			return noun, []any{}
+		}
+		return template, []any{sourceName}
+	}
+	// Other choices are named after their own trait, without the owner prefix
+	// the data repeats ("elf-lineage-spell" of Elf reads "Lineage Spell · Elf").
+	own := id[strings.LastIndex(id, ":")+1:]
+	own = strings.TrimPrefix(own, sourceID+"-")
+	if name := guidanceLabel(own); name != "" && !strings.EqualFold(name, sourceName) {
+		return "{0} · {1}", []any{name, sourceName}
+	}
+	return guidanceLabel(id), []any{}
 }
 
 func sortGuidanceOptions(options []any) {

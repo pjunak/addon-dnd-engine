@@ -362,7 +362,8 @@ An invalid character must be repaired in Build before dependent play actions.
 
 Damage/healing clamp to known bounds; direct invalid HP is rejected. Hit dice
 require the actual recorded result and a unique roll ID. Resources store spent
-uses; the projection exposes capacity, spent and remaining. Ending an activation
+uses; the projection exposes capacity, spent and remaining. Spell and pact slot
+resources (`kind: "slot"`) also give their spell `level`. Ending an activation
 replaces its state map, so removed keys cannot survive as merged old values.
 Long rests clear active features through the common rest interpreter.
 

@@ -218,7 +218,7 @@ func appendHitDiceAndSpellSlots(resources *[]any, sheet Object, classes []resolv
 		}
 		*resources = append(*resources, Object{
 			"key": fmt.Sprintf("slot-%d", index+1), "name": "Spell Slots (" + ordinal(index+1) + ")",
-			"max": count, "kind": "slot",
+			"max": count, "kind": "slot", "level": index + 1,
 			"recharge": []any{Object{"on": "long", "amount": "full"}},
 			"source":   Object{"type": "spellcasting"},
 		})
@@ -231,7 +231,7 @@ func appendHitDiceAndSpellSlots(resources *[]any, sheet Object, classes []resolv
 		}
 		*resources = append(*resources, Object{
 			"key": "pact-slot", "name": "Pact Slots (" + ordinal(integer(pact["level"], 0)) + ")",
-			"max": integer(pact["slots"], 0), "kind": "slot",
+			"max": integer(pact["slots"], 0), "kind": "slot", "level": integer(pact["level"], 0),
 			"recharge": []any{Object{"on": "short", "amount": "full"}},
 			"source":   Object{"type": "pactMagic", "id": text(entry["classId"])},
 		})

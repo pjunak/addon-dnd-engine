@@ -24,6 +24,16 @@ func TestHydrateCoreCharacterMath(t *testing.T) {
 	if slots := integersOf(spellcasting["slots"]); len(slots) != 3 || slots[2] != 2 {
 		t.Fatalf("slots = %v", slots)
 	}
+	// Slot resources name their spell level, so sheets need not parse keys or names.
+	levels := []int{}
+	for _, raw := range values(result.Sheet["resources"]) {
+		if resource := object(raw); text(resource["kind"]) == "slot" {
+			levels = append(levels, integer(resource["level"], 0))
+		}
+	}
+	if len(levels) != 3 || levels[0] != 1 || levels[2] != 3 {
+		t.Fatalf("slot levels = %v", levels)
+	}
 	perClass := object(values(spellcasting["perClass"])[0])
 	if integer(perClass["saveDC"], 0) != 14 {
 		t.Fatalf("caster = %+v", perClass)
@@ -48,7 +58,7 @@ func TestHydrateKeepsPactMagicSeparate(t *testing.T) {
 	for _, raw := range values(result.Sheet["resources"]) {
 		resource := object(raw)
 		if text(resource["key"]) == "pact-slot" {
-			found = integer(resource["max"], 0) == 2 &&
+			found = integer(resource["max"], 0) == 2 && integer(resource["level"], 0) == 3 &&
 				text(object(values(resource["recharge"])[0])["on"]) == "short"
 		}
 	}

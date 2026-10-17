@@ -137,6 +137,9 @@ func activeGrantModifiers(
 			}
 			modifier["sourceName"] = name
 			modifier["source"] = source.Source
+			if classID := sourceClassID(source); classID != "" {
+				modifier["classId"] = classID
+			}
 			modifiers = append(modifiers, modifier)
 		}
 	}

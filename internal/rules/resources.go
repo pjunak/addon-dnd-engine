@@ -33,19 +33,25 @@ func hydrateResources(
 			}
 			return maximum
 		}
+		// The declared parts add up: perLevel (times the level, rounded down),
+		// the proficiency bonus, an ability modifier (times multiplier), fixed
+		// and add. An ability-based pool has at least min, which defaults to 1.
+		total, minimum := 0, 0
 		if resource["perLevel"] != nil {
-			return max(0, int(math.Floor(number(resource["perLevel"], 0)*float64(level))))
+			total += int(math.Floor(number(resource["perLevel"], 0) * float64(level)))
 		}
 		if truth(resource["proficiencyBonus"]) {
-			return pb
+			total += pb
 		}
 		if ability := text(resource["abilityMod"]); ability != "" {
-			return max(integer(resource["min"], 1), abilityMod(ability))
+			total += abilityMod(ability) * max(1, integer(resource["multiplier"], 1))
+			minimum = 1
 		}
 		if resource["fixed"] != nil {
-			return max(0, integer(resource["fixed"], 0))
+			total += integer(resource["fixed"], 0)
 		}
-		return 0
+		total += integer(resource["add"], 0)
+		return max(integer(resource["min"], minimum), total)
 	}
 	normalizeRecharge := func(value any, level int) []any {
 		if rest := text(value); rest != "" {

@@ -78,6 +78,11 @@ func attackFilterMatches(filter, weapon Object, unarmed bool, ability string) bo
 			if ability == "" || ability != text(value) {
 				return false
 			}
+		case "attack":
+			// A feature attack by its declared id, such as an Armorer's weapon.
+			if text(weapon["featureAttack"]) == "" || text(weapon["featureAttack"]) != text(value) {
+				return false
+			}
 		default:
 			return false
 		}
@@ -145,6 +150,9 @@ type attackContext struct {
 	rules            []attackRule
 	armor            armorState
 	reach            *MeleeReach
+	// criticalRange is the lowest d20 roll that scores a Critical Hit, when
+	// a grant lowers it below 20.
+	criticalRange int
 }
 
 // weaponDistance reads a record's {normal, long} range in the ruleset's
@@ -162,8 +170,8 @@ func weaponDistance(value any) (Object, bool) {
 // unarmed strike description when unarmed is true.
 func attackRow(weapon Object, unarmed bool, context attackContext) Object {
 	properties := stringsOf(weapon["properties"])
-	proficient := unarmed
-	if !unarmed {
+	proficient := unarmed || text(weapon["featureAttack"]) != "" && weapon["proficient"] != false
+	if !unarmed && text(weapon["featureAttack"]) == "" {
 		_, explicit := context.proficiency.ids[text(weapon["id"])]
 		prof := context.proficiency
 		proficient = explicit || text(weapon["category"]) == "simple" && prof.simple ||
@@ -183,6 +191,11 @@ func attackRow(weapon Object, unarmed bool, context attackContext) Object {
 	if contains(properties, "finesse") {
 		choose("DEX")
 	}
+	// A feature attack may name an ability it can use instead, such as an
+	// Armorer's Intelligence.
+	if ability := text(weapon["ability"]); ability != "" {
+		choose(ability)
+	}
 	if proficient && context.preferredAbility != "" {
 		choose(context.preferredAbility)
 	}
@@ -201,7 +214,13 @@ func attackRow(weapon Object, unarmed bool, context attackContext) Object {
 			continue
 		}
 		row := Object{"name": current.name, "source": current.source}
-		if value := integer(current.rule["attackBonus"], 0); value != 0 {
+		value := integer(current.rule["attackBonus"], 0)
+		// An ability-based bonus, such as Sacred Weapon's Charisma modifier,
+		// with an optional minimum.
+		if ability := text(current.rule["attackBonusAbility"]); ability != "" {
+			value += max(integer(current.rule["min"], context.mods[ability]), context.mods[ability])
+		}
+		if value != 0 {
 			attackBonus += value
 			row["attackBonus"] = value
 		}
@@ -241,6 +260,13 @@ func attackRow(weapon Object, unarmed bool, context attackContext) Object {
 	if unarmed {
 		row["unarmed"] = true
 		delete(row, "ref")
+	}
+	if id := text(weapon["featureAttack"]); id != "" {
+		row["featureAttack"], row["source"] = id, weapon["source"]
+		delete(row, "ref")
+	}
+	if context.criticalRange > 1 && context.criticalRange < 20 {
+		row["criticalRange"] = context.criticalRange
 	}
 	if reach := context.reach; reach != nil && (unarmed || text(weapon["range"]) == "melee") {
 		row["reach"] = reach.Base

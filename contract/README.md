@@ -486,7 +486,17 @@ Neither the Engine nor the sheet identifies these rules by feat or book ID.
 
 A class's `tableColumns` are printed per-level values (Rage Damage, Martial
 Arts, Sneak Attack); `sheet.classValues` lists each reached value as
-`{classId, key, name, value}`. `weaponMastery.progression` raises the mastery
+`{classId, key, name, value}`. A subclass's own columns (a Superiority Die)
+are read at its class's level and listed with `subclassId`.
+
+`grants.saveDCs` entries (`name`, `abilities`) list the DCs features set for
+their own effects in `sheet.saveDCs`: the ruleset's DC base plus the
+proficiency bonus and the best named ability modifier (a Monk's Focus,
+maneuvers, Cunning Strike). A class resource's parts add up: `perLevel`
+(rounded down), the proficiency bonus, `abilityMod` (times `multiplier`),
+`fixed` and `add`; an ability-based pool has at least `min`, 1 by default.
+`grants.attunementLimit` raises the attunement limit like a class's own, and
+an active `spellSaveDC` modifier adds `add` to its own class's spell save DC. `weaponMastery.progression` raises the mastery
 count at the listed class levels. `sheet.weaponMastery.slots` sums every
 class's count, because each class's feature grants its own kinds, plus feat
 `weaponMasterySlots`; `weaponMastery` choices from features and feats fill
@@ -544,9 +554,20 @@ damageType}`; everyone is proficient). Each row names the `ability` used.
 may offer an `ability` (used when higher), add `attackBonus` or `damageBonus`
 (or `damageBonusColumn`), and offer a `damageDie` (or `damageDieColumn`) that
 replaces the weapon's die when its average is higher. `match` is a list of
-alternatives over `unarmed`, `range`, `category`, `property` and
-`attackAbility`; `requires` takes the armor conditions above. Applied entries
-appear as `modifiers` on the row and in its explanations.
+alternatives over `unarmed`, `range`, `category`, `property`,
+`attackAbility` and `attack` (a feature attack's id); `requires` takes the
+armor conditions above. `attackBonusAbility` adds that ability's modifier,
+at least `min` (Sacred Weapon). Applied entries appear as `modifiers` on the
+row and in its explanations.
+
+`grants.attacks` declares weapons a feature creates, such as Psychic Blades or
+an Armorer's armor weapons: `id`, `name`, `damage`, `damageType`, `range`,
+`category`, `properties`, `rangeNormalLong`/`thrownRange`, `mastery` (with
+`masteryActive` when it needs no Weapon Mastery choice) and an optional
+`ability` it may use instead. They are proficient unless `proficient: false`
+and appear in `sheet.weapons` with `featureAttack` and `source` in place of
+`ref`. The lowest `grants.criticalRange` gives every attack row
+`criticalRange` (Improved Critical).
 
 When the ruleset declares `constants.meleeReach` (`{base, reachBonus}`), melee
 weapons and the unarmed strike give their `reach`, with `reachBonus` added for

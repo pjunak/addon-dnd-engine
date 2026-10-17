@@ -22,14 +22,25 @@ func classColumnValue(record Object, key string, level int) (any, bool) {
 	return nil, false
 }
 
-func hydrateClassValues(sheet Object, classes []resolvedClass) {
+// A subclass may print its own columns (a Battle Master's Superiority Die),
+// read at the level of its class and listed with the subclass.
+func hydrateClassValues(sheet Object, classes []resolvedClass, records Records) {
 	rows := make([]any, 0)
 	for _, current := range classes {
-		for _, column := range objects(current.Record["tableColumns"]) {
-			key := text(column["key"])
-			if value, found := classColumnValue(current.Record, key, current.Level); found {
-				rows = append(rows, Object{"classId": current.ID, "key": key,
-					"name": firstText(column["name"], key), "value": value})
+		tables := []Object{current.Record}
+		if subclass := recordByID(records, "subclass", current.Subclass); subclass != nil {
+			tables = append(tables, subclass)
+		}
+		for index, table := range tables {
+			for _, column := range objects(table["tableColumns"]) {
+				key := text(column["key"])
+				if value, found := classColumnValue(table, key, current.Level); found {
+					row := Object{"classId": current.ID, "key": key, "name": firstText(column["name"], key), "value": value}
+					if index > 0 {
+						row["subclassId"] = current.Subclass
+					}
+					rows = append(rows, row)
+				}
 			}
 		}
 	}

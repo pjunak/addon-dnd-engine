@@ -76,7 +76,7 @@ func Hydrate(decisions Object, records Records, ruleset *Ruleset) HydrationResul
 		})
 	}
 	sheet["classes"] = classValues
-	hydrateClassValues(sheet, classes)
+	hydrateClassValues(sheet, classes, records)
 	sheet["totalLevel"] = totalLevel
 	derived := object(sheet["derived"])
 	derived["proficiencyBonus"] = pb
@@ -120,7 +120,8 @@ func Hydrate(decisions Object, records Records, ruleset *Ruleset) HydrationResul
 	applyGenericGrants(decisions, sheet, grantSources, activeModifiers)
 	hydrateAdvantages(sheet, grantSources, activeModifiers, equippedArmor(decisions, records))
 	hydrateSpellcasting(decisions, sheet, classes, featRecords, records, *ruleset, mods, pb)
-	applyCasterGrants(sheet, grantSources)
+	applyCasterGrants(sheet, grantSources, activeModifiers)
+	hydrateFeatureSaveDCs(sheet, grantSources, mods, pb, *ruleset)
 	hydrateSpellGrants(decisions, sheet, classes, featRecords, grantSources, records)
 	hydrateWeaponMastery(decisions, sheet, classes, featRecords, *ruleset)
 	hydrateWeaponsAndAttunement(decisions, sheet, classes, records, mods, pb, *ruleset, grantSources, activeModifiers, warn)
@@ -687,7 +688,7 @@ func sourceClassID(source grantSource) string {
 // class's spellcasting: spellLists lets the class prepare spells from other
 // classes' lists (Magical Secrets), and spellbookBonus steps
 // ([{level, count}] by class level) add spellbook spells (the wizard Savants).
-func applyCasterGrants(sheet Object, sources []grantSource) {
+func applyCasterGrants(sheet Object, sources []grantSource, modifiers []Object) {
 	for _, raw := range values(object(sheet["spellcasting"])["perClass"]) {
 		caster := object(raw)
 		lists, bonus := []string{}, 0
@@ -711,6 +712,41 @@ func applyCasterGrants(sheet Object, sources []grantSource) {
 			caster["spellbookKnown"] = integer(caster["spellbookKnown"], 0) + bonus
 			caster["spellbookBonus"] = bonus
 		}
+		// An active spellSaveDC modifier raises its own class's spell save DC
+		// (Innate Sorcery).
+		for _, modifier := range modifiers {
+			if text(modifier["target"]) == "spellSaveDC" && text(modifier["classId"]) == text(caster["classId"]) {
+				caster["saveDC"] = integer(caster["saveDC"], 0) + integer(modifier["add"], 0)
+			}
+		}
+	}
+}
+
+// hydrateFeatureSaveDCs lists the save DCs features set for their own effects,
+// such as a Monk's Focus or a Battle Master's maneuvers: the ruleset's DC base
+// plus the proficiency bonus and the best of the named ability modifiers.
+func hydrateFeatureSaveDCs(sheet Object, sources []grantSource, mods map[string]int, pb int, ruleset Ruleset) {
+	rows := []any{}
+	for _, source := range sources {
+		for _, dc := range objects(source.Grants["saveDCs"]) {
+			abilities := stringsOf(dc["abilities"])
+			if len(abilities) == 0 {
+				continue
+			}
+			best := abilities[0]
+			for _, ability := range abilities[1:] {
+				if mods[ability] > mods[best] {
+					best = ability
+				}
+			}
+			rows = append(rows, Object{
+				"name": firstText(dc["name"], source.Record["name"], source.Source["id"]), "ability": best,
+				"value": ruleset.Constants.SpellSaveDCBase + pb + mods[best], "source": source.Source,
+			})
+		}
+	}
+	if len(rows) > 0 {
+		sheet["saveDCs"] = rows
 	}
 }
 
@@ -799,10 +835,32 @@ func hydrateWeaponsAndAttunement(
 		rules: collectAttackRules(sources, classes, activeModifiers), armor: equippedArmor(decisions, records),
 		reach: ruleset.Constants.MeleeReach,
 	}
+	limit := ruleset.Constants.AttunementLimit
+	for _, source := range sources {
+		if critical := integer(source.Grants["criticalRange"], 0); critical > 1 && (context.criticalRange == 0 || critical < context.criticalRange) {
+			context.criticalRange = critical
+		}
+		limit = max(limit, integer(source.Grants["attunementLimit"], 0))
+	}
 	if unarmed := ruleset.Constants.UnarmedStrike; unarmed != nil {
 		weapons = append(weapons, attackRow(Object{
 			"name": unarmed.Name, "damage": unarmed.Damage, "damageType": unarmed.DamageType,
 		}, true, context))
+	}
+	// Feature attacks, such as Psychic Blades, are weapons a feature creates.
+	for _, source := range sources {
+		for _, attack := range objects(source.Grants["attacks"]) {
+			id := text(attack["id"])
+			if id == "" {
+				continue
+			}
+			weapon := cloneObject(attack)
+			weapon["featureAttack"], weapon["source"] = id, source.Source
+			delete(weapon, "id")
+			row := attackRow(weapon, false, context)
+			row["masteryActive"] = text(attack["mastery"]) != "" && truth(attack["masteryActive"])
+			weapons = append(weapons, row)
+		}
 	}
 	for _, item := range objects(decisions["inventory"]) {
 		if truth(item["attuned"]) {
@@ -826,7 +884,6 @@ func hydrateWeaponsAndAttunement(
 		weapons = append(weapons, attack)
 	}
 	sheet["weapons"] = weapons
-	limit := ruleset.Constants.AttunementLimit
 	for _, current := range classes {
 		for _, row := range objects(current.Record["attunementLimit"]) {
 			if integer(row["level"], 1) <= current.Level {

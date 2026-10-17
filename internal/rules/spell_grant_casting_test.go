@@ -27,6 +27,7 @@ func spellGrantFixture(t *testing.T) (character.Inputs, memoryRecords, Ruleset) 
 		"singer-secrets": mustJSON(Object{"id": "singer-secrets", "kind": "feature", "name": "Secrets", "classId": "singer", "level": 2,
 			"grants": Object{"spellLists": []any{"priest"}}}),
 		"singer-gifts": mustJSON(Object{"id": "singer-gifts", "kind": "feature", "name": "Gifts", "classId": "singer", "level": 1,
+			"activations": []any{Object{"id": "innate", "name": "Innate", "modifiers": []any{Object{"target": "spellSaveDC", "add": 1}}}},
 			"grants": Object{
 				"resources": []any{Object{"key": "steps", "name": "Steps", "fixed": 2, "recharge": "long"}},
 				"spells": []any{
@@ -134,5 +135,16 @@ func TestSpellChoicesAndListsFollowTheGrantingClass(t *testing.T) {
 		if integer(caster["spellbookKnown"], 0) != 6+2*2+3 || integer(caster["spellbookBonus"], 0) != 3 {
 			t.Fatal("the spellbook bonus did not follow its class level", caster)
 		}
+	}
+}
+
+func TestActiveSpellSaveDCModifiersRaiseTheirClassDC(t *testing.T) {
+	input, records, profile := spellGrantFixture(t)
+	result := EvaluateCharacter(input, records, profile)
+	before := integer(objects(object(result.Sheet["spellcasting"])["perClass"])[0]["saveDC"], 0)
+	input.Play.ActiveFeatures = map[string]bool{activationKey(result, "innate"): true}
+	result = EvaluateCharacter(input, records, profile)
+	if after := integer(objects(object(result.Sheet["spellcasting"])["perClass"])[0]["saveDC"], 0); after != before+1 {
+		t.Fatal("an active spell save DC modifier did not raise the class DC", before, after)
 	}
 }

@@ -266,6 +266,10 @@ func builderChoiceOptions(choice, sheet Object, records Records) []any {
 				record = recordByID(records, "tool", strings.TrimPrefix(id, "tool:"))
 			}
 		case "enumerated":
+			if kind := text(choice["optionKind"]); kind != "" {
+				record = recordByID(records, kind, id)
+				break
+			}
 			record = recordByID(records, "feature", id)
 			if text(choice["fromCategory"]) != "" && (record == nil || !optionPrerequisiteMet(record, sheet)) {
 				continue

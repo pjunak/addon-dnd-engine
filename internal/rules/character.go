@@ -88,6 +88,9 @@ func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset)
 			}
 		}
 	}
+	if selections := characterSelections(decisions, Object(result.Plan), Object(result.Guidance), tracked); len(selections) > 0 {
+		hydrated.Sheet["selections"] = selections
+	}
 	result.Evidence = tracked.evidence()
 	compactCharacterProjection(hydrated.Sheet)
 	result.Explanations = characterExplanations(input, hydrated.Sheet, calculationEvidence, profile)

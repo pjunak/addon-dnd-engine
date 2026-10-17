@@ -148,6 +148,21 @@ not meet them are not offered, and a selection that loses them becomes an
 `invalid-option` to repair. A repeatable option may fill several slots of one
 choice; other options must differ.
 
+A choice with `optionKind` offers records of that kind, such as Beast stat
+blocks for Wild Shape or magic items for an Artificer's plans: its explicit
+`from` list, the `fromByLevel` lists (`{"<class level>": [ids]}`) the class
+has reached, and the records matching `filter` as overridden by reached
+`filterByLevel` steps. Filters are closed: `creatureType`, `maxCr`, `fly`
+(`false` excludes a Fly Speed in the record's `speeds`), `rarity`,
+`itemTypes` and `notItemTypes`; an unknown key matches nothing. The
+descriptor keeps `optionKind` and options read their labels from those records.
+
+`sheet.selections` lists class choices whose picks are not features of their
+own (Divine Order, Hunter's Prey, Wild Shape forms): the choice `id`, its
+guidance label, `source` and `values` (`id`, `label`, and `kind` for another
+record kind, whose record is retained as evidence). Chosen option features
+appear among the features instead.
+
 Subclass feature rows resolve inline local IDs to canonical records within the
 owning class/subclass. Record levels govern acquisition; unrelated or future
 features never satisfy a prerequisite. Inline-only features remain readable.

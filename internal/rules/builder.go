@@ -317,6 +317,9 @@ func appendRecordChoices(result *[]any, rawGrants any, context choiceContext) {
 			}
 			from = anyStrings(ids)
 		}
+		if text(choice["optionKind"]) != "" {
+			from = anyStrings(recordChoiceOptions(choice, context.classLevel, context.records))
+		}
 		kind := choiceKind(choice, from)
 		if kind == "weaponMastery" && !context.masteryEnabled {
 			continue
@@ -342,7 +345,7 @@ func appendRecordChoices(result *[]any, rawGrants any, context choiceContext) {
 }
 
 func copyChoiceFields(descriptor, choice Object) {
-	for _, key := range []string{"from", "category", "prompt", "default", "changeOn", "levelReplacements"} {
+	for _, key := range []string{"from", "category", "prompt", "default", "changeOn", "levelReplacements", "optionKind"} {
 		if value, exists := choice[key]; exists {
 			descriptor[key] = cloneValue(value)
 		}

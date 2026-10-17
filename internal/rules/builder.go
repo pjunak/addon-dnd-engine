@@ -204,16 +204,17 @@ func collectClassChoices(classes []any, selections Object, records Records, rule
 				"source": Object{"type": "class", "id": classID, "level": 1},
 			})
 		}
-		context := choiceContext{
-			owner: classID, classID: classID, classLevel: classLevel,
-			sourceType: "class", records: records, masteryEnabled: masteryEnabled, selections: selections,
-		}
-		appendRecordChoices(&result, record["grants"], context)
 		subclassID := text(selected["subclass"])
 		subclass := recordView(records, "subclass", subclassID)
+		overrides := classChoiceOverrides(classID, classLevel, subclassID, subclass, records)
+		context := choiceContext{
+			owner: classID, classID: classID, classLevel: classLevel,
+			sourceType: "class", records: records, masteryEnabled: masteryEnabled, selections: selections, overrides: overrides,
+		}
+		appendRecordChoices(&result, record["grants"], context)
 		context = choiceContext{
 			owner: subclassID, classID: classID, classLevel: classLevel, sourceType: "subclass",
-			fallbackLevel: integer(subclass["subclassLevel"], classSubclassLevel(record)), records: records, masteryEnabled: masteryEnabled, selections: selections,
+			fallbackLevel: integer(subclass["subclassLevel"], classSubclassLevel(record)), records: records, masteryEnabled: masteryEnabled, selections: selections, overrides: overrides,
 		}
 		appendRecordChoices(&result, subclass["grants"], context)
 		for _, feature := range recordCatalog(records, "feature") {
@@ -223,7 +224,7 @@ func collectClassChoices(classes []any, selections Object, records Records, rule
 			}
 			appendRecordChoices(&result, feature["grants"], choiceContext{
 				owner: text(feature["id"]), classID: classID, classLevel: classLevel, sourceType: "feature",
-				fallbackLevel: integer(feature["level"], 1), records: records, masteryEnabled: masteryEnabled, selections: selections,
+				fallbackLevel: integer(feature["level"], 1), records: records, masteryEnabled: masteryEnabled, selections: selections, overrides: overrides,
 			})
 		}
 		// A chosen option offers its own choices once per slot that chose it.
@@ -291,6 +292,46 @@ type choiceContext struct {
 	selections                 Object
 	// multiplier scales the slot counts of a repeatable option's own choices.
 	multiplier int
+	// overrides replace option limits of the class's choices by choice ID.
+	overrides map[string]Object
+}
+
+// overridableChoiceFields are the option limits a later feature may replace,
+// such as Circle Forms raising Wild Shape's challenge rating.
+var overridableChoiceFields = []string{"from", "fromByLevel", "filter", "filterByLevel", "count", "countByLevel"}
+
+// classChoiceOverrides collects grants.choiceOverrides ([{choiceId, ...fields}])
+// from the class's subclass and its acquired features; a later declaration
+// replaces an earlier one's fields.
+func classChoiceOverrides(classID string, classLevel int, subclassID string, subclass Object, records Records) map[string]Object {
+	overrides := map[string]Object{}
+	add := func(grants Object) {
+		for _, override := range objects(grants["choiceOverrides"]) {
+			id := text(override["choiceId"])
+			if id == "" {
+				continue
+			}
+			if overrides[id] == nil {
+				overrides[id] = Object{}
+			}
+			for _, field := range overridableChoiceFields {
+				if value, exists := override[field]; exists {
+					overrides[id][field] = value
+				}
+			}
+		}
+	}
+	if subclass != nil && classLevel >= integer(subclass["subclassLevel"], 1) {
+		add(object(subclass["grants"]))
+	}
+	for _, feature := range recordCatalog(records, "feature") {
+		if text(feature["classId"]) != classID || text(feature["category"]) != "" || integer(feature["level"], 0) > classLevel ||
+			text(feature["subclassId"]) != "" && text(feature["subclassId"]) != subclassID {
+			continue
+		}
+		add(object(feature["grants"]))
+	}
+	return overrides
 }
 
 func appendRecordChoices(result *[]any, rawGrants any, context choiceContext) {
@@ -298,6 +339,12 @@ func appendRecordChoices(result *[]any, rawGrants any, context choiceContext) {
 	for _, choice := range objects(grants["choices"]) {
 		if text(choice["id"]) == "" {
 			continue
+		}
+		if override := context.overrides[text(choice["id"])]; override != nil {
+			choice = cloneObject(choice)
+			for field, value := range override {
+				choice[field] = value
+			}
 		}
 		sourceLevel := sourceLevelOf(choice, max(1, context.fallbackLevel))
 		if sourceLevel > context.classLevel {

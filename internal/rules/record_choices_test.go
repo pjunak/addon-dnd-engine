@@ -85,3 +85,20 @@ func TestSelectionsShowChosenOptionsWithoutFeatures(t *testing.T) {
 		t.Fatal("an unchosen stat block was retained")
 	}
 }
+
+func TestSubclassFeaturesOverrideAClassChoicesLimits(t *testing.T) {
+	input, records, profile := recordChoiceFixture(t)
+	input.Build.Levels = append(input.Build.Levels, character.Level{ID: "two", ClassID: "fighter"}, character.Level{ID: "three", ClassID: "fighter"})
+	records.byKind["subclass"] = map[string]json.RawMessage{"moon": mustJSON(Object{"kind": "subclass", "id": "moon", "classId": "fighter", "subclassLevel": 3})}
+	records.byKind["feature"]["moon-forms"] = mustJSON(Object{"id": "moon-forms", "kind": "feature", "classId": "fighter", "subclassId": "moon", "level": 3,
+		"grants": Object{"choiceOverrides": []any{Object{"choiceId": "forms", "filterByLevel": Object{"3": Object{"maxCr": 1}}}}}})
+	result := EvaluateCharacter(input, records, profile)
+	if forms := choiceOptionIDs(result, "forms"); !reflect.DeepEqual(forms, []string{"bear", "hawk", "wolf"}) {
+		t.Fatal("an override applied without its subclass", forms)
+	}
+	input.Build.Subclasses = map[string]string{"fighter": "moon"}
+	result = EvaluateCharacter(input, records, profile)
+	if forms := choiceOptionIDs(result, "forms"); !reflect.DeepEqual(forms, []string{"bear", "wolf"}) || integer(object(object(result.Guidance["choices"])["forms"])["required"], 0) != 2 {
+		t.Fatal("the subclass override did not replace the level steps", forms)
+	}
+}

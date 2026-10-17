@@ -156,6 +156,10 @@ has reached, and the records matching `filter` as overridden by reached
 (`false` excludes a Fly Speed in the record's `speeds`), `rarity`,
 `itemTypes` and `notItemTypes`; an unknown key matches nothing. The
 descriptor keeps `optionKind` and options read their labels from those records.
+A subclass or acquired feature of the same class may declare
+`grants.choiceOverrides` (`[{choiceId, ...}]`) to replace a class choice's
+`from`, `fromByLevel`, `filter`, `filterByLevel`, `count` or `countByLevel`,
+such as Circle Forms raising Wild Shape's challenge rating.
 
 `sheet.selections` lists class choices whose picks are not features of their
 own (Divine Order, Hunter's Prey, Wild Shape forms): the choice `id`, its

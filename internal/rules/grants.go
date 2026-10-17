@@ -123,11 +123,13 @@ func activeGrantModifiers(
 	activations := make([]any, 0)
 	modifiers := make([]Object, 0)
 	enabledIDs := map[string]bool{}
-	type extension struct {
+	type deferred struct {
 		activation Object
 		source     grantSource
+		row        Object
 	}
-	extensions := []extension{}
+	extensions := []deferred{}
+	dependents := []deferred{}
 	applyModifiers := func(activation Object, source grantSource, name string) {
 		for _, modifier := range objects(activation["modifiers"]) {
 			if text(modifier["target"]) == "attack" {
@@ -154,7 +156,7 @@ func activeGrantModifiers(
 			// An extension adds modifiers to another feature's activation while
 			// that one is on; it has no toggle of its own.
 			if activation["extends"] != nil {
-				extensions = append(extensions, extension{activation, source})
+				extensions = append(extensions, deferred{activation, source, nil})
 				continue
 			}
 			if id == "" {
@@ -163,27 +165,40 @@ func activeGrantModifiers(
 			key := grantOwner(source.Source) + ":" + id
 			available := armorRequirementMet(activation["restrictions"], armor)
 			enabled := truth(active[key]) && available
-			activations = append(activations, Object{
+			row := Object{
 				"key": key, "id": id, "name": firstText(activation["name"], id),
 				"source": source.Source, "resource": grantActivationResource(source.Source, activation["resource"]),
 				"exclusiveGroup": nullableText(activation["exclusiveGroup"]),
 				"active":         enabled, "available": available,
-			})
-			if condition := text(activation["condition"]); condition != "" {
-				object(activations[len(activations)-1])["condition"] = condition
 			}
-			if enabled {
+			if condition := text(activation["condition"]); condition != "" {
+				row["condition"] = condition
+			}
+			activations = append(activations, row)
+			// An option chosen for each use of another activation keeps its own
+			// toggle, so the choice is remembered, but is in effect only while
+			// one of its `while` activations is on.
+			if enabled && activation["while"] != nil {
+				row["active"] = false
+				dependents = append(dependents, deferred{activation, source, row})
+			} else if enabled {
 				enabledIDs[id] = true
 				applyModifiers(activation, source, firstText(activation["name"], id))
 			}
 		}
 	}
-	for _, current := range extensions {
-		extended := stringsOf(current.activation["extends"])
-		if name := text(current.activation["extends"]); name != "" {
-			extended = []string{name}
+	for _, current := range dependents {
+		for _, id := range activationIDs(current.activation["while"]) {
+			if enabledIDs[id] {
+				current.row["active"] = true
+				enabledIDs[text(current.row["id"])] = true
+				applyModifiers(current.activation, current.source, text(current.row["name"]))
+				break
+			}
 		}
-		for _, id := range extended {
+	}
+	for _, current := range extensions {
+		for _, id := range activationIDs(current.activation["extends"]) {
 			if enabledIDs[id] && armorRequirementMet(current.activation["restrictions"], armor) {
 				applyModifiers(current.activation, current.source, firstText(current.activation["name"], current.source.Record["name"], id))
 				break
@@ -192,6 +207,14 @@ func activeGrantModifiers(
 	}
 	sheet["activations"] = activations
 	return modifiers
+}
+
+// activationIDs reads an activation reference: one ID or a list of them.
+func activationIDs(value any) []string {
+	if id := text(value); id != "" {
+		return []string{id}
+	}
+	return stringsOf(value)
 }
 
 var movementModes = []string{"fly", "swim", "climb", "burrow"}

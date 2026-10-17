@@ -431,7 +431,12 @@ on spends more than one use; turning it on fails when fewer than `cost` uses
 remain. An activation with `extends` (an activation ID or a list of them) has
 no toggle of its own: its modifiers apply while one of those activations is
 on, from its feature's level and any `minLevel`, such as a subclass feature
-that adds to Rage.
+that adds to Rage. An activation with `while` (an activation ID or a list of
+them) keeps its own toggle and `exclusiveGroup`, for an option chosen each time
+another feature is used, such as a Rage aspect. Its modifiers apply, and the
+projection reports it `active`, only while one of those activations is also
+on; ending that activation keeps the option's toggle, so the same choice
+applies again when it is turned back on.
 
 Copying requires a unique acquisition ID and the profile's GP cost. An optional
 owned scroll must explicitly name the spell, and one instance is consumed in

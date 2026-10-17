@@ -81,3 +81,54 @@ func TestActivationExtensionsApplyWhileTheirActivationIsOn(t *testing.T) {
 		t.Fatal("an extension applied before its feature was acquired")
 	}
 }
+
+func TestWhileOptionsApplyOnlyDuringTheirActivationAndKeepTheChoice(t *testing.T) {
+	input, records, profile := activationFixture(t)
+	records.byKind["feature"]["fighter-aspect"] = mustJSON(Object{"id": "fighter-aspect", "kind": "feature", "name": "Aspect", "classId": "fighter", "level": 1,
+		"activations": []any{
+			Object{"id": "aspect-stone", "name": "Aspect: Stone", "exclusiveGroup": "aspect", "while": "fury", "modifiers": []any{Object{"target": "resistance", "value": "thunder"}}},
+			Object{"id": "aspect-wind", "name": "Aspect: Wind", "exclusiveGroup": "aspect", "while": []any{"fury"}, "modifiers": []any{Object{"target": "resistance", "value": "lightning"}}},
+		}})
+	result := EvaluateCharacter(input, records, profile)
+	fury, stone, wind := activationKey(result, "fury"), activationKey(result, "aspect-stone"), activationKey(result, "aspect-wind")
+	if stone == "" || wind == "" {
+		t.Fatal("a while option lost its own toggle", result.Sheet["activations"])
+	}
+	toggle := func(key string, enabled bool) {
+		t.Helper()
+		var err error
+		result, err = ApplyCharacterPlay(result.Inputs, Object{"operation": "toggle-feature", "key": key, "enabled": enabled}, records, profile)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	inEffect := func(id string) bool {
+		for _, activation := range objects(result.Sheet["activations"]) {
+			if text(activation["id"]) == id {
+				return truth(activation["active"])
+			}
+		}
+		return false
+	}
+	toggle(stone, true)
+	if contains(stringsOf(result.Sheet["resistances"]), "thunder") || inEffect("aspect-stone") || result.Inputs.Play.ResourceUses["fury"] != 0 {
+		t.Fatal("a while option applied without its activation", result.Sheet["resistances"], result.Sheet["activations"])
+	}
+	toggle(fury, true)
+	if !contains(stringsOf(result.Sheet["resistances"]), "thunder") || !inEffect("aspect-stone") {
+		t.Fatal("a while option did not apply with its activation", result.Sheet["resistances"])
+	}
+	toggle(fury, false)
+	if contains(stringsOf(result.Sheet["resistances"]), "thunder") || inEffect("aspect-stone") || !result.Inputs.Play.ActiveFeatures[stone] {
+		t.Fatal("ending the activation must stop the option but keep its choice", result.Sheet["resistances"], result.Inputs.Play.ActiveFeatures)
+	}
+	toggle(fury, true)
+	if !contains(stringsOf(result.Sheet["resistances"]), "thunder") {
+		t.Fatal("the remembered option did not return with its activation", result.Sheet["resistances"])
+	}
+	toggle(wind, true)
+	resistances := stringsOf(result.Sheet["resistances"])
+	if contains(resistances, "thunder") || !contains(resistances, "lightning") || result.Inputs.Play.ActiveFeatures[stone] {
+		t.Fatal("while options lost their exclusive group", resistances, result.Inputs.Play.ActiveFeatures)
+	}
+}

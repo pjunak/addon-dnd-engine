@@ -118,6 +118,7 @@ func Hydrate(decisions Object, records Records, ruleset *Ruleset) HydrationResul
 	hydrateSkills(decisions, sheet, background, mods, pb, grantSources, *ruleset)
 	hydrateProficiencies(decisions, sheet, classes, background, records, grantSources)
 	applyGenericGrants(decisions, sheet, grantSources, activeModifiers)
+	hydrateAdvantages(sheet, grantSources, activeModifiers, equippedArmor(decisions, records))
 	hydrateSpellcasting(decisions, sheet, classes, featRecords, records, *ruleset, mods, pb)
 	hydrateSpellGrants(decisions, sheet, classes, featRecords, grantSources, records)
 	hydrateWeaponMastery(decisions, sheet, classes, featRecords, *ruleset)

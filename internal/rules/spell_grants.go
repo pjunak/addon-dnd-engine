@@ -76,6 +76,23 @@ func hydrateSpellGrants(
 		return selected
 	}
 
+	// maxSpellLevel "class" is the highest spell level the granting class can
+	// cast, such as Magical Discoveries' "a level for which you have slots".
+	casterMaxSpellLevel := func(source Object) int {
+		classID := text(source["classId"])
+		if classID == "" && text(source["type"]) == "class" {
+			classID = text(source["id"])
+		} else if classID == "" {
+			classID = text(recordByID(records, text(source["type"]), text(source["id"]))["classId"])
+		}
+		for _, caster := range objects(spellcasting["perClass"]) {
+			if text(caster["classId"]) == classID {
+				return integer(caster["maxSpellLevel"], 0)
+			}
+		}
+		return 0
+	}
+
 	addGrant := func(reference string, source, options Object) {
 		if reference == "" {
 			return
@@ -85,13 +102,22 @@ func hydrateSpellGrants(
 		if record != nil {
 			level = integer(record["level"], 0)
 		}
-		granted = append(granted, Object{
+		entry := Object{
 			"ref": reference, "name": firstText(record["name"], reference), "level": level,
 			"school": text(record["school"]), "source": source,
 			"alwaysPrepared": truth(options["alwaysPrepared"]),
 			"free":           nullableText(options["free"]), "castingAbility": nullableText(options["castingAbility"]),
 			"castAtLevel": nullableNumber(options["castAtLevel"]), "resourceKey": options["resourceKey"],
-		})
+		}
+		for _, flag := range []string{"atWill", "ritualOnly"} {
+			if truth(options[flag]) {
+				entry[flag] = true
+			}
+		}
+		if key := text(options["castResource"]); key != "" {
+			entry["castResource"] = key
+		}
+		granted = append(granted, entry)
 	}
 
 	addGrantEntry := func(spell, source Object, unlocked bool, sourceLevel int, sourceGrants Object) {
@@ -113,7 +139,12 @@ func hydrateSpellGrants(
 		}
 		options := Object{
 			"alwaysPrepared": spell["alwaysPrepared"], "free": spell["free"],
-			"castingAbility": castingAbility,
+			"castingAbility": castingAbility, "atWill": spell["atWill"], "ritualOnly": spell["ritualOnly"],
+		}
+		// A spell cast by spending one use of a declared resource, such as
+		// Misty Step through Steps of the Fey.
+		if key := text(spell["resource"]); key != "" {
+			options["castResource"] = grantResourceKey(source, key)
 		}
 		if hasCastAtLevel {
 			options["castAtLevel"] = castAtLevel
@@ -144,10 +175,14 @@ func hydrateSpellGrants(
 		for _, reference := range picked {
 			addGrant(reference, source, options)
 		}
+		maxSpellLevel := optionalInteger(spell, "maxSpellLevel")
+		if text(spell["maxSpellLevel"]) == "class" {
+			maxSpellLevel = casterMaxSpellLevel(source)
+		}
 		pendingChoices = append(pendingChoices, Object{
 			"key": key, "source": source, "choose": count,
 			"spellLevel":    optionalInteger(spell, "spellLevel"),
-			"maxSpellLevel": optionalInteger(spell, "maxSpellLevel"),
+			"maxSpellLevel": maxSpellLevel,
 			"from":          objectOrEmpty(spell["from"]), "default": nullableText(spell["default"]),
 			"alwaysPrepared": truth(spell["alwaysPrepared"]), "picked": anyStrings(picked),
 		})

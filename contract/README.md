@@ -86,6 +86,21 @@ A granted spell's optional source-declared class membership is retained as
 `source.classId` without replacing the granting record identity. Its selected
 list and casting ability remain independent facts.
 
+A spell grant may be `atWill` (cast without a slot at its own level; slots
+still upcast it), `ritualOnly` (cast only as a ritual, never with a slot) or
+name a `resource` whose use it spends, such as Misty Step through Steps of the
+Fey. The granted entry keeps `atWill`, `ritualOnly` or `castResource`;
+`spellOptions.granted[].slots` lists `""` for a free cast and the resource key
+first, and `cast-granted-spell` accepts them. A choice's `maxSpellLevel:
+"class"` is the highest level the granting class can cast, and `from.ritual:
+true` keeps only spells with the ritual tag.
+
+A class's own class, subclass and feature grants can change its
+spellcasting: `spellLists` adds other classes' lists to the spells it can
+prepare (`perClass[].spellLists`, used by options and validation), and
+`spellbookBonus` steps (`[{level, count}]` by class level) add spellbook
+spells (`perClass[].spellbookBonus`, included in `spellbookKnown`).
+
 Class-owned feat choices with `changeOn: "classLevel"` and
 `levelReplacements: 1`, and spell-choice grants with `levelReplacements: 1`,
 declare one replacement after the feature's acquisition level. The additive

@@ -53,6 +53,14 @@ func SpellOptions(decisions, sheet Object, records Records, profile Ruleset) Obj
 		ref := text(grant["ref"])
 		entry["key"] = spellGrantKey(grant)
 		keys := spellSlotKeys(decisions, sheet, records, ref, integer(grant["level"], 0))
+		if truth(grant["ritualOnly"]) {
+			keys = []string{""}
+		} else if truth(grant["atWill"]) && (len(keys) == 0 || keys[0] != "") {
+			keys = append([]string{""}, keys...)
+		}
+		if key := text(grant["castResource"]); key != "" && findPlayResource(sheet, key) != nil {
+			keys = append([]string{key}, keys...)
+		}
 		if text(grant["free"]) != "" && findPlayResource(sheet, grantFreeResourceKey(grant)) != nil {
 			keys = append([]string{grantFreeResourceKey(grant)}, keys...)
 		}
@@ -69,8 +77,15 @@ func SpellOptions(decisions, sheet Object, records Records, profile Ruleset) Obj
 }
 
 func classSpellEligible(spell, caster Object) bool {
-	return spell != nil && caster != nil && integer(spell["level"], 0) <= integer(caster["maxSpellLevel"], 0) &&
-		(contains(stringsOf(spell["classes"]), text(caster["spellListClassId"])) || contains(stringsOf(caster["expandedSpellIds"]), text(spell["id"])))
+	if spell == nil || caster == nil || integer(spell["level"], 0) > integer(caster["maxSpellLevel"], 0) {
+		return false
+	}
+	for _, list := range append([]string{text(caster["spellListClassId"])}, stringsOf(caster["spellLists"])...) {
+		if contains(stringsOf(spell["classes"]), list) {
+			return true
+		}
+	}
+	return contains(stringsOf(caster["expandedSpellIds"]), text(spell["id"]))
 }
 
 func grantSpellEligible(spell, choice Object) bool {
@@ -99,6 +114,9 @@ func grantSpellEligible(spell, choice Object) bool {
 	}
 	if time := text(from["castingTime"]); time != "" {
 		eligible = eligible && strings.EqualFold(time, text(spell["castingTime"]))
+	}
+	if truth(from["ritual"]) {
+		eligible = eligible && truth(spell["ritual"])
 	}
 	return eligible
 }
@@ -171,6 +189,16 @@ func castGrantedSpell(decisions, sheet, change Object, records Records) error {
 		}
 		if slot == grantFreeResourceKey(grant) && text(grant["free"]) != "" {
 			return spendResource(decisions, findPlayResource(sheet, slot))
+		}
+		if key := text(grant["castResource"]); key != "" && slot == key {
+			return spendResource(decisions, findPlayResource(sheet, key))
+		}
+		// At-will and ritual-only grants cast without a slot or resource.
+		if slot == "" && (truth(grant["atWill"]) || truth(grant["ritualOnly"])) {
+			return nil
+		}
+		if truth(grant["ritualOnly"]) {
+			return fmt.Errorf("This spell can only be cast as a ritual.")
 		}
 		return spendSpellSlot(decisions, sheet, records, ref, integer(grant["level"], 0), slot)
 	}

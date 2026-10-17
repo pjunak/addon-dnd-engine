@@ -120,6 +120,7 @@ func Hydrate(decisions Object, records Records, ruleset *Ruleset) HydrationResul
 	applyGenericGrants(decisions, sheet, grantSources, activeModifiers)
 	hydrateAdvantages(sheet, grantSources, activeModifiers, equippedArmor(decisions, records))
 	hydrateSpellcasting(decisions, sheet, classes, featRecords, records, *ruleset, mods, pb)
+	applyCasterGrants(sheet, grantSources)
 	hydrateSpellGrants(decisions, sheet, classes, featRecords, grantSources, records)
 	hydrateWeaponMastery(decisions, sheet, classes, featRecords, *ruleset)
 	hydrateWeaponsAndAttunement(decisions, sheet, classes, records, mods, pb, *ruleset, grantSources, activeModifiers, warn)
@@ -670,6 +671,46 @@ func hydrateSpellcasting(
 	sheet["spellcasting"] = Object{
 		"perClass": perClass, "casterLevel": casterLevel, "slots": anyInts(slots),
 		"granted": []any{}, "pendingChoices": []any{}, "castingAbilityChoices": []any{},
+	}
+}
+
+// sourceClassID is the class a grant source belongs to: the class itself or
+// the class that owns a subclass or feature record.
+func sourceClassID(source grantSource) string {
+	if text(source.Source["type"]) == "class" {
+		return text(source.Source["id"])
+	}
+	return text(source.Record["classId"])
+}
+
+// applyCasterGrants applies class and subclass grants that change their own
+// class's spellcasting: spellLists lets the class prepare spells from other
+// classes' lists (Magical Secrets), and spellbookBonus steps
+// ([{level, count}] by class level) add spellbook spells (the wizard Savants).
+func applyCasterGrants(sheet Object, sources []grantSource) {
+	for _, raw := range values(object(sheet["spellcasting"])["perClass"]) {
+		caster := object(raw)
+		lists, bonus := []string{}, 0
+		for _, source := range sources {
+			if sourceClassID(source) != text(caster["classId"]) {
+				continue
+			}
+			lists = append(lists, stringsOf(source.Grants["spellLists"])...)
+			step := 0
+			for _, row := range objects(source.Grants["spellbookBonus"]) {
+				if integer(row["level"], 1) <= source.Level {
+					step = integer(row["count"], step)
+				}
+			}
+			bonus += max(0, step)
+		}
+		if len(lists) > 0 {
+			caster["spellLists"] = anyStrings(unique(lists))
+		}
+		if bonus > 0 && text(caster["prepares"]) == "spellbook" {
+			caster["spellbookKnown"] = integer(caster["spellbookKnown"], 0) + bonus
+			caster["spellbookBonus"] = bonus
+		}
 	}
 }
 

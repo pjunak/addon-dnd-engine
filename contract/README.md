@@ -391,6 +391,13 @@ resources (`kind: "slot"`) also give their spell `level`. Ending an activation
 replaces its state map, so removed keys cannot survive as merged old values.
 Long rests clear active features through the common rest interpreter.
 
+An activation's `resource` is a resource key, or `{key, cost}` when turning it
+on spends more than one use; turning it on fails when fewer than `cost` uses
+remain. An activation with `extends` (an activation ID or a list of them) has
+no toggle of its own: its modifiers apply while one of those activations is
+on, from its feature's level and any `minLevel`, such as a subclass feature
+that adds to Rage.
+
 Copying requires a unique acquisition ID and the profile's GP cost. An optional
 owned scroll must explicitly name the spell, and one instance is consumed in
 the same detached change. Acquisitions retain cost, character level, time and

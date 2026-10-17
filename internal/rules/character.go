@@ -301,14 +301,15 @@ func ApplyCharacterPlay(input character.Inputs, change Object, records Records, 
 			for _, activation := range objects(current.Sheet["activations"]) {
 				if text(activation["key"]) == text(change["key"]) {
 					if key := text(object(activation["resource"])["key"]); key != "" {
+						cost := max(1, integer(object(activation["resource"])["cost"], 1))
 						resource := findPlayResource(Object(current.Sheet), key)
-						if resource == nil || input.Play.ResourceUses[key] >= integer(resource["max"], 0) {
+						if resource == nil || input.Play.ResourceUses[key]+cost > integer(resource["max"], 0) {
 							return current, fmt.Errorf("No uses of this feature remain.")
 						}
 						if input.Play.ResourceUses == nil {
 							input.Play.ResourceUses = map[string]int{}
 						}
-						input.Play.ResourceUses[key]++
+						input.Play.ResourceUses[key] += cost
 					}
 				}
 			}

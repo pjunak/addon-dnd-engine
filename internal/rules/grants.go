@@ -122,12 +122,37 @@ func activeGrantModifiers(
 	armor := equippedArmor(decisions, records)
 	activations := make([]any, 0)
 	modifiers := make([]Object, 0)
+	enabledIDs := map[string]bool{}
+	type extension struct {
+		activation Object
+		source     grantSource
+	}
+	extensions := []extension{}
+	applyModifiers := func(activation Object, source grantSource, name string) {
+		for _, modifier := range objects(activation["modifiers"]) {
+			if text(modifier["target"]) == "attack" {
+				modifier = resolveAttackColumns(modifier, source, classes)
+				modifier["sourceName"] = name
+				modifier["source"] = source.Source
+			}
+			modifiers = append(modifiers, modifier)
+		}
+	}
 	for _, source := range sources {
 		declared := append(append([]Object(nil), objects(source.Record["activations"])...),
 			objects(source.Grants["activations"])...)
 		for _, activation := range declared {
 			id := text(activation["id"])
-			if id == "" || integer(activation["minLevel"], 1) > source.Level {
+			if integer(activation["minLevel"], 1) > source.Level {
+				continue
+			}
+			// An extension adds modifiers to another feature's activation while
+			// that one is on; it has no toggle of its own.
+			if activation["extends"] != nil {
+				extensions = append(extensions, extension{activation, source})
+				continue
+			}
+			if id == "" {
 				continue
 			}
 			key := grantOwner(source.Source) + ":" + id
@@ -143,14 +168,20 @@ func activeGrantModifiers(
 				object(activations[len(activations)-1])["condition"] = condition
 			}
 			if enabled {
-				for _, modifier := range objects(activation["modifiers"]) {
-					if text(modifier["target"]) == "attack" {
-						modifier = resolveAttackColumns(modifier, source, classes)
-						modifier["sourceName"] = firstText(activation["name"], id)
-						modifier["source"] = source.Source
-					}
-					modifiers = append(modifiers, modifier)
-				}
+				enabledIDs[id] = true
+				applyModifiers(activation, source, firstText(activation["name"], id))
+			}
+		}
+	}
+	for _, current := range extensions {
+		extended := stringsOf(current.activation["extends"])
+		if name := text(current.activation["extends"]); name != "" {
+			extended = []string{name}
+		}
+		for _, id := range extended {
+			if enabledIDs[id] && armorRequirementMet(current.activation["restrictions"], armor) {
+				applyModifiers(current.activation, current.source, firstText(current.activation["name"], current.source.Record["name"], id))
+				break
 			}
 		}
 	}

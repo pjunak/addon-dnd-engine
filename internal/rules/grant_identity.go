@@ -13,7 +13,12 @@ func grantResourceKey(source Object, key string) string {
 	return key
 }
 
+// An activation's resource is a resource key, or {key, cost} when one use
+// spends more than one point.
 func grantActivationResource(source Object, raw any) any {
+	if key, ok := raw.(string); ok && key != "" {
+		raw = Object{"key": key}
+	}
 	if object(raw) == nil {
 		return nil
 	}

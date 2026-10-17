@@ -123,6 +123,7 @@ func Hydrate(decisions Object, records Records, ruleset *Ruleset) HydrationResul
 	hydrateWeaponsAndAttunement(decisions, sheet, classes, records, mods, pb, *ruleset, grantSources, activeModifiers, warn)
 	hydrateFeatures(sheet, classes, records)
 	hydrateResources(decisions, sheet, classes, grantSources, records, *ruleset, pb)
+	hydrateCurrencyWorth(decisions, sheet, *ruleset)
 
 	return HydrationResult{Sheet: sheet, Warnings: warnings}
 }
@@ -571,7 +572,7 @@ func hydrateProficiencies(
 }
 
 func hydrateSpellcasting(
-	_ Object,
+	decisions Object,
 	sheet Object,
 	classes []resolvedClass,
 	feats []Object,
@@ -620,7 +621,11 @@ func hydrateSpellcasting(
 			"preparedLimit":  integer(progression["preparedSpells"], 0),
 			"cantripsKnown":  integer(progression["cantripsKnown"], 0),
 			"spellbookKnown": spellbookKnown, "maxSpellLevel": maxSpellLevel,
-			"pact": pactValue,
+			"pact":          pactValue,
+			"preparedCount": len(unique(stringsOf(object(decisions["preparedSpells"])[current.ID]))),
+		}
+		if preparation := spellPreparation(casting, recordByID(records, "subclass", current.Subclass)); preparation != nil {
+			entry["preparation"] = preparation
 		}
 		casters = append(casters, caster{class: current, casting: casting, progress: progression, pact: pact})
 		perClass = append(perClass, entry)
@@ -664,6 +669,45 @@ func hydrateSpellcasting(
 		"perClass": perClass, "casterLevel": casterLevel, "slots": anyInts(slots),
 		"granted": []any{}, "pendingChoices": []any{}, "castingAbilityChoices": []any{},
 	}
+}
+
+// hydrateCurrencyWorth totals the authored coins in the ruleset's worth coin.
+// Coins the ruleset gives no value are left out of the total.
+func hydrateCurrencyWorth(decisions, sheet Object, ruleset Ruleset) {
+	policy := ruleset.Constants.Currency
+	if policy == nil {
+		return
+	}
+	total := 0.0
+	currency := object(decisions["currency"])
+	for _, coin := range sortedKeys(currency) {
+		total += number(currency[coin], 0) * float64(policy.CoinValues[coin])
+	}
+	sheet["currencyWorth"] = Object{"coin": policy.WorthIn, "value": total / float64(policy.CoinValues[policy.WorthIn])}
+}
+
+// spellPreparation says when a caster may change its prepared list: after a
+// long rest (the source's preparationChange) or on gaining a class level (its
+// levelReplacements, which a subclass may override). It is display guidance;
+// preparation itself is not restricted by it.
+func spellPreparation(casting, subclass Object) Object {
+	change := object(casting["preparationChange"])
+	if text(change["on"]) == "longRest" {
+		if text(change["count"]) == "all" {
+			return Object{"on": "longRest", "count": "all"}
+		}
+		if count := number(change["count"], 0); count >= 1 && count == math.Floor(count) {
+			return Object{"on": "longRest", "count": int(count)}
+		}
+	}
+	replacements := casting["levelReplacements"]
+	if extra := object(subclass["spellcasting"]); extra["levelReplacements"] != nil {
+		replacements = extra["levelReplacements"]
+	}
+	if count := integer(replacements, 0); count > 0 {
+		return Object{"on": "classLevel", "count": count}
+	}
+	return nil
 }
 
 func hydrateWeaponMastery(decisions, sheet Object, classes []resolvedClass, feats []Object, ruleset Ruleset) {
@@ -710,6 +754,7 @@ func hydrateWeaponsAndAttunement(
 	context := attackContext{
 		mods: mods, pb: pb, proficiency: proficiency, mastery: mastery, preferredAbility: preferredAbility,
 		rules: collectAttackRules(sources, classes, activeModifiers), armor: equippedArmor(decisions, records),
+		reach: ruleset.Constants.MeleeReach,
 	}
 	if unarmed := ruleset.Constants.UnarmedStrike; unarmed != nil {
 		weapons = append(weapons, attackRow(Object{

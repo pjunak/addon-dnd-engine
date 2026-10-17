@@ -88,11 +88,17 @@ func scopeCharacterExplanationSources(input character.Inputs, decisions, sheet O
 			set(group+"."+key+".total", refs)
 		}
 	}
+	set("currencyWorth.value", nil)
+	for index := range objects(sheet["weapons"]) {
+		set(fmtIndex("weapons", index)+".reach", nil)
+		set(fmtIndex("weapons", index)+".range", nil)
+	}
 	casters := objects(object(sheet["spellcasting"])["perClass"])
 	for index, caster := range casters {
 		refs := append(classSources(text(caster["classId"])), abilitySources(text(caster["ability"]))...)
 		set(fmtIndex("spellcasting.perClass", index)+".saveDC", refs)
 		set(fmtIndex("spellcasting.perClass", index)+".spellAttack", refs)
+		set(fmtIndex("spellcasting.perClass", index)+".preparedLimit", classSources(text(caster["classId"])))
 	}
 	for _, resource := range objects(sheet["resources"]) {
 		source := object(resource["source"])

@@ -69,6 +69,24 @@ type RulesetConstants struct {
 	Rest                    RestPolicy       `json:"rest"`
 	// Optional: when present every character has this unarmed attack.
 	UnarmedStrike *UnarmedStrike `json:"unarmedStrike,omitempty"`
+	// Optional: when present melee attacks report their reach.
+	MeleeReach *MeleeReach `json:"meleeReach,omitempty"`
+	// Optional: when present the sheet reports the currency's total worth.
+	Currency *CurrencyPolicy `json:"currency,omitempty"`
+}
+
+// MeleeReach is a melee attack's reach; a weapon with the Reach property adds
+// ReachBonus.
+type MeleeReach struct {
+	Base       int `json:"base"`
+	ReachBonus int `json:"reachBonus"`
+}
+
+// CurrencyPolicy gives each coin's value in one common unit, and the coin a
+// character's total worth is expressed in.
+type CurrencyPolicy struct {
+	WorthIn    string         `json:"worthIn"`
+	CoinValues map[string]int `json:"coinValues"`
 }
 
 type UnarmedStrike struct {
@@ -216,6 +234,19 @@ func (ruleset Ruleset) Validate() error {
 	if unarmed := constants.UnarmedStrike; unarmed != nil &&
 		(strings.TrimSpace(unarmed.Name) == "" || unarmed.DamageType == "" || averageDamage(unarmed.Damage) <= 0) {
 		return errors.New("ruleset unarmed strike is invalid")
+	}
+	if reach := constants.MeleeReach; reach != nil && (reach.Base < 1 || reach.ReachBonus < 0) {
+		return errors.New("ruleset melee reach is invalid")
+	}
+	if currency := constants.Currency; currency != nil {
+		if len(currency.CoinValues) == 0 || len(currency.CoinValues) > 20 || currency.CoinValues[currency.WorthIn] < 1 {
+			return errors.New("ruleset currency is invalid")
+		}
+		for coin, value := range currency.CoinValues {
+			if !validStableID(coin) || value < 1 {
+				return errors.New("ruleset currency is invalid")
+			}
+		}
 	}
 	if policy := constants.Character; policy != nil {
 		if policy.MaximumLevel < 1 || policy.MaximumLevel > 20 || policy.MinimumHPGain < 0 || policy.MinimumHPGain > 100 || len(policy.StandardArray) != 6 || policy.RollDice < 1 || policy.RollDice > 20 || policy.RollSides < 2 || policy.RollSides > 100 || policy.RollKeep < 1 || policy.RollKeep > policy.RollDice || strings.TrimSpace(policy.DistanceUnit) == "" || len(policy.DistanceUnit) > 30 {

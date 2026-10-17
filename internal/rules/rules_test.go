@@ -94,3 +94,32 @@ func syntheticRuleset(t testing.TB) Ruleset {
 	}
 	return ruleset
 }
+
+func TestRulesetRejectsInvalidReachAndCurrency(t *testing.T) {
+	t.Parallel()
+	for name, change := range map[string]func(*Ruleset){
+		"zero reach":     func(ruleset *Ruleset) { ruleset.Constants.MeleeReach = &MeleeReach{Base: 0} },
+		"negative bonus": func(ruleset *Ruleset) { ruleset.Constants.MeleeReach = &MeleeReach{Base: 5, ReachBonus: -5} },
+		"unvalued worth": func(ruleset *Ruleset) {
+			ruleset.Constants.Currency = &CurrencyPolicy{WorthIn: "gp", CoinValues: map[string]int{"cp": 1}}
+		},
+		"zero coin value": func(ruleset *Ruleset) {
+			ruleset.Constants.Currency = &CurrencyPolicy{WorthIn: "gp", CoinValues: map[string]int{"gp": 100, "cp": 0}}
+		},
+		"invalid coin key": func(ruleset *Ruleset) {
+			ruleset.Constants.Currency = &CurrencyPolicy{WorthIn: "gp", CoinValues: map[string]int{"gp": 1, "Gold Coin": 1}}
+		},
+	} {
+		ruleset := syntheticRuleset(t)
+		change(&ruleset)
+		if ruleset.Validate() == nil {
+			t.Errorf("%s was accepted", name)
+		}
+	}
+	ruleset := syntheticRuleset(t)
+	ruleset.Constants.MeleeReach = &MeleeReach{Base: 5, ReachBonus: 5}
+	ruleset.Constants.Currency = &CurrencyPolicy{WorthIn: "gp", CoinValues: map[string]int{"cp": 1, "gp": 100}}
+	if err := ruleset.Validate(); err != nil {
+		t.Fatal(err)
+	}
+}

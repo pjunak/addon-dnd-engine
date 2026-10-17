@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"github.com/pjunak/addon-dnd-engine/character"
 	"sort"
 	"strings"
@@ -257,6 +258,7 @@ func characterExplanations(input character.Inputs, sheet Object, evidence []char
 		prefix := fmtIndex("spellcasting.perClass", index)
 		makeExplanation(prefix+".saveDC", "Spell save DC", "base + proficiency bonus + spellcasting ability modifier", caster["saveDC"], character.Term{Label: "Base", Value: profile.Constants.SpellSaveDCBase}, character.Term{Label: "Proficiency bonus", Value: pb}, character.Term{Label: ability + " modifier", Value: modifier})
 		makeExplanation(prefix+".spellAttack", "Spell attack", "proficiency bonus + spellcasting ability modifier", caster["spellAttack"], character.Term{Label: "Proficiency bonus", Value: pb}, character.Term{Label: ability + " modifier", Value: modifier})
+		makeExplanation(prefix+".preparedLimit", "Prepared spells", "the class table's prepared spells at this class level", caster["preparedLimit"], character.Term{Label: "Class level", Value: caster["level"]}, character.Term{Label: "Prepared", Value: caster["preparedCount"]})
 	}
 	for index, weapon := range objects(sheet["weapons"]) {
 		proficiency := 0
@@ -279,13 +281,59 @@ func characterExplanations(input character.Inputs, sheet Object, evidence []char
 		makeExplanation(prefix+".attackBonus", "Weapon attack", "attack ability modifier + proficiency bonus when proficient + attack bonuses", weapon["attackBonus"], append([]character.Term{abilityTerm, {Label: "Applicable proficiency", Value: proficiency}}, modifiers...)...)
 		makeExplanation(prefix+".damage", "Weapon damage", "largest eligible damage die + attack ability modifier + damage bonuses", weapon["damage"], append([]character.Term{abilityTerm, {Label: "Damage type", Value: weapon["damageType"]}}, modifiers...)...)
 		makeExplanation(prefix+".versatileDamage", "Versatile damage", "two-handed weapon dice + attack ability modifier + damage bonuses", weapon["versatileDamage"], append([]character.Term{abilityTerm}, modifiers...)...)
+		var record *character.Reference
+		if ref := text(weapon["ref"]); ref != "" {
+			record = &character.Reference{Kind: "weapon", ID: ref}
+		}
+		if reach, ok := weapon["reach"]; ok && profile.Constants.MeleeReach != nil {
+			terms := []character.Term{{Label: "Melee reach", Value: profile.Constants.MeleeReach.Base}}
+			if contains(stringsOf(weapon["properties"]), "reach") {
+				terms = append(terms, character.Term{Label: "Reach property", Value: profile.Constants.MeleeReach.ReachBonus, Source: record})
+			}
+			makeExplanation(prefix+".reach", "Reach", "melee reach + the Reach property's bonus", reach, terms...)
+		}
+		if distance := object(weapon["range"]); distance != nil {
+			label := "Range"
+			if truth(distance["thrown"]) {
+				label = "Thrown range"
+			}
+			makeExplanation(prefix+".range", label, "normal range / long range from the weapon record",
+				fmt.Sprintf("%d/%d", integer(distance["normal"], 0), integer(distance["long"], 0)),
+				character.Term{Label: "Normal range", Value: distance["normal"], Source: record},
+				character.Term{Label: "Long range", Value: distance["long"], Source: record})
+		}
+	}
+	if worth := object(sheet["currencyWorth"]); worth != nil && profile.Constants.Currency != nil {
+		values := profile.Constants.Currency.CoinValues
+		unit := float64(values[text(worth["coin"])])
+		coins := sortedKeys(input.Play.Currency)
+		// Smallest coin first; coins the ruleset gives no value come last.
+		sort.SliceStable(coins, func(left, right int) bool {
+			leftValue, leftValued := values[coins[left]]
+			rightValue, rightValued := values[coins[right]]
+			if leftValued != rightValued {
+				return leftValued
+			}
+			return leftValue < rightValue
+		})
+		terms := []character.Term{}
+		for _, coin := range coins {
+			amount := input.Play.Currency[coin]
+			if value, valued := values[coin]; valued {
+				terms = append(terms, character.Term{Label: coin, Value: Object{"coins": amount, "worth": amount * float64(value) / unit}})
+			} else if amount != 0 {
+				terms = append(terms, character.Term{Label: coin, Value: Object{"coins": amount}, Status: "inactive"})
+			}
+		}
+		makeExplanation("currencyWorth.value", "Worth", "each coin count × its value, divided by the value of one "+text(worth["coin"]), worth["value"], terms...)
 	}
 	maximum := integer(derived["maxHp"], 0)
 	zero := 0
 	result["play.hp"] = character.Explanation{Label: "Current HP", Formula: "Recorded play value between zero and effective maximum HP.", Value: input.Play.HP, Minimum: &zero, Maximum: &maximum, Terms: []character.Term{{Label: "Effective maximum", Value: maximum}}, Sources: []character.Reference{}}
 	result["play.temporaryHp"] = character.Explanation{Label: "Temporary HP", Formula: "Separate non-negative play pool; it does not increase maximum HP.", Value: input.Play.TemporaryHP, Minimum: &zero, Terms: []character.Term{}, Sources: []character.Reference{}}
 	for path, explanation := range result {
-		if path == "derived.speed" || strings.HasPrefix(path, "senses.") {
+		if path == "derived.speed" || strings.HasPrefix(path, "senses.") ||
+			strings.HasPrefix(path, "weapons.") && (strings.HasSuffix(path, ".reach") || strings.HasSuffix(path, ".range")) {
 			explanation.Unit = "ft"
 			result[path] = explanation
 		}

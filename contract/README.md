@@ -154,6 +154,14 @@ over-capacity only). Each spellbook caster in `sheet.spellcasting.perClass`
 carries `spellbookCapacity`: the spells its levels grant plus copied spells
 recorded as acquisitions; validation uses the same figure.
 
+Every caster also carries `preparedCount`, the distinct spells on its
+`play.preparedSpells` list, beside the existing `preparedLimit`. When the source
+says when the list may change, `preparation` gives `{on, count}`: `on:
+"longRest"` from the class's `spellcasting.preparationChange` (`count` is
+`"all"` or a number of spells), or `on: "classLevel"` from its
+`levelReplacements`. It is guidance for display; preparation is not restricted
+by it. Older projections omit both fields.
+
 Unsupported prerequisites require an exact issue-ID waiver from an authorized
 DM. Narrative content and encounter effects remain visible source facts.
 
@@ -485,6 +493,22 @@ replaces the weapon's die when its average is higher. `match` is a list of
 alternatives over `unarmed`, `range`, `category`, `property` and
 `attackAbility`; `requires` takes the armor conditions above. Applied entries
 appear as `modifiers` on the row and in its explanations.
+
+When the ruleset declares `constants.meleeReach` (`{base, reachBonus}`), melee
+weapons and the unarmed strike give their `reach`, with `reachBonus` added for
+the `reach` property. A ranged weapon's `rangeNormalLong` and a thrown weapon's
+`thrownRange` become `range: {normal, long}`, with `thrown: true` for the
+latter; a thrown melee weapon has both. The `weapons.<n>.reach` and
+`weapons.<n>.range` explanations carry the ruleset's distance unit. Older
+projections omit these fields.
+
+## Currency worth
+
+When the ruleset declares `constants.currency` (`{worthIn, coinValues}`, each
+coin's value in one common unit), `sheet.currencyWorth` gives `{coin, value}`:
+the authored `play.currency` total expressed in the `worthIn` coin, unrounded.
+Coins without a value are left out and listed as inactive terms in the
+`currencyWorth.value` explanation.
 
 ## Provider contract
 

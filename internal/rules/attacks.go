@@ -144,6 +144,18 @@ type attackContext struct {
 	preferredAbility string
 	rules            []attackRule
 	armor            armorState
+	reach            *MeleeReach
+}
+
+// weaponDistance reads a record's {normal, long} range in the ruleset's
+// distance unit; anything else is no range.
+func weaponDistance(value any) (Object, bool) {
+	distance := object(value)
+	normal, long := integer(distance["normal"], 0), integer(distance["long"], 0)
+	if normal < 1 || long < normal {
+		return nil, false
+	}
+	return Object{"normal": normal, "long": long}, true
 }
 
 // attackRow computes one attack. weapon is the weapon record, or the ruleset's
@@ -229,6 +241,20 @@ func attackRow(weapon Object, unarmed bool, context attackContext) Object {
 	if unarmed {
 		row["unarmed"] = true
 		delete(row, "ref")
+	}
+	if reach := context.reach; reach != nil && (unarmed || text(weapon["range"]) == "melee") {
+		row["reach"] = reach.Base
+		if contains(properties, "reach") {
+			row["reach"] = reach.Base + reach.ReachBonus
+		}
+	}
+	// Ranged weapons have a normal/long range; thrown melee weapons keep their
+	// reach and add the thrown range.
+	if distance, ok := weaponDistance(weapon["rangeNormalLong"]); ok && text(weapon["range"]) == "ranged" {
+		row["range"] = distance
+	} else if distance, ok := weaponDistance(weapon["thrownRange"]); ok && contains(properties, "thrown") {
+		distance["thrown"] = true
+		row["range"] = distance
 	}
 	if len(applied) > 0 {
 		row["modifiers"] = applied

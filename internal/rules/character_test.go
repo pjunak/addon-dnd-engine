@@ -411,3 +411,34 @@ func TestSetAbilityScoresAboveTheCapReachTheSheet(t *testing.T) {
 		t.Fatalf("an addition passed the cap: %v", got)
 	}
 }
+
+func TestCharacterExplainsWeaponRangeAndCurrencyWorth(t *testing.T) {
+	input, _, profile := characterFixture(t)
+	profile.Constants.Character.DistanceUnit = "m"
+	profile.Constants.MeleeReach = &MeleeReach{Base: 5, ReachBonus: 5}
+	profile.Constants.Currency = &CurrencyPolicy{WorthIn: "gp", CoinValues: map[string]int{"cp": 1, "sp": 10, "gp": 100}}
+	records := newMemoryRecords([]Object{
+		{"kind": "class", "id": "fighter", "name": "Fighter", "hitDie": "d10", "subclassLevel": 3},
+		{"kind": "species", "id": "dwarf", "name": "Dwarf", "speeds": Object{"walk": 30}},
+		{"kind": "background", "id": "artisan", "name": "Artisan"},
+		{"kind": "weapon", "id": "javelin", "name": "Javelin", "category": "simple", "range": "melee", "damage": "1d6",
+			"damageType": "piercing", "properties": []any{"thrown"}, "thrownRange": Object{"normal": 30, "long": 120}},
+	})
+	input.Play.Inventory = []character.Item{{ID: "javelins", Reference: &character.Reference{Kind: "weapon", ID: "javelin"}, Name: "Javelin", Quantity: 4, Location: "equipped"}}
+	input.Play.Currency = map[string]float64{"ep": 3, "cp": 12, "gp": 87}
+	result := EvaluateCharacter(input, records, profile)
+	if !result.Ready {
+		t.Fatalf("blockers: %+v", result.Issues)
+	}
+	reach, distance := result.Explanations["weapons.0.reach"], result.Explanations["weapons.0.range"]
+	// Distances use the ruleset's unit and cite the weapon record they come from.
+	if reach.Value != 5 || reach.Unit != "m" || distance.Value != "30/120" || distance.Unit != "m" || distance.Label != "Thrown range" ||
+		!reflect.DeepEqual(distance.Sources, []character.Reference{{Kind: "weapon", ID: "javelin"}}) {
+		t.Fatalf("reach = %+v, range = %+v", reach, distance)
+	}
+	worth := result.Explanations["currencyWorth.value"]
+	if worth.Value != 87.12 || len(worth.Sources) != 0 || len(worth.Terms) != 3 || worth.Terms[0].Label != "cp" ||
+		worth.Terms[2].Label != "ep" || worth.Terms[2].Status != "inactive" {
+		t.Fatalf("worth = %+v", worth)
+	}
+}

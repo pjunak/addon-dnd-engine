@@ -2,6 +2,7 @@ package rules
 
 import (
 	"encoding/json"
+	"reflect"
 	"testing"
 )
 
@@ -378,5 +379,62 @@ func TestClassTrainingUsesDeclaredToolChoicesAndWeaponSubsets(t *testing.T) {
 		if truth(weapon["proficient"]) != (text(weapon["ref"]) == "scimitar") {
 			t.Fatalf("weapon = %+v", weapon)
 		}
+	}
+}
+
+func TestHydrateReportsSpellPreparation(t *testing.T) {
+	t.Parallel()
+	profile := syntheticRuleset(t)
+	caster := func(id string, casting Object) Object {
+		casting["ability"], casting["type"], casting["prepares"] = "CHA", "full", "list"
+		return Object{"kind": "class", "id": id, "name": id, "hitDie": "d8", "spellcasting": casting,
+			"progression": []any{Object{"level": 1, "preparedSpells": 4}}}
+	}
+	records := newMemoryRecords([]Object{
+		caster("cleric", Object{"preparationChange": Object{"on": "longRest", "count": "all"}}),
+		caster("paladin", Object{"preparationChange": Object{"on": "longRest", "count": 1}}),
+		caster("bard", Object{"levelReplacements": 1}),
+		caster("warlock", Object{"preparationChange": Object{"on": "longRest", "count": 0}}),
+	})
+	result := Hydrate(Object{
+		"classes": []any{Object{"classId": "cleric", "level": 1}, Object{"classId": "paladin", "level": 1},
+			Object{"classId": "bard", "level": 1}, Object{"classId": "warlock", "level": 1}},
+		"preparedSpells": Object{"cleric": []any{"bless", "bless", "cure-wounds"}},
+	}, records, &profile)
+	casters := map[string]Object{}
+	for _, raw := range values(object(result.Sheet["spellcasting"])["perClass"]) {
+		casters[text(object(raw)["classId"])] = object(raw)
+	}
+	for id, want := range map[string]any{
+		"cleric":  Object{"on": "longRest", "count": "all"},
+		"paladin": Object{"on": "longRest", "count": 1},
+		"bard":    Object{"on": "classLevel", "count": 1},
+		"warlock": nil,
+	} {
+		if got := casters[id]["preparation"]; !reflect.DeepEqual(got, want) {
+			t.Errorf("%s preparation = %v, want %v", id, got, want)
+		}
+	}
+	// The count is the distinct prepared spells; the limit stays the class table's.
+	if cleric := casters["cleric"]; integer(cleric["preparedCount"], -1) != 2 || integer(cleric["preparedLimit"], 0) != 4 {
+		t.Fatalf("cleric = %+v", cleric)
+	}
+	if integer(casters["paladin"]["preparedCount"], -1) != 0 {
+		t.Fatalf("paladin = %+v", casters["paladin"])
+	}
+}
+
+func TestHydrateTotalsCurrencyWorth(t *testing.T) {
+	t.Parallel()
+	profile := syntheticRuleset(t)
+	decisions := Object{"currency": Object{"cp": 12.0, "sp": 30.0, "ep": 0.0, "gp": 87.0, "pp": 2.0, "shells": 9.0}}
+	if worth := Hydrate(decisions, syntheticRecords(), &profile).Sheet["currencyWorth"]; worth != nil {
+		t.Fatalf("worth without coin values = %v", worth)
+	}
+	profile.Constants.Currency = &CurrencyPolicy{WorthIn: "gp", CoinValues: map[string]int{"cp": 1, "sp": 10, "ep": 50, "gp": 100, "pp": 1000}}
+	// Coins the ruleset does not value are not counted.
+	worth := object(Hydrate(decisions, syntheticRecords(), &profile).Sheet["currencyWorth"])
+	if text(worth["coin"]) != "gp" || number(worth["value"], 0) != 110.12 {
+		t.Fatalf("worth = %+v", worth)
 	}
 }

@@ -1,6 +1,9 @@
 package rules
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+)
 
 func attackRecords() memoryRecords {
 	records := classMechanicsRecords()
@@ -96,5 +99,50 @@ func TestAttackModifiersApplyMartialArtsRageAndArchery(t *testing.T) {
 	}
 	if rapier := attackNamed(rage(false), "Rapier"); rapier["damage"] != "1d8 +3" || rapier["modifiers"] != nil {
 		t.Fatalf("calm rapier = %+v", rapier)
+	}
+}
+
+func TestAttackRowsGiveReachAndRange(t *testing.T) {
+	t.Parallel()
+	profile := syntheticRuleset(t)
+	profile.Constants.UnarmedStrike = &UnarmedStrike{Name: "Unarmed Strike", Damage: "1", DamageType: "bludgeoning"}
+	records := attackRecords()
+	put := func(record Object) { records.byKind["weapon"][text(record["id"])] = mustJSON(record) }
+	put(Object{"kind": "weapon", "id": "glaive", "name": "Glaive", "category": "martial", "range": "melee",
+		"damage": "1d10", "damageType": "slashing", "properties": []any{"heavy", "reach", "two-handed"}})
+	put(Object{"kind": "weapon", "id": "javelin", "name": "Javelin", "category": "simple", "range": "melee",
+		"damage": "1d6", "damageType": "piercing", "properties": []any{"thrown"}, "thrownRange": Object{"normal": 30, "long": 120}})
+	put(Object{"kind": "weapon", "id": "dart", "name": "Dart", "category": "simple", "range": "ranged",
+		"damage": "1d4", "damageType": "piercing", "properties": []any{"finesse", "thrown"}, "thrownRange": Object{"normal": 20, "long": 60}})
+	put(Object{"kind": "weapon", "id": "longbow", "name": "Longbow", "category": "martial", "range": "ranged",
+		"damage": "1d8", "damageType": "piercing", "properties": []any{"ammunition", "heavy", "two-handed"}, "rangeNormalLong": Object{"normal": 150, "long": 600}})
+	decisions := Object{
+		"classes": []any{Object{"classId": "brute", "level": 1}},
+		"inventory": []any{Object{"ref": "club", "location": "equipped"}, Object{"ref": "glaive", "location": "equipped"},
+			Object{"ref": "javelin", "location": "equipped"}, Object{"ref": "dart", "location": "equipped"}, Object{"ref": "longbow", "location": "equipped"}},
+	}
+	// Without the ruleset's melee reach, rows still carry the record's ranges.
+	plain := Hydrate(decisions, records, &profile).Sheet
+	if club := attackNamed(plain, "Club"); club["reach"] != nil || club["range"] != nil {
+		t.Fatalf("club without reach rules = %+v", club)
+	}
+	if bow := attackNamed(plain, "Longbow"); !reflect.DeepEqual(bow["range"], Object{"normal": 150, "long": 600}) {
+		t.Fatalf("longbow range = %+v", bow["range"])
+	}
+
+	profile.Constants.MeleeReach = &MeleeReach{Base: 5, ReachBonus: 5}
+	sheet := Hydrate(decisions, records, &profile).Sheet
+	for name, want := range map[string]Object{
+		"Unarmed Strike": {"reach": 5},
+		"Club":           {"reach": 5},
+		"Glaive":         {"reach": 10},
+		"Javelin":        {"reach": 5, "range": Object{"normal": 30, "long": 120, "thrown": true}},
+		"Dart":           {"range": Object{"normal": 20, "long": 60, "thrown": true}},
+		"Longbow":        {"range": Object{"normal": 150, "long": 600}},
+	} {
+		row := attackNamed(sheet, name)
+		if !reflect.DeepEqual(row["reach"], want["reach"]) || !reflect.DeepEqual(row["range"], want["range"]) {
+			t.Errorf("%s reach/range = %v / %v, want %v", name, row["reach"], row["range"], want)
+		}
 	}
 }

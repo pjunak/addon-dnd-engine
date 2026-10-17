@@ -123,6 +123,9 @@ blocked.
 Subclass feature rows resolve inline local IDs to canonical records within the
 owning class/subclass. Record levels govern acquisition; unrelated or future
 features never satisfy a prerequisite. Inline-only features remain readable.
+A class table label with no class record resolves to a shared generic feature
+record of that name (`shared: true`, such as Ability Score Improvement), so its
+text reaches the evidence; any other unmatched label stays label-only.
 The additive `sheet.feats` array retains each acquired feat's `id`, `name` and
 `count`, with prose in the existing bounded evidence. It contains acquired feats,
 not the option catalog. Consumers can render saved feat details without live

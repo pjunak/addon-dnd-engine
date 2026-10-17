@@ -8,6 +8,14 @@ import (
 func hydrateFeatures(sheet Object, classes []resolvedClass, records Records) {
 	features := make([]any, 0)
 	allRecords := recordCatalog(records, "feature")
+	// Generic slots such as Ability Score Improvement are one shared record that
+	// many class tables name, so a label without a class record falls back to it.
+	shared := make(map[string]Object)
+	for _, feature := range allRecords {
+		if truth(feature["shared"]) {
+			shared[normalizedName(feature["name"])] = feature
+		}
+	}
 	for _, current := range classes {
 		ownedNames := make(map[string]struct{})
 		recordsAt := make(map[int][]Object)
@@ -55,6 +63,10 @@ func hydrateFeatures(sheet Object, classes []resolvedClass, records Records) {
 					taken[text(match["id"])] = struct{}{}
 					features = append(features, Object{
 						"id": text(match["id"]), "name": text(match["name"]), "source": source,
+					})
+				} else if generic := shared[normalizedName(label)]; generic != nil {
+					features = append(features, Object{
+						"id": text(generic["id"]), "name": text(generic["name"]), "source": source,
 					})
 				} else if _, drifted := ownedNames[normalizedName(label)]; !drifted {
 					features = append(features, Object{"id": label, "source": source})

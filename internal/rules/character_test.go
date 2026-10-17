@@ -104,6 +104,34 @@ func TestCharacterKnownSpellSwapHasRecordedLevelAndCannotRepeat(t *testing.T) {
 	}
 }
 
+// Eldritch Knight and Arcane Trickster declare their level-up replacement on
+// the subclass, because their class is not a caster.
+func TestSubclassCasterDeclaresLevelReplacements(t *testing.T) {
+	t.Parallel()
+	records, profile := syntheticRecords(), syntheticRuleset(t)
+	records.byKind["subclass"] = newMemoryRecords([]Object{{"kind": "subclass", "id": "arcane-guard", "classId": "fighter",
+		"spellcasting": Object{"type": "third", "ability": "INT", "prepares": "list", "levelReplacements": 1},
+		"progression":  []any{Object{"level": 3, "preparedSpells": 3, "spellSlots": []any{2, 0, 0, 0}}},
+	}}).byKind["subclass"]
+	sheet := Hydrate(Object{"classes": []any{Object{"classId": "fighter", "level": 3, "subclass": "arcane-guard"}}}, records, &profile).Sheet
+	caster := objects(object(sheet["spellcasting"])["perClass"])[0]
+	if want := (Object{"on": "classLevel", "count": 1}); !reflect.DeepEqual(caster["preparation"], want) {
+		t.Fatalf("preparation = %v, want %v", caster["preparation"], want)
+	}
+	input := character.Blank()
+	for i := 0; i < 3; i++ {
+		input.Build.Levels = append(input.Build.Levels, character.Level{ID: fmt.Sprintf("level-%d", i), ClassID: "fighter"})
+	}
+	input.Build.Subclasses["fighter"] = "arcane-guard"
+	if got := characterSpellReplacements(input, records, "fighter"); got != 1 {
+		t.Fatalf("replacements = %d, want 1", got)
+	}
+	input.Build.Spells.Swaps = append(input.Build.Spells.Swaps, character.SpellSwap{ClassID: "fighter", ClassLevel: 3, Out: "shield", In: "jump"})
+	if got := characterSpellReplacements(input, records, "fighter"); got != 0 {
+		t.Fatalf("replacements after this level's swap = %d, want 0", got)
+	}
+}
+
 func mustJSON(value any) json.RawMessage {
 	body, err := json.Marshal(value)
 	if err != nil {

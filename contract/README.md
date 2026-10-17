@@ -120,6 +120,19 @@ an `unavailable-choice`; the coordinator can withdraw only its previously saved
 value through ordinary dependent-choice repair. New illegal assignments remain
 blocked.
 
+Option features are feature records with a `category` (Eldritch Invocations,
+maneuvers, Metamagic). A class, subclass or feature offers them through a
+choice with `fromCategory`; its descriptor keeps `fromCategory` and lists
+`repeatableOptions`. Only chosen options are acquired: each appears once in
+`sheet.features` (with `category`, its owning class or subclass as the source,
+its record level, and `count` when a repeatable option fills several slots),
+contributes its grants and offers its own choices once per slot that chose it.
+Unchosen options grant nothing. An option's `prerequisite.level` is a level in
+its own class and `prerequisite.feature` an acquired feature; options that do
+not meet them are not offered, and a selection that loses them becomes an
+`invalid-option` to repair. A repeatable option may fill several slots of one
+choice; other options must differ.
+
 Subclass feature rows resolve inline local IDs to canonical records within the
 owning class/subclass. Record levels govern acquisition; unrelated or future
 features never satisfy a prerequisite. Inline-only features remain readable.

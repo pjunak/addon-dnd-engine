@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-func hydrateFeatures(sheet Object, classes []resolvedClass, records Records) {
+func hydrateFeatures(sheet Object, classes []resolvedClass, records Records, selections Object) {
 	features := make([]any, 0)
 	allRecords := recordCatalog(records, "feature")
 	// Generic slots such as Ability Score Improvement are one shared record that
@@ -82,9 +82,27 @@ func hydrateFeatures(sheet Object, classes []resolvedClass, records Records) {
 			}
 		}
 		features = append(features, subclassFeatures(current, records, allRecords)...)
-
+		features = append(features, optionFeatureRows(current, records, selections)...)
 	}
 	sheet["features"] = features
+}
+
+// Chosen options are acquired features of the class (or subclass) that
+// offers them, listed at the level their record names.
+func optionFeatureRows(current resolvedClass, records Records, selections Object) []any {
+	rows := []any{}
+	for _, option := range chosenOptions(current.ID, current.Level, current.Subclass, selections, records) {
+		source := Object{"type": "class", "id": current.ID, "level": min(current.Level, max(1, integer(option.feature["level"], 1)))}
+		if subclassID := text(option.feature["subclassId"]); subclassID != "" {
+			source["type"], source["id"] = "subclass", subclassID
+		}
+		row := Object{"id": text(option.feature["id"]), "name": text(option.feature["name"]), "source": source, "category": text(option.feature["category"])}
+		if option.count > 1 {
+			row["count"] = option.count
+		}
+		rows = append(rows, row)
+	}
+	return rows
 }
 
 // Inline subclass tables use local IDs. Resolve them within their owning

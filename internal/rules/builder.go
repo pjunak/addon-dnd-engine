@@ -217,13 +217,21 @@ func collectClassChoices(classes []any, selections Object, records Records, rule
 		}
 		appendRecordChoices(&result, subclass["grants"], context)
 		for _, feature := range recordCatalog(records, "feature") {
-			if text(feature["classId"]) != classID || integer(feature["level"], 0) > classLevel ||
+			if text(feature["classId"]) != classID || text(feature["category"]) != "" || integer(feature["level"], 0) > classLevel ||
 				text(feature["subclassId"]) != "" && text(feature["subclassId"]) != subclassID {
 				continue
 			}
 			appendRecordChoices(&result, feature["grants"], choiceContext{
 				owner: text(feature["id"]), classID: classID, classLevel: classLevel, sourceType: "feature",
 				fallbackLevel: integer(feature["level"], 1), records: records, masteryEnabled: masteryEnabled, selections: selections,
+			})
+		}
+		// A chosen option offers its own choices once per slot that chose it.
+		for _, option := range chosenOptions(classID, classLevel, subclassID, selections, records) {
+			appendRecordChoices(&result, option.feature["grants"], choiceContext{
+				owner: text(option.feature["id"]), classID: classID, classLevel: classLevel, sourceType: "feature",
+				fallbackLevel: min(classLevel, max(1, integer(option.feature["level"], 1))), records: records,
+				masteryEnabled: masteryEnabled, selections: selections, multiplier: option.count,
 			})
 		}
 		levels := make(map[int]struct{})
@@ -281,6 +289,8 @@ type choiceContext struct {
 	records                    Records
 	masteryEnabled             bool
 	selections                 Object
+	// multiplier scales the slot counts of a repeatable option's own choices.
+	multiplier int
 }
 
 func appendRecordChoices(result *[]any, rawGrants any, context choiceContext) {
@@ -294,11 +304,15 @@ func appendRecordChoices(result *[]any, rawGrants any, context choiceContext) {
 			continue
 		}
 		from := choice["from"]
+		repeatable := []string{}
 		if values(from) == nil && text(choice["fromCategory"]) != "" {
 			ids := make([]string, 0)
 			for _, option := range recordCatalog(context.records, "feature") {
 				if text(option["category"]) == text(choice["fromCategory"]) {
 					ids = append(ids, text(option["id"]))
+					if truth(option["repeatable"]) {
+						repeatable = append(repeatable, text(option["id"]))
+					}
 				}
 			}
 			from = anyStrings(ids)
@@ -307,15 +321,7 @@ func appendRecordChoices(result *[]any, rawGrants any, context choiceContext) {
 		if kind == "weaponMastery" && !context.masteryEnabled {
 			continue
 		}
-		count := max(1, integer(choice["count"], 1))
-		selectedLevel := -1
-		for level, amount := range object(choice["countByLevel"]) {
-			parsed := integer(level, 0)
-			if parsed <= context.classLevel && parsed > selectedLevel {
-				selectedLevel = parsed
-				count = max(1, integer(amount, count))
-			}
-		}
+		count := choiceCountAt(choice, context.classLevel) * max(1, context.multiplier)
 		descriptor := Object{
 			"id": text(choice["id"]), "kind": kind, "count": count,
 			"classId": context.classID,
@@ -324,6 +330,12 @@ func appendRecordChoices(result *[]any, rawGrants any, context choiceContext) {
 		copyChoiceFields(descriptor, choice)
 		if from != nil {
 			descriptor["from"] = cloneValue(from)
+		}
+		if category := text(choice["fromCategory"]); category != "" {
+			descriptor["fromCategory"] = category
+			if len(repeatable) > 0 {
+				descriptor["repeatableOptions"] = anyStrings(repeatable)
+			}
 		}
 		*result = append(*result, descriptor)
 	}
@@ -531,7 +543,8 @@ func choiceValues(source, choice Object) []string {
 		if index == 0 && value == "" {
 			value = text(choice["default"])
 		}
-		if value != "" && !contains(result, value) {
+		// A repeatable option may fill several slots of the same choice.
+		if value != "" && (!contains(result, value) || contains(stringsOf(choice["repeatableOptions"]), value)) {
 			result = append(result, value)
 		}
 	}

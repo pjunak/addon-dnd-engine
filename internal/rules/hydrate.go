@@ -101,6 +101,7 @@ func Hydrate(decisions Object, records Records, ruleset *Ruleset) HydrationResul
 	sheet["featIdentities"] = identities
 	grantSources := applyChoicePackages(collectGrantSources(
 		classes, species, lineage, background, featRecords, objects(decisions["featAcquisitions"]), records, totalLevel,
+		object(decisions["featureChoices"]),
 	), object(decisions["featureChoices"]))
 	activeModifiers := activeGrantModifiers(decisions, sheet, grantSources, classes, records)
 	sheet["speed"] = integer(sheet["speed"], 0) + grantTotal(grantSources, "speedBonus")
@@ -121,7 +122,7 @@ func Hydrate(decisions Object, records Records, ruleset *Ruleset) HydrationResul
 	hydrateSpellGrants(decisions, sheet, classes, featRecords, grantSources, records)
 	hydrateWeaponMastery(decisions, sheet, classes, featRecords, *ruleset)
 	hydrateWeaponsAndAttunement(decisions, sheet, classes, records, mods, pb, *ruleset, grantSources, activeModifiers, warn)
-	hydrateFeatures(sheet, classes, records)
+	hydrateFeatures(sheet, classes, records, object(decisions["featureChoices"]))
 	hydrateResources(decisions, sheet, classes, grantSources, records, *ruleset, pb)
 	hydrateCurrencyWorth(decisions, sheet, *ruleset)
 

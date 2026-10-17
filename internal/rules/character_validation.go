@@ -104,7 +104,7 @@ func validateCharacter(input character.Inputs, decisions Object, records Records
 			continue
 		}
 		if selected, ok := value.(string); ok && selected != "" {
-			if valueKey := choice.ID + "/" + selected; choiceValues[valueKey] {
+			if valueKey := choice.ID + "/" + selected; choiceValues[valueKey] && !contains(stringsOf(descriptor["repeatableOptions"]), selected) {
 				block("duplicate-option:"+key, choice.ID, "Choose distinct options for each slot.")
 			} else {
 				choiceValues[valueKey] = true

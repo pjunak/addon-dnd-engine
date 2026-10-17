@@ -267,6 +267,9 @@ func builderChoiceOptions(choice, sheet Object, records Records) []any {
 			}
 		case "enumerated":
 			record = recordByID(records, "feature", id)
+			if text(choice["fromCategory"]) != "" && (record == nil || !optionPrerequisiteMet(record, sheet)) {
+				continue
+			}
 		}
 		option := guidanceOption(id, record)
 		if kind == "size" {

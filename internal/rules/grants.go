@@ -16,6 +16,7 @@ func collectGrantSources(
 	acquisitions []Object,
 	records Records,
 	totalLevel int,
+	selections Object,
 ) []grantSource {
 	result := make([]grantSource, 0)
 	add := func(record, source Object, level int) {
@@ -33,13 +34,17 @@ func collectGrantSources(
 		subclass := recordByID(records, "subclass", current.Subclass)
 		add(subclass, Object{"type": "subclass", "id": current.Subclass}, current.Level)
 		for _, feature := range features {
-			if text(feature["classId"]) != current.ID || integer(feature["level"], 0) > current.Level {
+			if text(feature["classId"]) != current.ID || text(feature["category"]) != "" || integer(feature["level"], 0) > current.Level {
 				continue
 			}
 			if subclassID := text(feature["subclassId"]); subclassID != "" && subclassID != current.Subclass {
 				continue
 			}
 			add(feature, Object{"type": "feature", "id": text(feature["id"])}, current.Level)
+		}
+		// Unchosen options are reference text; only chosen ones grant anything.
+		for _, option := range chosenOptions(current.ID, current.Level, current.Subclass, selections, records) {
+			add(option.feature, Object{"type": "feature", "id": text(option.feature["id"])}, current.Level)
 		}
 	}
 	add(species, Object{"type": "species", "id": text(species["id"])}, totalLevel)

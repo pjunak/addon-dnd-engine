@@ -580,6 +580,12 @@ armor conditions above. `attackBonusAbility` adds that ability's modifier,
 at least `min` (Sacred Weapon). Applied entries appear as `modifiers` on the
 row and in its explanations.
 
+An active modifier with `target: "weaponAbility"` lets proficient weapon
+attacks use its `ability` when higher (Bladesong). It takes the same `match`
+and `requires`; with `proficient: true` the matching weapons are proficient
+while it is active (a Pact Weapon, applied to every matching weapon rather
+than one bonded item).
+
 `grants.attacks` declares weapons a feature creates, such as Psychic Blades or
 an Armorer's armor weapons: `id`, `name`, `damage`, `damageType`, `range`,
 `category`, `properties`, `rangeNormalLong`/`thrownRange`, `mastery` (with

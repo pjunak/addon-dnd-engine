@@ -142,14 +142,16 @@ func withModifier(damage string, modifier int) string {
 }
 
 type attackContext struct {
-	mods             map[string]int
-	pb               int
-	proficiency      weaponProf
-	mastery          map[string]struct{}
-	preferredAbility string
-	rules            []attackRule
-	armor            armorState
-	reach            *MeleeReach
+	mods        map[string]int
+	pb          int
+	proficiency weaponProf
+	mastery     map[string]struct{}
+	// weaponAbilities are active weaponAbility modifiers, such as Bladesong's
+	// Intelligence or a Pact Weapon's Charisma.
+	weaponAbilities []Object
+	rules           []attackRule
+	armor           armorState
+	reach           *MeleeReach
 	// criticalRange is the lowest d20 roll that scores a Critical Hit, when
 	// a grant lowers it below 20.
 	criticalRange int
@@ -178,6 +180,10 @@ func attackRow(weapon Object, unarmed bool, context attackContext) Object {
 			text(weapon["category"]) == "martial" && (prof.martial ||
 				prof.martialLight && contains(properties, "light") ||
 				prof.martialFinesseLight && (contains(properties, "finesse") || contains(properties, "light")))
+		// A Pact Weapon is proficient while its activation is on.
+		for _, option := range context.weaponAbilities {
+			proficient = proficient || truth(option["proficient"]) && attackRuleApplies(option, weapon, unarmed, "", context.armor)
+		}
 	}
 	abilityName := "STR"
 	if !unarmed && text(weapon["range"]) == "ranged" {
@@ -196,8 +202,10 @@ func attackRow(weapon Object, unarmed bool, context attackContext) Object {
 	if ability := text(weapon["ability"]); ability != "" {
 		choose(ability)
 	}
-	if proficient && context.preferredAbility != "" {
-		choose(context.preferredAbility)
+	for _, option := range context.weaponAbilities {
+		if proficient && attackRuleApplies(option, weapon, unarmed, "", context.armor) {
+			choose(text(option["ability"]))
+		}
 	}
 	// Ability options (Martial Arts) are chosen before bonuses that depend on
 	// the ability used (Rage).

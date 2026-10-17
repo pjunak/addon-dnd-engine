@@ -823,15 +823,14 @@ func hydrateWeaponsAndAttunement(
 	}
 	weapons := make([]any, 0)
 	attuned := 0
-	preferredAbility := ""
+	weaponAbilities := make([]Object, 0)
 	for _, modifier := range activeModifiers {
 		if text(modifier["target"]) == "weaponAbility" && text(modifier["ability"]) != "" {
-			preferredAbility = text(modifier["ability"])
-			break
+			weaponAbilities = append(weaponAbilities, modifier)
 		}
 	}
 	context := attackContext{
-		mods: mods, pb: pb, proficiency: proficiency, mastery: mastery, preferredAbility: preferredAbility,
+		mods: mods, pb: pb, proficiency: proficiency, mastery: mastery, weaponAbilities: weaponAbilities,
 		rules: collectAttackRules(sources, classes, activeModifiers), armor: equippedArmor(decisions, records),
 		reach: ruleset.Constants.MeleeReach,
 	}

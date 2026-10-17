@@ -102,6 +102,44 @@ func TestAttackModifiersApplyMartialArtsRageAndArchery(t *testing.T) {
 	}
 }
 
+func TestPactWeaponActivationGrantsProficiencyAndCharisma(t *testing.T) {
+	t.Parallel()
+	profile := syntheticRuleset(t)
+	profile.Constants.UnarmedStrike = &UnarmedStrike{Name: "Unarmed Strike", Damage: "1", DamageType: "bludgeoning"}
+	records := attackRecords()
+	put := func(kind string, record Object) { records.byKind[kind][text(record["id"])] = mustJSON(record) }
+	put("class", Object{"kind": "class", "id": "hexer", "name": "Hexer", "hitDie": "d8",
+		"startingProficiencies": Object{"weapons": []any{"simple"}}})
+	put("feature", Object{"kind": "feature", "id": "hexer-pact", "name": "Pact", "classId": "hexer", "level": 1,
+		"activations": []any{Object{"id": "pact-weapon", "name": "Pact Weapon", "modifiers": []any{Object{
+			"target": "weaponAbility", "ability": "CHA", "proficient": true,
+			"match": []any{Object{"range": "melee", "unarmed": false}},
+		}}}}})
+	sheet := func(active bool) Object {
+		return Hydrate(Object{
+			"baseStats":      Object{"STR": 12, "DEX": 10, "CHA": 18},
+			"classes":        []any{Object{"classId": "hexer", "level": 1}},
+			"inventory":      []any{Object{"ref": "rapier", "location": "equipped"}, Object{"ref": "shortbow", "location": "equipped"}},
+			"activeFeatures": Object{"feature:hexer-pact:pact-weapon": active},
+		}, records, &profile).Sheet
+	}
+	// The pact weapon is proficient and uses Charisma: +2 proficiency +4 CHA.
+	pact := sheet(true)
+	if rapier := attackNamed(pact, "Rapier"); rapier["ability"] != "CHA" || !truth(rapier["proficient"]) || integer(rapier["attackBonus"], 0) != 6 {
+		t.Fatalf("pact rapier = %+v", rapier)
+	}
+	// The pact covers melee weapons only, never an unarmed strike or a bow.
+	if unarmed := attackNamed(pact, "Unarmed Strike"); unarmed["ability"] != "STR" {
+		t.Fatalf("pact unarmed = %+v", unarmed)
+	}
+	if bow := attackNamed(pact, "Shortbow"); bow["ability"] != "DEX" {
+		t.Fatalf("pact bow = %+v", bow)
+	}
+	if rapier := attackNamed(sheet(false), "Rapier"); rapier["ability"] == "CHA" || truth(rapier["proficient"]) {
+		t.Fatalf("rapier without the pact = %+v", rapier)
+	}
+}
+
 func TestAttackRowsGiveReachAndRange(t *testing.T) {
 	t.Parallel()
 	profile := syntheticRuleset(t)

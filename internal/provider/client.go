@@ -86,9 +86,11 @@ type Repository struct {
 	records  map[string]map[string]Record
 }
 
+// engineKinds are the record kinds a character evaluation reads; monsters are
+// the stat blocks feature choices offer, such as Wild Shape's known forms.
 var engineKinds = [...]string{
 	"armor", "background", "class", "feat", "feature", "skill", "species",
-	"spell", "subclass", "tool", "weapon", "magic-item", "gear",
+	"spell", "subclass", "tool", "weapon", "magic-item", "gear", "monster",
 }
 
 func New(caller workerrpc.ServiceCaller, providerIDs ...string) (*Client, error) {

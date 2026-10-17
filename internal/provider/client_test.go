@@ -133,6 +133,46 @@ func TestRepositoryKeepsDuplicateNamesAddressableByID(t *testing.T) {
 	}
 }
 
+// Feature choices offer stat blocks (Wild Shape forms), so monsters load too.
+func TestRepositoryLoadsMonsterStatBlocksForFeatureChoices(t *testing.T) {
+	t.Parallel()
+	base := &rulesDataCaller{t: t}
+	caller := serviceCallerFunc(func(ctx context.Context, method string, params any, meta *workerrpc.Meta) (json.RawMessage, error) {
+		body, _ := json.Marshal(params)
+		var request struct {
+			Method string `json:"method"`
+			Params struct {
+				Kind string `json:"kind"`
+			} `json:"params"`
+		}
+		_ = json.Unmarshal(body, &request)
+		switch {
+		case request.Method == "catalog":
+			_, _ = base.Call(ctx, method, params, meta)
+			return serviceEnvelope(`{
+				"contractVersion":"content-catalog.v1","sets":[{
+					"id":"rules","revision":"fixture-1","schemaSha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					"recordCount":3,"kinds":{"class":1,"monster":1,"ruleset":1}
+				}]
+			}`), nil
+		case request.Method == "query" && request.Params.Kind == "monster":
+			return serviceEnvelope(`{
+				"contractVersion":"content-query-result.v1","setId":"rules","revision":"fixture-1",
+				"records":[{"kind":"monster","id":"wolf","value":{"kind":"monster","id":"wolf","name":"Wolf","creatureType":"Beast"}}]
+			}`), nil
+		}
+		return base.Call(ctx, method, params, meta)
+	})
+	client, _ := New(caller)
+	repository, err := client.Repository(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded, ok := repository.Get("monster", "wolf"); !ok || loaded.ID != "wolf" {
+		t.Fatalf("monster lookup = %+v, %v", loaded, ok)
+	}
+}
+
 func TestRepositoryRefreshesChangedRevisionAndGenerationWithoutServingMissingProvider(t *testing.T) {
 	t.Parallel()
 	caller := &snapshotCaller{base: rulesDataCaller{t: t}, revision: "fixture-1", generation: testGeneration}

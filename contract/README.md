@@ -611,6 +611,8 @@ The worker reaches `catalog`, `get` and `query` through host-issued
 all-compatible handles. Exactly one complete rules profile is required across
 the enabled providers. Duplicate (kind, ID) records are rejected. Names are
 display values, and the character path resolves source records by ID only.
+The worker loads the record kinds a character reads, including monsters for
+feature choices that offer stat blocks.
 Provider replacement or source-policy revision invalidates the evaluation
 snapshot. Returned values are detached from provider caches.
 

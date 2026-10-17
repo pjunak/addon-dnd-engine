@@ -477,6 +477,25 @@ class's count, because each class's feature grants its own kinds, plus feat
 `weaponMasterySlots`; `weaponMastery` choices from features and feats fill
 `chosen`.
 
+Special movement comes from a species' `speeds` (`fly`, `swim`, `climb`,
+`burrow`), passive `grants.speeds` (the same keys, feet or `"speed"`) and active
+`flySpeed`, `swimSpeed`, `climbSpeed` and `burrowSpeed` modifiers (`value`
+feet or `"speed"`, optional `multiply`). `sheet.movement` lists each
+contribution with its source; `"speed"` follows the final walking speed,
+including item and DM effects. `sheet.flySpeed` is always reported and
+`swimSpeed`, `climbSpeed` and `burrowSpeed` when granted, each the greatest
+contribution. Condition speed restrictions apply to all of them.
+
+`grants.advantages` entries, and active modifiers with `target: "advantage"`,
+name a roll the character has Advantage on: `on` is `save`, `check`,
+`initiative`, `concentration` or `deathSave`, narrowed by `abilities` or
+`skills` and the armor `requires` below. Matching save and skill rows get
+`advantage: true`, an ability-scoped check marks `abilities.<A>.checkAdvantage`,
+and the others set `initiativeAdvantage`, `concentrationAdvantage` or
+`deathSaveAdvantage`. An entry with a `when` text (for example "against
+spells") is situational: it is listed but marks no row. `sheet.advantages`
+lists every entry with its source. Rolls and disadvantage are not resolved.
+
 `grants.speedBonuses` entries add a number (`add`) or the granting class's
 column (`column`) after worn-armor penalties. `requires` accepts `noArmor`,
 `noShield` and `notArmorTypes`; anything else keeps the bonus inactive.

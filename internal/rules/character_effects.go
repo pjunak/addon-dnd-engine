@@ -161,25 +161,7 @@ func applyCharacterEffects(input character.Inputs, sheet Object, result *charact
 	sheet["speed"] = derived["speed"]
 	// Movement granted as "speed" depends on the effective walking speed,
 	// including item/DM effects applied after the ordinary source calculation.
-	flight := 0
-	for _, activation := range objects(sheet["activations"]) {
-		if !truth(activation["active"]) {
-			continue
-		}
-		source := object(activation["source"])
-		record := recordByID(records, text(source["type"]), text(source["id"]))
-		for _, definition := range append(objects(record["activations"]), objects(object(record["grants"])["activations"])...) {
-			if text(definition["id"]) != text(activation["id"]) {
-				continue
-			}
-			for _, modifier := range objects(definition["modifiers"]) {
-				if text(modifier["target"]) == "flySpeed" {
-					flight = max(flight, modifierFlySpeed(modifier, integer(sheet["speed"], 0)))
-				}
-			}
-		}
-	}
-	sheet["flySpeed"] = flight
+	applyMovement(sheet)
 	object(sheet["ac"])["value"] = derived["armorClass"]
 	object(sheet["hp"])["max"] = derived["maxHp"]
 	for _, ability := range Abilities {

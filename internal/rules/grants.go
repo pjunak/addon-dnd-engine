@@ -132,9 +132,11 @@ func activeGrantModifiers(
 		for _, modifier := range objects(activation["modifiers"]) {
 			if text(modifier["target"]) == "attack" {
 				modifier = resolveAttackColumns(modifier, source, classes)
-				modifier["sourceName"] = name
-				modifier["source"] = source.Source
+			} else {
+				modifier = cloneObject(modifier)
 			}
+			modifier["sourceName"] = name
+			modifier["source"] = source.Source
 			modifiers = append(modifiers, modifier)
 		}
 	}
@@ -189,13 +191,64 @@ func activeGrantModifiers(
 	return modifiers
 }
 
-// modifierFlySpeed is the flying speed one modifier grants: a number of feet,
-// or "speed" for a flying speed equal to the walking speed.
-func modifierFlySpeed(modifier Object, walking int) int {
-	if text(modifier["value"]) == "speed" {
-		return walking
+var movementModes = []string{"fly", "swim", "climb", "burrow"}
+
+// movementRows lists special movement: species speeds, passive grants.speeds
+// and active flySpeed/swimSpeed/climbSpeed/burrowSpeed modifiers. A value is
+// feet or "speed", which follows the final walking speed (times multiply).
+func movementRows(species Object, sources []grantSource, modifiers []Object) []any {
+	rows := []any{}
+	add := func(mode string, value any, multiply any, name string, source Object) {
+		if text(value) != "speed" && integer(value, 0) < 1 {
+			return
+		}
+		row := Object{"mode": mode, "value": value, "name": name, "source": source}
+		if factor := integer(multiply, 1); factor > 1 {
+			row["multiply"] = factor
+		}
+		rows = append(rows, row)
 	}
-	return integer(modifier["value"], 0)
+	for _, mode := range movementModes {
+		add(mode, object(species["speeds"])[mode], nil, text(species["name"]), Object{"type": "species", "id": text(species["id"])})
+	}
+	for _, source := range sources {
+		for _, mode := range movementModes {
+			if value, exists := object(source.Grants["speeds"])[mode]; exists {
+				add(mode, value, nil, firstText(source.Record["name"], source.Source["id"]), source.Source)
+			}
+		}
+	}
+	for _, modifier := range modifiers {
+		for _, mode := range movementModes {
+			if text(modifier["target"]) == mode+"Speed" {
+				add(mode, modifier["value"], modifier["multiply"], text(modifier["sourceName"]), object(modifier["source"]))
+			}
+		}
+	}
+	return rows
+}
+
+// applyMovement resolves each special speed as its greatest row against the
+// current walking speed. Fly speed is always reported; the others only when
+// granted.
+func applyMovement(sheet Object) {
+	walking := integer(sheet["speed"], 0)
+	best := map[string]int{}
+	for _, row := range objects(sheet["movement"]) {
+		value := integer(row["value"], 0)
+		if text(row["value"]) == "speed" {
+			value = walking * max(1, integer(row["multiply"], 1))
+		}
+		best[text(row["mode"])] = max(best[text(row["mode"])], value)
+	}
+	sheet["flySpeed"] = best["fly"]
+	for _, mode := range movementModes[1:] {
+		if best[mode] > 0 {
+			sheet[mode+"Speed"] = best[mode]
+		} else {
+			delete(sheet, mode+"Speed")
+		}
+	}
 }
 
 func applyGenericGrants(
@@ -242,7 +295,6 @@ func applyGenericGrants(
 		}
 	}
 	speedBonus := 0
-	flySpeed := 0
 	concentrationBonus := 0
 	abilities := object(sheet["abilities"])
 	for _, modifier := range modifiers {
@@ -253,8 +305,6 @@ func applyGenericGrants(
 			if key := text(modifier["key"]); key != "" {
 				senses[key] = max(integer(senses[key], 0), integer(modifier["value"], 0))
 			}
-		case "flySpeed":
-			flySpeed = max(flySpeed, modifierFlySpeed(modifier, integer(sheet["speed"], 0)+speedBonus))
 		case "concentrationSave":
 			concentrationBonus += integer(modifier["add"], 0)
 			concentrationBonus += integer(object(abilities[text(modifier["addAbility"])])["mod"], 0)
@@ -264,7 +314,10 @@ func applyGenericGrants(
 		sheet["speed"] = integer(sheet["speed"], 0) + speedBonus
 		object(sheet["derived"])["speed"] = sheet["speed"]
 	}
-	sheet["flySpeed"] = flySpeed
+	if rows := movementRows(object(sheet["species"]), sources, modifiers); len(rows) > 0 {
+		sheet["movement"] = rows
+	}
+	applyMovement(sheet)
 	sheet["concentrationSaveBonus"] = concentrationBonus
 }
 

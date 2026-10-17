@@ -687,23 +687,31 @@ func sourceClassID(source grantSource) string {
 // applyCasterGrants applies class and subclass grants that change their own
 // class's spellcasting: spellLists lets the class prepare spells from other
 // classes' lists (Magical Secrets), and spellbookBonus steps
-// ([{level, count}] by class level) add spellbook spells (the wizard Savants).
+// ([{level, count, school?}] by class level) add spellbook spells (the wizard
+// Savants). The reached step's school, when named, limits those spells.
 func applyCasterGrants(sheet Object, sources []grantSource, modifiers []Object) {
 	for _, raw := range values(object(sheet["spellcasting"])["perClass"]) {
 		caster := object(raw)
-		lists, bonus := []string{}, 0
+		lists, bonus, bonusSources := []string{}, 0, []any{}
 		for _, source := range sources {
 			if sourceClassID(source) != text(caster["classId"]) {
 				continue
 			}
 			lists = append(lists, stringsOf(source.Grants["spellLists"])...)
-			step := 0
+			step, school := 0, ""
 			for _, row := range objects(source.Grants["spellbookBonus"]) {
 				if integer(row["level"], 1) <= source.Level {
-					step = integer(row["count"], step)
+					step, school = integer(row["count"], step), text(row["school"])
 				}
 			}
-			bonus += max(0, step)
+			if step > 0 {
+				bonus += step
+				row := Object{"source": source.Source, "count": step}
+				if school != "" {
+					row["school"] = school
+				}
+				bonusSources = append(bonusSources, row)
+			}
 		}
 		if len(lists) > 0 {
 			caster["spellLists"] = anyStrings(unique(lists))
@@ -711,6 +719,7 @@ func applyCasterGrants(sheet Object, sources []grantSource, modifiers []Object) 
 		if bonus > 0 && text(caster["prepares"]) == "spellbook" {
 			caster["spellbookKnown"] = integer(caster["spellbookKnown"], 0) + bonus
 			caster["spellbookBonus"] = bonus
+			caster["spellbookBonusSources"] = bonusSources
 		}
 		// An active spellSaveDC modifier raises its own class's spell save DC
 		// (Innate Sorcery).

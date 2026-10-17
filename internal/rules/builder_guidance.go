@@ -117,7 +117,9 @@ func builderGuidance(decisions, plan Object, records Records, profile Ruleset, c
 			add(2, len(unique(stringsOf(object(decisions["cantrips"])[id]))) == required, "cantrips:"+id, "Choose {0} cantrips", "spells", 0, name)
 		}
 		if text(caster["prepares"]) == "spellbook" && integer(caster["spellbookKnown"], 0) > 0 {
-			add(2, len(unique(stringsOf(object(decisions["spellbook"])[id]))) >= integer(caster["spellbookKnown"], 0), "spellbook:"+id, "Choose {0} spellbook spells", "spells", 0, name)
+			spellbook := unique(stringsOf(object(decisions["spellbook"])[id]))
+			done := len(spellbook) >= integer(caster["spellbookKnown"], 0) && len(spellbookSchoolShortfalls(caster, spellbook, records)) == 0
+			add(2, done, "spellbook:"+id, "Choose {0} spellbook spells", "spells", 0, name)
 		}
 	}
 	for _, choice := range objects(casting["pendingChoices"]) {

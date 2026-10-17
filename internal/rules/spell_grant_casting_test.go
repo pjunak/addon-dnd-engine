@@ -149,6 +149,47 @@ func TestSpellChoicesAndListsFollowTheGrantingClass(t *testing.T) {
 	}
 }
 
+// A level 1 mage whose Savant names a school: two of its eight spellbook
+// spells must be of that school, and a bonus without a school stays open.
+func TestSpellbookBonusSchoolRequiresSpellsOfThatSchool(t *testing.T) {
+	input, records, profile := spellGrantFixture(t)
+	savant := func(step Object) {
+		records.byKind["feature"]["mage-savant"] = mustJSON(Object{"id": "mage-savant", "kind": "feature", "name": "Savant", "classId": "mage", "level": 1,
+			"grants": Object{"spellbookBonus": []any{step}}})
+	}
+	savant(Object{"level": 1, "count": 2, "school": "Evocation"})
+	book := []string{}
+	for index, school := range []string{"evocation", "Abjuration", "Abjuration", "Abjuration", "Abjuration", "Abjuration", "Abjuration", "Abjuration", "Evocation"} {
+		id := "tome-" + string(rune('a'+index))
+		records.byKind["spell"][id] = mustJSON(Object{"kind": "spell", "id": id, "level": 1, "school": school, "classes": []any{"mage"}})
+		book = append(book, id)
+	}
+	input.Build.Levels = []character.Level{{ID: "one", ClassID: "mage"}}
+	input.Build.Spells.GrantChoices = nil
+	input.Play.PreparedSpells = nil
+	input.Build.Spells.Spellbook = map[string][]string{"mage": book[:8]}
+	result := EvaluateCharacter(input, records, profile)
+	caster := objects(object(result.Sheet["spellcasting"])["perClass"])[0]
+	sources := objects(caster["spellbookBonusSources"])
+	if integer(caster["spellbookKnown"], 0) != 8 || len(sources) != 1 || text(sources[0]["school"]) != "Evocation" || integer(sources[0]["count"], 0) != 2 || text(object(sources[0]["source"])["id"]) != "mage-savant" {
+		t.Fatal("the spellbook bonus did not name its source and school", caster)
+	}
+	if !hasChoiceIssue(result, "spellbook-school:mage:evocation") || hasChoiceIssue(result, "spellbook-count:mage") || builderIssue(result, "spellbook:mage") == nil {
+		t.Fatal("one spell of the school filled a two-spell school bonus", result.Issues)
+	}
+	input.Build.Spells.Spellbook["mage"] = append(book[:7:7], book[8])
+	result = EvaluateCharacter(input, records, profile)
+	if hasChoiceIssue(result, "spellbook-school:mage:evocation") || builderIssue(result, "spellbook:mage") != nil {
+		t.Fatal("two spells of the school did not fill the school bonus", result.Issues)
+	}
+	savant(Object{"level": 1, "count": 2})
+	input.Build.Spells.Spellbook["mage"] = book[1:]
+	result = EvaluateCharacter(input, records, profile)
+	if hasChoiceIssue(result, "spellbook-school:mage:evocation") || builderIssue(result, "spellbook:mage") != nil {
+		t.Fatal("a bonus without a school limited its spells", result.Issues)
+	}
+}
+
 func TestActiveSpellSaveDCModifiersRaiseTheirClassDC(t *testing.T) {
 	input, records, profile := spellGrantFixture(t)
 	result := EvaluateCharacter(input, records, profile)

@@ -3,6 +3,8 @@ package rules
 import (
 	"fmt"
 	"github.com/pjunak/addon-dnd-engine/character"
+	"slices"
+	"strings"
 	"time"
 )
 
@@ -89,6 +91,9 @@ func validateCharacterSpells(input character.Inputs, records Records, result *ch
 		if text(caster["prepares"]) == "spellbook" && len(input.Build.Spells.Spellbook[classID]) < integer(caster["spellbookKnown"], 0) {
 			block("spellbook-count:"+classID, "Choose the spellbook spells granted by the recorded class levels.")
 		}
+		for _, short := range spellbookSchoolShortfalls(caster, input.Build.Spells.Spellbook[classID], records) {
+			addCharacterIssue(result, "spellbook-school:"+classID+":"+strings.ToLower(short.school), "spells", "Choose the free spellbook spells from the school their feature names.", "blocker", &character.Reference{Kind: text(short.source["type"]), ID: text(short.source["id"])})
+		}
 	}
 	for _, key := range sortedKeys(input.Build.Spells.GrantChoices) {
 		ids := input.Build.Spells.GrantChoices[key]
@@ -137,6 +142,46 @@ func validateCharacterSpells(input character.Inputs, records Records, result *ch
 			groups[group] = key
 		}
 	}
+}
+
+// spellbookSchoolNeed is how many spellbook spells of one school the class's
+// spellbookBonus sources require; source is the first source naming it.
+type spellbookSchoolNeed struct {
+	school string
+	count  int
+	source Object
+}
+
+// spellbookSchoolShortfalls lists the schools the class's spellbook holds too
+// few spells of. Any assignment works once enough are present, because the
+// remaining level-granted spells have no school.
+func spellbookSchoolShortfalls(caster Object, spellbook []string, records Records) []spellbookSchoolNeed {
+	needs := []spellbookSchoolNeed{}
+	for _, row := range objects(caster["spellbookBonusSources"]) {
+		school := text(row["school"])
+		if school == "" {
+			continue
+		}
+		index := slices.IndexFunc(needs, func(need spellbookSchoolNeed) bool { return strings.EqualFold(need.school, school) })
+		if index < 0 {
+			index = len(needs)
+			needs = append(needs, spellbookSchoolNeed{school: school, source: object(row["source"])})
+		}
+		needs[index].count += integer(row["count"], 0)
+	}
+	shortfalls := []spellbookSchoolNeed{}
+	for _, need := range needs {
+		held := 0
+		for _, id := range unique(spellbook) {
+			if strings.EqualFold(text(recordByID(records, "spell", id)["school"]), need.school) {
+				held++
+			}
+		}
+		if held < need.count {
+			shortfalls = append(shortfalls, need)
+		}
+	}
+	return shortfalls
 }
 
 // Spellbook order records the use of level-granted slots. Copied spells have

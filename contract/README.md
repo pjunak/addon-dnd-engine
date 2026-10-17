@@ -99,8 +99,16 @@ true` keeps only spells with the ritual tag.
 A class's own class, subclass and feature grants can change its
 spellcasting: `spellLists` adds other classes' lists to the spells it can
 prepare (`perClass[].spellLists`, used by options and validation), and
-`spellbookBonus` steps (`[{level, count}]` by class level) add spellbook
-spells (`perClass[].spellbookBonus`, included in `spellbookKnown`).
+`spellbookBonus` steps (`[{level, count, school?}]` by class level) add
+spellbook spells (`perClass[].spellbookBonus`, included in `spellbookKnown`).
+`perClass[].spellbookBonusSources` lists each source's `{source, count,
+school?}` from the step its class level reached. When that step names a
+`school` (matched case-insensitively against spell records' `school`), the
+class's spellbook must hold at least that many spells of the school, summed
+over sources naming the same school. Otherwise the blocker
+`spellbook-school:<classId>:<lowercase school>` references the first such
+source and the Builder's spellbook step stays incomplete. A step without a
+school leaves its spells open; older projections omit the sources.
 
 Class-owned feat choices with `changeOn: "classLevel"` and
 `levelReplacements: 1`, and spell-choice grants with `levelReplacements: 1`,

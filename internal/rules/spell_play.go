@@ -191,7 +191,7 @@ func castGrantedSpell(decisions, sheet, change Object, records Records) error {
 			return spendResource(decisions, findPlayResource(sheet, slot))
 		}
 		if key := text(grant["castResource"]); key != "" && slot == key {
-			return spendResource(decisions, findPlayResource(sheet, key))
+			return spendResourceUses(decisions, findPlayResource(sheet, key), max(1, integer(grant["castResourceCost"], 1)))
 		}
 		// At-will and ritual-only grants cast without a slot or resource.
 		if slot == "" && (truth(grant["atWill"]) || truth(grant["ritualOnly"])) {

@@ -126,11 +126,15 @@ func remainingResource(decisions, resource Object) int {
 }
 
 func spendResource(decisions, resource Object) error {
+	return spendResourceUses(decisions, resource, 1)
+}
+
+func spendResourceUses(decisions, resource Object, cost int) error {
 	remaining := remainingResource(decisions, resource)
-	if resource == nil || remaining < 1 {
+	if resource == nil || remaining < cost {
 		return fmt.Errorf("No uses remain for this resource.")
 	}
-	playMap(decisions, "resourceUses")[text(resource["key"])] = remaining - 1
+	playMap(decisions, "resourceUses")[text(resource["key"])] = remaining - cost
 	return nil
 }
 

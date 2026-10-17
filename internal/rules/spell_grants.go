@@ -116,6 +116,9 @@ func hydrateSpellGrants(
 		}
 		if key := text(options["castResource"]); key != "" {
 			entry["castResource"] = key
+			if cost := integer(options["castResourceCost"], 1); cost > 1 {
+				entry["castResourceCost"] = cost
+			}
 		}
 		granted = append(granted, entry)
 	}
@@ -141,10 +144,13 @@ func hydrateSpellGrants(
 			"alwaysPrepared": spell["alwaysPrepared"], "free": spell["free"],
 			"castingAbility": castingAbility, "atWill": spell["atWill"], "ritualOnly": spell["ritualOnly"],
 		}
-		// A spell cast by spending one use of a declared resource, such as
-		// Misty Step through Steps of the Fey.
-		if key := text(spell["resource"]); key != "" {
-			options["castResource"] = grantResourceKey(source, key)
+		// A spell cast by spending a declared resource (a key, or {key, cost}),
+		// such as Misty Step through Steps of the Fey.
+		if resource := object(grantActivationResource(source, spell["resource"])); resource != nil {
+			options["castResource"] = text(resource["key"])
+			if cost := integer(resource["cost"], 1); cost > 1 {
+				options["castResourceCost"] = cost
+			}
 		}
 		if hasCastAtLevel {
 			options["castAtLevel"] = castAtLevel

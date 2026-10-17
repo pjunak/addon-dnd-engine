@@ -34,6 +34,7 @@ func spellGrantFixture(t *testing.T) (character.Inputs, memoryRecords, Ruleset) 
 					Object{"ids": []any{"ward"}, "atWill": true, "alwaysPrepared": true},
 					Object{"ids": []any{"listen"}, "ritualOnly": true},
 					Object{"ids": []any{"step"}, "resource": "steps", "alwaysPrepared": true},
+					Object{"ids": []any{"leap"}, "resource": Object{"key": "steps", "cost": 2}},
 					Object{"id": "discoveries", "choose": 1, "maxSpellLevel": "class", "from": Object{"class": []any{"priest"}}, "classId": "singer", "alwaysPrepared": true},
 					Object{"id": "rites", "choose": 1, "spellLevel": 1, "from": Object{"class": []any{"priest"}, "ritual": true}},
 				},
@@ -46,6 +47,7 @@ func spellGrantFixture(t *testing.T) (character.Inputs, memoryRecords, Ruleset) 
 		{"id": "ward", "level": 1, "classes": []any{"singer"}},
 		{"id": "listen", "level": 1, "ritual": true, "classes": []any{"singer"}},
 		{"id": "step", "level": 2, "classes": []any{"singer"}},
+		{"id": "leap", "level": 1, "classes": []any{"mage"}},
 		{"id": "blessing", "level": 1, "classes": []any{"priest"}},
 		{"id": "rite", "level": 1, "ritual": true, "classes": []any{"priest"}},
 		{"id": "miracle", "level": 3, "classes": []any{"priest"}},
@@ -99,6 +101,15 @@ func TestGrantedSpellsCastAtWillAsRitualsOrFromTheirResource(t *testing.T) {
 	next, err = ApplyCharacterPlay(result.Inputs, Object{"operation": "cast-granted-spell", "key": step["key"], "slot": "steps"}, records, profile)
 	if err != nil || next.Inputs.Play.ResourceUses["steps"] != 1 {
 		t.Fatal("a resource-cast spell did not spend its resource", err, next.Inputs.Play.ResourceUses)
+	}
+	leap := grantedOption(result, "leap")
+	next, err = ApplyCharacterPlay(next.Inputs, Object{"operation": "cast-granted-spell", "key": leap["key"], "slot": "steps"}, records, profile)
+	if err == nil {
+		t.Fatal("a spell costing more uses than remain was cast", next.Inputs.Play.ResourceUses)
+	}
+	next, err = ApplyCharacterPlay(result.Inputs, Object{"operation": "cast-granted-spell", "key": leap["key"], "slot": "steps"}, records, profile)
+	if err != nil || next.Inputs.Play.ResourceUses["steps"] != 2 {
+		t.Fatal("a spell's resource cost was not spent", err, next.Inputs.Play.ResourceUses)
 	}
 }
 

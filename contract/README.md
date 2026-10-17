@@ -88,8 +88,9 @@ list and casting ability remain independent facts.
 
 A spell grant may be `atWill` (cast without a slot at its own level; slots
 still upcast it), `ritualOnly` (cast only as a ritual, never with a slot) or
-name a `resource` whose use it spends, such as Misty Step through Steps of the
-Fey. The granted entry keeps `atWill`, `ritualOnly` or `castResource`;
+name a `resource` it spends (a key, or `{key, cost}`), such as Misty Step
+through Steps of the Fey. The granted entry keeps `atWill`, `ritualOnly` or
+`castResource` (with `castResourceCost` above one);
 `spellOptions.granted[].slots` lists `""` for a free cast and the resource key
 first, and `cast-granted-spell` accepts them. A choice's `maxSpellLevel:
 "class"` is the highest level the granting class can cast, and `from.ritual:

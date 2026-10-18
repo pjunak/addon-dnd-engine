@@ -37,3 +37,60 @@ func TestAdvantagesMarkTheirRollsAndListConditionalOnes(t *testing.T) {
 		t.Fatal("an armor-restricted advantage applied while wearing armor")
 	}
 }
+
+func TestConditionAndArmorDisadvantageCancelFeatureAdvantage(t *testing.T) {
+	input, records, profile := movementFixture(t)
+	profile.Constants.Character.ConditionRules = "table-states"
+	records.byKind["rule"] = map[string]json.RawMessage{"table-states": mustJSON(Object{"id": "table-states", "kind": "rule", "name": "Synthetic condition rules", "book": "test", "conditionDefinitions": []conditionDefinition{
+		{ID: "sickened", Name: "Sickened", MaximumLevel: 1, Rolls: []conditionRoll{{On: "attack", Mode: "disadvantage"}, {On: "check", Mode: "disadvantage"}}},
+		{ID: "hobbled", Name: "Hobbled", MaximumLevel: 1, Rolls: []conditionRoll{{On: "save", Mode: "disadvantage", Abilities: []string{"DEX"}}}},
+		{ID: "spooked", Name: "Spooked", MaximumLevel: 1, Rolls: []conditionRoll{{On: "attack", Mode: "disadvantage", When: "while the source is in sight"}}},
+	}})}
+	input.Play.Conditions = []character.Condition{{ID: "sickened", Level: 1}, {ID: "hobbled", Level: 1}, {ID: "spooked", Level: 1}}
+	result := EvaluateCharacter(input, records, profile)
+	saves, skills := object(result.Sheet["saves"]), object(result.Sheet["skills"])
+	// The feature's DEX save and Stealth advantages meet condition disadvantage and cancel.
+	if truth(object(saves["DEX"])["advantage"]) || truth(object(saves["DEX"])["disadvantage"]) ||
+		truth(object(skills["stealth"])["advantage"]) || truth(object(skills["stealth"])["disadvantage"]) {
+		t.Fatal("opposite marks did not cancel", saves["DEX"], skills["stealth"])
+	}
+	if !truth(object(skills["athletics"])["disadvantage"]) || !truth(result.Sheet["attackDisadvantage"]) || !truth(result.Sheet["initiativeAdvantage"]) {
+		t.Fatal("condition disadvantage was not marked", skills["athletics"], result.Sheet["attackDisadvantage"])
+	}
+	situational := 0
+	for _, entry := range objects(result.Sheet["advantages"]) {
+		if object(entry["source"])["type"] == "condition" && text(entry["when"]) != "" {
+			situational++
+		}
+	}
+	if situational != 1 {
+		t.Fatal("situational condition effect was not listed", result.Sheet["advantages"])
+	}
+	input.Play.Conditions = nil
+	input.Play.Inventory = []character.Item{{ID: "plate", Name: "Plate", Quantity: 1, Location: "equipped", Reference: &character.Reference{Kind: "armor", ID: "plate"}}}
+	records.byKind["armor"] = map[string]json.RawMessage{"plate": mustJSON(Object{"kind": "armor", "id": "plate", "name": "Plate", "armorType": "heavy", "baseAC": 18, "dexCap": 0, "stealthDisadvantage": true})}
+	result = EvaluateCharacter(input, records, profile)
+	// The feature's Stealth advantage meets the plate's Stealth disadvantage.
+	if stealth := object(object(result.Sheet["skills"])["stealth"]); truth(stealth["advantage"]) || truth(stealth["disadvantage"]) {
+		t.Fatal("armor disadvantage did not cancel the Stealth advantage", stealth)
+	}
+	found := false
+	for _, entry := range objects(result.Sheet["advantages"]) {
+		if object(entry["source"])["type"] == "armor" && text(entry["name"]) == "Plate" && text(entry["mode"]) == "disadvantage" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("armor Stealth disadvantage was not listed", result.Sheet["advantages"])
+	}
+}
+
+func TestMalformedConditionRollsFailClosed(t *testing.T) {
+	input, records, profile := conditionFixture(t)
+	records.byKind["rule"]["table-states"] = mustJSON(Object{"id": "table-states", "kind": "rule", "name": "Synthetic condition rules", "book": "test", "conditionDefinitions": []any{
+		Object{"id": "odd", "name": "Odd", "maximumLevel": 1, "rolls": []any{Object{"on": "dance", "mode": "disadvantage"}}},
+	}})
+	if truth(object(EvaluateCharacter(input, records, profile).Guidance["conditions"])["available"]) {
+		t.Fatal("an unknown roll kind was accepted")
+	}
+}

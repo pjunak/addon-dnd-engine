@@ -260,9 +260,12 @@ modifiers, skill/save/attack bonuses, Initiative or spell save DCs. Consumers
 must show that distinction. Explanations retain source facts for offline reading.
 
 Evaluation and ordinary play/rest preserve the input list. Adding/removing
-conditions and changing levels are explicit authored edits. Expiry, rest
-exceptions, advantage, targeting, concentration, dropping items, inferred
-conditions, death and condition-implied conditions are not automated. No HP,
+conditions and changing levels are explicit authored edits. A definition's
+optional `rolls` (`{on, mode, abilities?, when?}`) join `sheet.advantages`
+while the condition is active, as described under advantages. Expiry, rest
+exceptions, rolls made against the character, targeting, concentration,
+dropping items, inferred conditions, death and condition-implied conditions
+are not automated. No HP,
 inventory or core status is changed by a condition. Sheets rejects a provider
 that drops or rewrites the authored list.
 
@@ -545,14 +548,20 @@ including item and DM effects. `sheet.flySpeed` is always reported and
 contribution. Condition speed restrictions apply to all of them.
 
 `grants.advantages` entries, and active modifiers with `target: "advantage"`,
-name a roll the character has Advantage on: `on` is `save`, `check`,
-`initiative`, `concentration` or `deathSave`, narrowed by `abilities` or
-`skills` and the armor `requires` below. Matching save and skill rows get
-`advantage: true`, an ability-scoped check marks `abilities.<A>.checkAdvantage`,
-and the others set `initiativeAdvantage`, `concentrationAdvantage` or
-`deathSaveAdvantage`. An entry with a `when` text (for example "against
-spells") is situational: it is listed but marks no row. `sheet.advantages`
-lists every entry with its source. Rolls and disadvantage are not resolved.
+name a roll the character has Advantage on (or Disadvantage with
+`mode: "disadvantage"`): `on` is `save`, `check`, `attack`, `initiative`,
+`concentration` or `deathSave`, narrowed by `abilities` or `skills` and the
+armor `requires` below. Worn armor with `stealthDisadvantage` adds a Stealth
+check Disadvantage entry (source `{type: "armor"}`), and active conditions add
+their declared `rolls` (source `{type: "condition"}`). An entry with a `when`
+text (for example "against spells") is situational: it is listed but marks no
+row. Every other entry marks the net result, because Advantage and Disadvantage
+on the same roll cancel: save and skill rows get `advantage` or `disadvantage:
+true`, an ability-scoped check marks `abilities.<A>.checkAdvantage` or
+`checkDisadvantage`, and the rest set `<roll>Advantage` or `<roll>Disadvantage`
+(`attack`, `initiative`, `concentration`, `deathSave`); a cancelled roll is
+unmarked. `sheet.advantages` lists every entry with its source and mode
+(omitted for Advantage). Rolls themselves are not resolved.
 
 `grants.speedBonuses` entries add a number (`add`) or the granting class's
 column (`column`) after worn-armor penalties. `requires` accepts `noArmor`,

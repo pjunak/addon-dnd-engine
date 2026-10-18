@@ -416,7 +416,7 @@ func hydrateArmorClass(
 		requirement := strengthRequirement(bodyArmor["strReq"])
 		strength := integer(object(object(sheet["abilities"])["STR"])["score"], 10)
 		restrictions := Object{
-			"armorId": text(bodyArmor["id"]), "strengthRequirement": requirement,
+			"armorId": text(bodyArmor["id"]), "armorName": text(bodyArmor["name"]), "strengthRequirement": requirement,
 			"meetsStrength":       requirement == 0 || strength >= requirement,
 			"speedPenalty":        conditionalInt(requirement > 0 && strength < requirement, 10),
 			"stealthDisadvantage": truth(bodyArmor["stealthDisadvantage"]),

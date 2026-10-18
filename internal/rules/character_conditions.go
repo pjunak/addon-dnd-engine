@@ -11,15 +11,25 @@ import (
 )
 
 type conditionDefinition struct {
-	ID                   string `json:"id"`
-	Name                 string `json:"name"`
-	LabelKey             string `json:"labelKey,omitempty"`
-	Summary              string `json:"summary"`
-	MaximumLevel         int    `json:"maximumLevel"`
-	SpeedZero            bool   `json:"speedZero,omitempty"`
-	SpeedPenaltyPerLevel int    `json:"speedPenaltyPerLevel,omitempty"`
-	D20PenaltyPerLevel   int    `json:"d20PenaltyPerLevel,omitempty"`
-	TerminalLevel        int    `json:"terminalLevel,omitempty"`
+	ID                   string          `json:"id"`
+	Name                 string          `json:"name"`
+	LabelKey             string          `json:"labelKey,omitempty"`
+	Summary              string          `json:"summary"`
+	MaximumLevel         int             `json:"maximumLevel"`
+	SpeedZero            bool            `json:"speedZero,omitempty"`
+	SpeedPenaltyPerLevel int             `json:"speedPenaltyPerLevel,omitempty"`
+	D20PenaltyPerLevel   int             `json:"d20PenaltyPerLevel,omitempty"`
+	TerminalLevel        int             `json:"terminalLevel,omitempty"`
+	Rolls                []conditionRoll `json:"rolls,omitempty"`
+}
+
+// conditionRoll is one of the character's own rolls a condition gives
+// Advantage or Disadvantage on, as in grants.advantages.
+type conditionRoll struct {
+	On        string   `json:"on"`
+	Mode      string   `json:"mode"`
+	Abilities []string `json:"abilities,omitempty"`
+	When      string   `json:"when,omitempty"`
 }
 
 var conditionID = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
@@ -46,6 +56,19 @@ func conditionDefinitions(records Records, profile Ruleset) ([]conditionDefiniti
 	for _, definition := range definitions {
 		if !conditionID.MatchString(definition.ID) || len(definition.ID) > 100 || seen[definition.ID] || strings.TrimSpace(definition.Name) == "" || utf8.RuneCountInString(definition.Name) > 120 || utf8.RuneCountInString(definition.Summary) > 2000 || definition.MaximumLevel < 1 || definition.MaximumLevel > 20 || definition.SpeedPenaltyPerLevel < 0 || definition.SpeedPenaltyPerLevel > 100 || definition.D20PenaltyPerLevel < 0 || definition.D20PenaltyPerLevel > 100 || definition.TerminalLevel < 0 || definition.TerminalLevel > definition.MaximumLevel {
 			return nil, ref
+		}
+		if len(definition.Rolls) > 10 {
+			return nil, ref
+		}
+		for _, roll := range definition.Rolls {
+			if !contains(advantageRolls, roll.On) || (roll.Mode != "advantage" && roll.Mode != "disadvantage") || utf8.RuneCountInString(roll.When) > 200 {
+				return nil, ref
+			}
+			for _, ability := range roll.Abilities {
+				if !contains(Abilities[:], ability) {
+					return nil, ref
+				}
+			}
 		}
 		seen[definition.ID] = true
 	}
@@ -79,6 +102,7 @@ func characterConditions(input character.Inputs, records Records, profile Rulese
 	result.Guidance["conditions"] = Object{"available": len(definitions) > 0, "options": options}
 	rows, terms, sources := []any{}, []character.Term{}, []character.Reference{}
 	penalty, speedPenalty, speedZero := 0, 0, false
+	rollEntries := []any{}
 	seen := map[string]bool{}
 	for _, condition := range input.Play.Conditions {
 		definition, exists := byID[condition.ID]
@@ -99,6 +123,15 @@ func characterConditions(input character.Inputs, records Records, profile Rulese
 			speedPenalty += definition.SpeedPenaltyPerLevel * condition.Level
 			speedZero = speedZero || definition.SpeedZero
 			row["terminal"] = definition.TerminalLevel > 0 && condition.Level >= definition.TerminalLevel
+			for _, roll := range definition.Rolls {
+				declared := Object{"on": roll.On, "mode": roll.Mode, "when": roll.When}
+				if len(roll.Abilities) > 0 {
+					declared["abilities"] = anyStrings(roll.Abilities)
+				}
+				if entry := rollEntry(declared, name, Object{"type": "condition", "id": condition.ID}); entry != nil {
+					rollEntries = append(rollEntries, entry)
+				}
+			}
 		}
 		rows = append(rows, row)
 		terms = append(terms, character.Term{Label: name, Value: condition.Level, Status: status, Source: &ref})
@@ -108,6 +141,12 @@ func characterConditions(input character.Inputs, records Records, profile Rulese
 	}
 	result.Sheet["conditions"] = rows
 	result.Sheet["conditionEffects"] = Object{"d20Adjustment": -penalty}
+	// Condition roll effects join the feature and armor entries; the net marks
+	// are recomputed so Advantage and Disadvantage from different sources cancel.
+	if len(rollEntries) > 0 {
+		result.Sheet["advantages"] = append(values(result.Sheet["advantages"]), rollEntries...)
+		applyRollMarks(result.Sheet)
+	}
 	result.Explanations["conditions"] = character.Explanation{Label: "Conditions", Formula: "Authored conditions are preserved until explicitly changed. Movement restrictions apply to displayed speeds. Apply the separate D20 adjustment to rolls; ability modifiers, printed roll bonuses and spell save DCs remain unchanged. Situational effects and ending conditions require adjudication.", Value: rows, Terms: terms, Sources: sources}
 	result.Explanations["conditionEffects.d20Adjustment"] = character.Explanation{Label: "D20 roll adjustment", Formula: "Sum of source-declared penalties for active condition levels. Apply once to each D20 Test, including Initiative. This adjustment is not included in printed bonuses or spell save DCs.", Value: -penalty, Terms: terms, Sources: sources}
 	if !speedZero && speedPenalty == 0 {

@@ -190,6 +190,9 @@ func validateCharacter(input character.Inputs, decisions Object, records Records
 	if input.Play.TemporaryHP < 0 {
 		block("temporary-hp", "temporaryHp", "Temporary HP cannot be negative.")
 	}
+	if saved := input.Play.Concentration; saved != nil && (saved.Ref == "" || saved.SaveDC < 0 || saved.SaveDC > 100) {
+		block("concentration", "concentration", "End the concentration; its saved spell or save DC is invalid.")
+	}
 	for _, key := range sortedKeys(input.Play.Currency) {
 		value := input.Play.Currency[key]
 		if !contains([]string{"cp", "sp", "ep", "gp", "pp"}, key) || value < 0 {

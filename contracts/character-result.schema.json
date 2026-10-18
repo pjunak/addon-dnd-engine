@@ -793,6 +793,24 @@
               "maxLength": 30000,
               "type": "string"
             },
+            "concentration": {
+              "additionalProperties": false,
+              "properties": {
+                "ref": {
+                  "maxLength": 30000,
+                  "type": "string"
+                },
+                "saveDC": {
+                  "maximum": 1000000,
+                  "minimum": -1000000,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "ref"
+              ],
+              "type": "object"
+            },
             "conditions": {
               "items": {
                 "additionalProperties": false,

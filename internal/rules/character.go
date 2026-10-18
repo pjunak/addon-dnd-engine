@@ -118,6 +118,7 @@ func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset)
 	result.Sheet["inspiration"] = inspiration
 	result.Guidance["authoredPlay"] = Object{"inspiration": true, "quickUse": true, "storage": true, "bodyPlacement": true, "hands": true, "conditions": true}
 	characterConditions(input, records, profile, &result)
+	characterConcentration(input, tracked, profile, &result)
 	if len(input.Play.Conditions) > 0 && profile.Constants.Character.ConditionRules != "" {
 		_, _ = tracked.Value("rule", profile.Constants.Character.ConditionRules)
 	}
@@ -241,6 +242,9 @@ func ApplyCharacterPlay(input character.Inputs, change Object, records Records, 
 	if operation := text(change["operation"]); operation == "set-hand" || operation == "set-grip" {
 		return applyCharacterHandCommand(input, change, records, profile)
 	}
+	if operation := text(change["operation"]); operation == "keep-concentration" || operation == "end-concentration" {
+		return applyConcentrationCommand(input, change, records, profile)
+	}
 	current := EvaluateCharacter(input, records, profile)
 	if !current.Ready {
 		return current, fmt.Errorf("Resolve the character's blocking choices before applying play changes.")
@@ -293,6 +297,7 @@ func ApplyCharacterPlay(input character.Inputs, change Object, records Records, 
 			absorbed := min(input.Play.TemporaryHP, int(amount))
 			input.Play.TemporaryHP -= absorbed
 			input.Play.HP = max(0, input.Play.HP-(int(amount)-absorbed))
+			concentrationAfterDamage(&input, int(amount), profile)
 		case "set-temporary-hp":
 			input.Play.TemporaryHP = int(amount)
 		}
@@ -382,6 +387,9 @@ func ApplyCharacterPlay(input character.Inputs, change Object, records Records, 
 			} else {
 				item.Quantity = 0
 			}
+		}
+		if ref := castConcentration(change, Object(current.Sheet), records); ref != "" {
+			input.Play.Concentration = &character.Concentration{Ref: ref}
 		}
 	}
 	return EvaluateCharacter(input, records, profile), nil

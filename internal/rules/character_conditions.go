@@ -21,6 +21,7 @@ type conditionDefinition struct {
 	D20PenaltyPerLevel   int             `json:"d20PenaltyPerLevel,omitempty"`
 	TerminalLevel        int             `json:"terminalLevel,omitempty"`
 	Rolls                []conditionRoll `json:"rolls,omitempty"`
+	EndsConcentration    bool            `json:"endsConcentration,omitempty"`
 }
 
 // conditionRoll is one of the character's own rolls a condition gives
@@ -123,6 +124,9 @@ func characterConditions(input character.Inputs, records Records, profile Rulese
 			speedPenalty += definition.SpeedPenaltyPerLevel * condition.Level
 			speedZero = speedZero || definition.SpeedZero
 			row["terminal"] = definition.TerminalLevel > 0 && condition.Level >= definition.TerminalLevel
+			if definition.EndsConcentration {
+				row["endsConcentration"] = true
+			}
 			for _, roll := range definition.Rolls {
 				declared := Object{"on": roll.On, "mode": roll.Mode, "when": roll.When}
 				if len(roll.Abilities) > 0 {

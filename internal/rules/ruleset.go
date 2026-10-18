@@ -73,6 +73,23 @@ type RulesetConstants struct {
 	MeleeReach *MeleeReach `json:"meleeReach,omitempty"`
 	// Optional: when present the sheet reports the currency's total worth.
 	Currency *CurrencyPolicy `json:"currency,omitempty"`
+	// Optional: when present, damage taken while concentrating records the save
+	// that keeps the spell.
+	Concentration *ConcentrationPolicy `json:"concentration,omitempty"`
+}
+
+// ConcentrationPolicy sets the save against damage: the higher of MinimumDC
+// and the damage divided by DamageDivisor (rounded down), at most MaximumDC.
+type ConcentrationPolicy struct {
+	SaveAbility   string `json:"saveAbility"`
+	MinimumDC     int    `json:"minimumDC"`
+	DamageDivisor int    `json:"damageDivisor"`
+	MaximumDC     int    `json:"maximumDC"`
+}
+
+// SaveDC is the concentration save after taking damage.
+func (policy ConcentrationPolicy) SaveDC(damage int) int {
+	return min(policy.MaximumDC, max(policy.MinimumDC, damage/policy.DamageDivisor))
 }
 
 // MeleeReach is a melee attack's reach; a weapon with the Reach property adds
@@ -247,6 +264,10 @@ func (ruleset Ruleset) Validate() error {
 				return errors.New("ruleset currency is invalid")
 			}
 		}
+	}
+	if policy := constants.Concentration; policy != nil &&
+		(!contains(Abilities[:], policy.SaveAbility) || policy.MinimumDC < 1 || policy.DamageDivisor < 1 || policy.MaximumDC < policy.MinimumDC) {
+		return errors.New("ruleset concentration is invalid")
 	}
 	if policy := constants.Character; policy != nil {
 		if policy.MaximumLevel < 1 || policy.MaximumLevel > 20 || policy.MinimumHPGain < 0 || policy.MinimumHPGain > 100 || len(policy.StandardArray) != 6 || policy.RollDice < 1 || policy.RollDice > 20 || policy.RollSides < 2 || policy.RollSides > 100 || policy.RollKeep < 1 || policy.RollKeep > policy.RollDice || strings.TrimSpace(policy.DistanceUnit) == "" || len(policy.DistanceUnit) > 30 {

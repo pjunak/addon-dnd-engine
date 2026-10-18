@@ -105,6 +105,7 @@ type Play struct {
 	Inspiration    *bool               `json:"inspiration,omitempty"`
 	QuickUse       []string            `json:"quickUse,omitempty"`
 	Containers     []Container         `json:"containers,omitempty"`
+	Concentration  *Concentration      `json:"concentration,omitempty"`
 	Rolls          []PlayRoll          `json:"rolls"`
 	HP             int                 `json:"hp"`
 	TemporaryHP    int                 `json:"temporaryHp"`
@@ -114,6 +115,13 @@ type Play struct {
 	ActiveFeatures map[string]bool     `json:"activeFeatures"`
 	PreparedSpells map[string][]string `json:"preparedSpells"`
 	AsOf           string              `json:"asOf"`
+}
+
+// Concentration is the spell the character concentrates on. SaveDC is the
+// pending save after damage; zero means no save is waiting.
+type Concentration struct {
+	Ref    string `json:"ref"`
+	SaveDC int    `json:"saveDC,omitempty"`
 }
 
 type Condition struct {

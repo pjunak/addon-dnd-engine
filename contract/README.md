@@ -262,12 +262,36 @@ must show that distinction. Explanations retain source facts for offline reading
 Evaluation and ordinary play/rest preserve the input list. Adding/removing
 conditions and changing levels are explicit authored edits. A definition's
 optional `rolls` (`{on, mode, abilities?, when?}`) join `sheet.advantages`
-while the condition is active, as described under advantages. Expiry, rest
-exceptions, rolls made against the character, targeting, concentration,
+while the condition is active, as described under advantages. With
+`endsConcentration: true` an active condition is named in
+`sheet.concentration.endedBy` (see Concentration). Expiry, rest
+exceptions, rolls made against the character, targeting,
 dropping items, inferred conditions, death and condition-implied conditions
 are not automated. No HP,
 inventory or core status is changed by a condition. Sheets rejects a provider
 that drops or rewrites the authored list.
+
+## Concentration
+
+Optional `inputs.play.concentration` is `{ref, saveDC?}`: the spell the
+character concentrates on and a pending save after damage. A successful
+`cast-spell`, `cast-granted-spell` or `cast-ritual` of a spell record with
+`concentration: true` replaces it; other casts leave it unchanged. When the
+ruleset declares `constants.concentration` (`saveAbility`, `minimumDC`,
+`damageDivisor`, `maximumDC`), `damage` while concentrating sets `saveDC` to
+the higher of `minimumDC` and the damage divided by `damageDivisor` (rounded
+down), at most `maximumDC`; damage absorbed by temporary HP counts. Without
+that constant no save is recorded. `keep-concentration` clears the pending
+save and `end-concentration` removes the value; both take no other fields,
+fail when the character is not concentrating, and work on a character with
+blocking issues. Rests, healing and conditions never change it.
+
+`sheet.concentration` gives `ref`, `name`, `saveDC` when a save is pending,
+`saveAbility` and `saveBonus` (that saving throw plus
+`concentrationSaveBonus`) from the ruleset constant, and `endedBy`, the name
+of an active condition that ends Concentration. Advantage on the save is the
+`concentrationAdvantage` roll mark. An unavailable spell is a warning; an
+invalid save DC is a blocker.
 
 ## Hands and grip
 
@@ -425,8 +449,8 @@ class/spellcaster predicate vocabulary, rest timing, distance or death tracking.
 
 Commands include damage, healing, direct HP, temporary HP, short/long rests,
 recorded hit-die spending, declared feature activation, spell/grant selections,
-casting, rituals, copying, level-up spell replacement and the hand operations
-above. Each command validates
+casting, rituals, copying, level-up spell replacement, keeping or ending
+concentration and the hand operations above. Each command validates
 its own fields and uses the same evaluation before and after applying it.
 An invalid character must be repaired in Build before dependent play actions.
 

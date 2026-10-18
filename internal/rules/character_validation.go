@@ -13,6 +13,7 @@ func validateCharacter(input character.Inputs, decisions Object, records Records
 	validateCharacterConditions(input, records, profile, result)
 	validateCharacterQuickUse(input, result)
 	validateCharacterStorage(input, result)
+	validateCharacterCarrying(input, result)
 	validateCharacterPlacement(input, records, result)
 	block := func(id, target, message string) { addCharacterIssue(result, id, target, message, "blocker", nil) }
 	if len(input.Build.Levels) == 0 || len(input.Build.Levels) > profile.Constants.Character.MaximumLevel {

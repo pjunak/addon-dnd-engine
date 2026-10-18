@@ -76,6 +76,15 @@ type RulesetConstants struct {
 	// Optional: when present, damage taken while concentrating records the save
 	// that keeps the spell.
 	Concentration *ConcentrationPolicy `json:"concentration,omitempty"`
+	// Optional: when present the sheet reports carried weight and capacity.
+	Carrying *CarryingPolicy `json:"carrying,omitempty"`
+}
+
+// CarryingPolicy sets carrying capacity (the Strength score times
+// CapacityPerStrength, in pounds) and how many coins weigh a pound.
+type CarryingPolicy struct {
+	CapacityPerStrength float64 `json:"capacityPerStrength"`
+	CoinsPerLb          float64 `json:"coinsPerLb"`
 }
 
 // ConcentrationPolicy sets the save against damage: the higher of MinimumDC
@@ -264,6 +273,9 @@ func (ruleset Ruleset) Validate() error {
 				return errors.New("ruleset currency is invalid")
 			}
 		}
+	}
+	if policy := constants.Carrying; policy != nil && (policy.CapacityPerStrength <= 0 || policy.CapacityPerStrength > 1000 || policy.CoinsPerLb <= 0 || policy.CoinsPerLb > 100000) {
+		return errors.New("ruleset carrying is invalid")
 	}
 	if policy := constants.Concentration; policy != nil &&
 		(!contains(Abilities[:], policy.SaveAbility) || policy.MinimumDC < 1 || policy.DamageDivisor < 1 || policy.MaximumDC < policy.MinimumDC) {

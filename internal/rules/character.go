@@ -126,6 +126,7 @@ func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset)
 	characterHands(input, records, &result)
 	characterQuickUse(input, &result)
 	characterStorage(input, &result)
+	characterCarrying(input, tracked, profile, &result)
 	characterPlacement(input, &result)
 	result.Guidance["classReplacements"] = classReplacementOptions(input, records, profile, &result)
 	result.Explanations["inspiration"] = character.Explanation{Label: "Inspiration", Formula: "Authored play state. Awarding and spending Inspiration are explicit edits; calculation and rest do not change it.", Value: inspiration, Terms: []character.Term{}, Sources: []character.Reference{}}

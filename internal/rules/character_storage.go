@@ -10,8 +10,9 @@ import (
 const maximumContainers = 500
 const maximumContainerName = 120
 
-// Containers organize inventory; they grant no items, capacity, or mechanics.
-// Membership is flat and independent of carried/stored location.
+// Containers organize inventory; they grant no items or mechanics. A linked
+// item can give capacity (see characterCarrying). Membership is flat and
+// independent of carried/stored location.
 func validateCharacterStorage(input character.Inputs, result *character.Result) {
 	containers := map[string]bool{}
 	for _, container := range input.Play.Containers {
@@ -53,7 +54,7 @@ func characterStorage(input character.Inputs, result *character.Result) {
 	result.Sheet["storage"] = Object{"containers": containers}
 	result.Guidance["storage"] = Object{"maximumContainers": maximumContainers, "maximumNameLength": maximumContainerName}
 	result.Explanations["storage"] = character.Explanation{
-		Label: "Storage", Formula: "Named containers group existing inventory instances without creating items or imposing capacity. Membership does not change carried/stored location, quantity, attunement or quick-use availability. Removing a container requires explicitly unassigning its contents.",
+		Label: "Storage", Formula: "Named containers group existing inventory instances without creating items or enforcing capacity. Membership does not change carried/stored location, quantity, attunement or quick-use availability. Removing a container requires explicitly unassigning its contents.",
 		Value: containers, Terms: []character.Term{}, Sources: []character.Reference{},
 	}
 }

@@ -8,8 +8,8 @@ and persistence consume its output without implementing edition formulas.
 
 The provider's complete rules profile (ruleset version 4 or later) owns point
 buy, arrays/roll methods, level bounds, HP minimum, ability caps, attunement
-policy, movement units, melee reach, coin values, the concentration save, spell
-slots and recovery, and the core formulas: the
+policy, movement units, melee reach, coin values, the concentration save, carrying
+capacity and coin weight, spell slots and recovery, and the core formulas: the
 proficiency bonus by level, the spell save DC base, the passive check base,
 the unarmored AC base and the fixed hit-point bonus (half the die plus it).
 Only the ability modifier, clamping and the first level's maximum hit die are

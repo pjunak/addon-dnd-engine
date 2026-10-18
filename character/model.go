@@ -93,10 +93,16 @@ type Item struct {
 	Acquisition   string     `json:"acquisition"`
 	GrantID       string     `json:"grantId,omitempty"`
 	Notes         string     `json:"notes"`
+	// WeightLb is an authored weight for one unit, used instead of the rules
+	// record's weight (custom items, or items whose weight the rules omit).
+	WeightLb *float64 `json:"weightLb,omitempty"`
 }
 type Container struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
+	// ItemID is the inventory item that is this container, such as a
+	// Backpack; its rules record sets the capacity.
+	ItemID string `json:"itemId,omitempty"`
 }
 type Play struct {
 	// Optional so existing schema-4 characters remain valid without rewriting.
@@ -106,6 +112,7 @@ type Play struct {
 	QuickUse       []string            `json:"quickUse,omitempty"`
 	Containers     []Container         `json:"containers,omitempty"`
 	Concentration  *Concentration      `json:"concentration,omitempty"`
+	CoinWeight     *bool               `json:"coinWeight,omitempty"` // false leaves coins out of carried weight
 	Rolls          []PlayRoll          `json:"rolls"`
 	HP             int                 `json:"hp"`
 	TemporaryHP    int                 `json:"temporaryHp"`

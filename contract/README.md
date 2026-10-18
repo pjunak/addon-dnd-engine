@@ -376,12 +376,13 @@ A provider must never silently remove the field.
 
 ## Storage containers and membership
 
-`play.containers` optionally stores ordered `{id,name}` organizational groups.
+`play.containers` optionally stores ordered `{id,name,itemId?}` organizational groups.
 An inventory instance may declare `containerId` referencing one of those groups.
 IDs must be distinct and nonempty; labels are nonblank and at most 120 characters.
 The 500-container input limit is a payload bound, not physical carrying capacity.
 Duplicate labels remain legal; identity is always the ID. There is no nesting,
-source-item creation, weight calculation or additional equipment effect.
+source-item creation or additional equipment effect; weight and capacity are
+reported under Carrying.
 
 Membership is limited to carried/stored entries, including depleted quantities.
 It never changes location, attunement allocation, notes, grants or quick-use
@@ -395,6 +396,28 @@ Saved `sheet.storage.containers` retains each ID, name and ordered `itemIds`,
 including empty groups and depleted entries. Evaluation and play preserve authored
 groups and membership; absent optional fields stay absent.
 Invalid inputs remain intact for correction, including unfinished builds.
+
+## Carrying
+
+When the ruleset declares `constants.carrying` (`capacityPerStrength`,
+`coinsPerLb`), `sheet.carrying` reports `weightLb` (equipped and carried
+items plus coins) against `capacityLb` (the final Strength score ×
+`capacityPerStrength`), with `itemsLb`, `coinsLb`, `coinWeight`, `storedLb`,
+`weightlessLb`, `unknown` (item IDs without a weight), `items` (`{eachLb,
+totalLb, custom}` per item) and `containers` (`{loadLb, capacityLb?, weightless,
+stored}` per container, `stored` when every member is stored). An item weighs
+its authored `weightLb` or its record's `weightLb`, times its quantity. Stored
+items and items in a container whose linked item's record declares
+`container.weightless` are listed but not counted. Coins count unless
+`play.coinWeight` is `false`. Nothing is enforced; going over capacity is
+shown, not blocked. Size and features that change capacity are not applied.
+
+A container's optional `itemId` links it to the inventory item that is the
+container; that item's record `container.capacityLb` is its capacity.
+`guidance.storage.containerItems` lists inventory items whose records declare a
+container (`{itemId, capacityLb?, weightless}`). A link to a missing item, an
+item linked twice, an item stored inside its own container and a negative item
+weight are blockers.
 
 ## Quick-use inventory references
 

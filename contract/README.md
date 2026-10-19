@@ -9,7 +9,9 @@ lifetime belong to the host. Runtime policy addresses contracts and record IDs.
 `evaluate-character` accepts `{contractVersion:"rules-character.v2", inputs}`.
 `character-play` adds a closed operation-specific `change`. The response is
 `{contractVersion:"rules-character-response.v2", identity, evaluation, policy}`.
-Requests are bounded to 180,000 bytes. The public Go types in
+Requests are bounded to `character.MaxRequestBytes` (180,000 bytes); callers
+check their payload against it before calling, and a larger request fails with
+`INVALID_REQUEST` naming its size. The public Go types in
 [character/model.go](../character/model.go) generate the JSON Schemas through
 `go run ./cmd/character-contract`; the sheet uses these same types.
 

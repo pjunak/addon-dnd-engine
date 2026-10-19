@@ -6,6 +6,10 @@ import "encoding/json"
 
 const ContractVersion = "rules-character.v2"
 
+// MaxRequestBytes bounds an evaluate-character or character-play request.
+// Callers check their payload against it before calling the engine.
+const MaxRequestBytes = 180000
+
 type Reference struct {
 	Kind string `json:"kind"`
 	ID   string `json:"id"`

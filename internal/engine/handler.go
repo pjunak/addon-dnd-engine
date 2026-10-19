@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -97,12 +98,15 @@ func (handler *Handler) HandleRPC(ctx context.Context, request workerrpc.Request
 	}
 	switch request.Method {
 	case methodPrefix + "evaluate-character", methodPrefix + "character-play":
+		if len(request.Params) > character.MaxRequestBytes {
+			return nil, invalidRequest(fmt.Sprintf("character request is %d bytes; the limit is %d bytes", len(request.Params), character.MaxRequestBytes))
+		}
 		var input struct {
 			ContractVersion string           `json:"contractVersion"`
 			Inputs          character.Inputs `json:"inputs"`
 			Change          rules.Object     `json:"change,omitempty"`
 		}
-		if jsonexact.Decode(request.Params, &input) != nil || input.ContractVersion != character.ContractVersion || len(request.Params) > 180000 {
+		if jsonexact.Decode(request.Params, &input) != nil || input.ContractVersion != character.ContractVersion {
 			return nil, invalidRequest("character request is invalid")
 		}
 		identity, records, profile, err := handler.provider.Evaluation(ctx, request.Meta)

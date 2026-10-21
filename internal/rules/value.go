@@ -5,7 +5,7 @@ import (
 	"maps"
 	"math"
 	"slices"
-	"strings"
+	"strconv"
 )
 
 type Object map[string]any
@@ -146,12 +146,6 @@ func number(value any, fallback float64) float64 {
 			return fallback
 		}
 		result = parsed
-	case string:
-		parsed, err := json.Number(strings.TrimSpace(current)).Float64()
-		if err != nil {
-			return fallback
-		}
-		result = parsed
 	default:
 		return fallback
 	}
@@ -204,4 +198,14 @@ func unique(values []string) []string {
 		result = append(result, value)
 	}
 	return result
+}
+
+// wholeNumber reads a whole number written as text, such as a level map key
+// or a number matched in a string, or returns fallback.
+func wholeNumber(value string, fallback int) int {
+	parsed, err := strconv.Atoi(value)
+	if err != nil {
+		return fallback
+	}
+	return parsed
 }

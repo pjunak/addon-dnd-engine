@@ -49,6 +49,17 @@ JSON Schemas and the TypeScript types Sheets generates always agree:
 - Named structs are shared `$defs`; schemas carry no size bounds, because the
   request limit already bounds the input.
 
+## Rules data vocabulary
+
+The Engine owns the `grants` vocabulary that classes, subclasses, features,
+species, lineages, backgrounds, feats and complete magic items declare. Its Go
+type (`internal/rules.Grants`) generates [contracts/grants.schema.json](../contracts/grants.schema.json),
+which rules-data providers copy to reject bad grants at install. An evaluation
+checks every record it read against the same vocabulary: a record whose grants
+break it gives the warning `rules-data:<kind>:<id>` naming the problem, and the
+well-formed fields still apply. Numbers are read only from JSON numbers; text
+such as `"5"` is not a number.
+
 Inputs contain ordered levels with stable IDs and recorded HP rolls, foundation
 and advancement decisions, spell selections/acquisitions, inventory instances,
 spent resource counters, current/temporary HP, notes and typed DM grants.

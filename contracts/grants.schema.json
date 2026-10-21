@@ -1,0 +1,1663 @@
+{
+  "$defs": {
+    "ACBonusGrant": {
+      "additionalProperties": false,
+      "properties": {
+        "add": {
+          "type": "integer"
+        },
+        "requires": {
+          "$ref": "#/$defs/ArmorCondition"
+        }
+      },
+      "required": [
+        "add"
+      ],
+      "type": "object"
+    },
+    "ACFormulaGrant": {
+      "additionalProperties": false,
+      "properties": {
+        "addAbilities": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "base": {
+          "type": "integer"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "requires": {
+          "$ref": "#/$defs/ArmorCondition"
+        }
+      },
+      "required": [
+        "id",
+        "base"
+      ],
+      "type": "object"
+    },
+    "AbilityScoreBonus": {
+      "additionalProperties": false,
+      "properties": {
+        "assign": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "type": "object"
+        },
+        "cap": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "assign"
+      ],
+      "type": "object"
+    },
+    "AbilityScoreIncrease": {
+      "additionalProperties": false,
+      "properties": {
+        "amount": {
+          "type": "integer"
+        },
+        "cap": {
+          "type": "integer"
+        },
+        "choose": {
+          "type": "integer"
+        },
+        "from": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "fromCastingAbilityOf": {
+          "type": "string"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "ActivationGrant": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "type": "string"
+        },
+        "exclusiveGroup": {
+          "type": "string"
+        },
+        "extends": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "minLevel": {
+          "type": "integer"
+        },
+        "modifiers": {
+          "items": {
+            "$ref": "#/$defs/ActivationModifier"
+          },
+          "type": "array"
+        },
+        "name": {
+          "type": "string"
+        },
+        "resource": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "cost": {
+                  "type": "integer"
+                },
+                "key": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "key"
+              ],
+              "type": "object"
+            }
+          ]
+        },
+        "restrictions": {
+          "$ref": "#/$defs/ArmorCondition"
+        },
+        "while": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ]
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "ActivationModifier": {
+      "additionalProperties": false,
+      "properties": {
+        "abilities": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "ability": {
+          "type": "string"
+        },
+        "add": {
+          "type": "integer"
+        },
+        "addAbility": {
+          "type": "string"
+        },
+        "attackBonus": {
+          "type": "integer"
+        },
+        "attackBonusAbility": {
+          "type": "string"
+        },
+        "damageBonus": {
+          "type": "integer"
+        },
+        "damageBonusColumn": {
+          "type": "string"
+        },
+        "damageDie": {
+          "type": "string"
+        },
+        "damageDieColumn": {
+          "type": "string"
+        },
+        "key": {
+          "type": "string"
+        },
+        "match": {
+          "items": {
+            "$ref": "#/$defs/AttackMatch"
+          },
+          "type": "array"
+        },
+        "min": {
+          "type": "integer"
+        },
+        "mode": {
+          "type": "string"
+        },
+        "multiply": {
+          "type": "integer"
+        },
+        "on": {
+          "type": "string"
+        },
+        "proficient": {
+          "type": "boolean"
+        },
+        "requires": {
+          "$ref": "#/$defs/ArmorCondition"
+        },
+        "skills": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "target": {
+          "type": "string"
+        },
+        "value": {
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "when": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "target"
+      ],
+      "type": "object"
+    },
+    "AdvantageGrant": {
+      "additionalProperties": false,
+      "properties": {
+        "abilities": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "mode": {
+          "type": "string"
+        },
+        "on": {
+          "type": "string"
+        },
+        "requires": {
+          "$ref": "#/$defs/ArmorCondition"
+        },
+        "skills": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "when": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "on"
+      ],
+      "type": "object"
+    },
+    "ArmorCondition": {
+      "additionalProperties": false,
+      "properties": {
+        "armorTypes": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "noArmor": {
+          "type": "boolean"
+        },
+        "noShield": {
+          "type": "boolean"
+        },
+        "notArmorTypes": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "AttackGrant": {
+      "additionalProperties": false,
+      "properties": {
+        "ability": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string"
+        },
+        "damage": {
+          "type": "string"
+        },
+        "damageType": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "mastery": {
+          "type": "string"
+        },
+        "masteryActive": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string"
+        },
+        "proficient": {
+          "type": "boolean"
+        },
+        "properties": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "range": {
+          "type": "string"
+        },
+        "rangeNormalLong": {
+          "$ref": "#/$defs/DistancePair"
+        },
+        "thrownRange": {
+          "$ref": "#/$defs/DistancePair"
+        },
+        "versatileDamage": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "damage"
+      ],
+      "type": "object"
+    },
+    "AttackMatch": {
+      "additionalProperties": false,
+      "properties": {
+        "attack": {
+          "type": "string"
+        },
+        "attackAbility": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string"
+        },
+        "property": {
+          "type": "string"
+        },
+        "range": {
+          "type": "string"
+        },
+        "unarmed": {
+          "type": "boolean"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "AttackModifierGrant": {
+      "additionalProperties": false,
+      "properties": {
+        "ability": {
+          "type": "string"
+        },
+        "attackBonus": {
+          "type": "integer"
+        },
+        "attackBonusAbility": {
+          "type": "string"
+        },
+        "damageBonus": {
+          "type": "integer"
+        },
+        "damageBonusColumn": {
+          "type": "string"
+        },
+        "damageDie": {
+          "type": "string"
+        },
+        "damageDieColumn": {
+          "type": "string"
+        },
+        "match": {
+          "items": {
+            "$ref": "#/$defs/AttackMatch"
+          },
+          "type": "array"
+        },
+        "min": {
+          "type": "integer"
+        },
+        "requires": {
+          "$ref": "#/$defs/ArmorCondition"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "CastAtLevelStep": {
+      "additionalProperties": false,
+      "properties": {
+        "castAtLevel": {
+          "type": "integer"
+        },
+        "level": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "level",
+        "castAtLevel"
+      ],
+      "type": "object"
+    },
+    "CastingAbilityGrant": {
+      "additionalProperties": false,
+      "properties": {
+        "choose": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "fixed": {
+          "type": "string"
+        },
+        "fromAbilityScoreIncrease": {
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "CheckBonusGrant": {
+      "additionalProperties": false,
+      "properties": {
+        "abilities": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "add": {
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "addAbility": {
+          "type": "string"
+        },
+        "min": {
+          "type": "integer"
+        },
+        "notProficient": {
+          "type": "boolean"
+        },
+        "skills": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "ChoiceOverride": {
+      "additionalProperties": false,
+      "properties": {
+        "choiceId": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer"
+        },
+        "countByLevel": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "type": "object"
+        },
+        "filter": {
+          "$ref": "#/$defs/RecordFilter"
+        },
+        "filterByLevel": {
+          "additionalProperties": {
+            "$ref": "#/$defs/RecordFilter"
+          },
+          "type": "object"
+        },
+        "from": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "fromByLevel": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "choiceId"
+      ],
+      "type": "object"
+    },
+    "ChoicePackage": {
+      "additionalProperties": false,
+      "properties": {
+        "choiceId": {
+          "type": "string"
+        },
+        "options": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Grants"
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "choiceId",
+        "options"
+      ],
+      "type": "object"
+    },
+    "DistancePair": {
+      "additionalProperties": false,
+      "properties": {
+        "long": {
+          "type": "integer"
+        },
+        "normal": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "normal",
+        "long"
+      ],
+      "type": "object"
+    },
+    "GrantChoice": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "type": "string"
+        },
+        "changeOn": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer"
+        },
+        "countByLevel": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "type": "object"
+        },
+        "default": {
+          "type": "string"
+        },
+        "filter": {
+          "$ref": "#/$defs/RecordFilter"
+        },
+        "filterByLevel": {
+          "additionalProperties": {
+            "$ref": "#/$defs/RecordFilter"
+          },
+          "type": "object"
+        },
+        "from": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "fromByLevel": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "type": "object"
+        },
+        "fromCategory": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "levelReplacements": {
+          "type": "integer"
+        },
+        "optionKind": {
+          "type": "string"
+        },
+        "prompt": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "swappableOn": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "GrantedCondition": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "type": "object"
+    },
+    "Grants": {
+      "additionalProperties": false,
+      "properties": {
+        "abilityScoreBonus": {
+          "$ref": "#/$defs/AbilityScoreBonus"
+        },
+        "abilityScoreIncrease": {
+          "$ref": "#/$defs/AbilityScoreIncrease"
+        },
+        "acBonus": {
+          "type": "integer"
+        },
+        "acBonuses": {
+          "items": {
+            "$ref": "#/$defs/ACBonusGrant"
+          },
+          "type": "array"
+        },
+        "acFormulas": {
+          "items": {
+            "$ref": "#/$defs/ACFormulaGrant"
+          },
+          "type": "array"
+        },
+        "activations": {
+          "items": {
+            "$ref": "#/$defs/ActivationGrant"
+          },
+          "type": "array"
+        },
+        "advantages": {
+          "items": {
+            "$ref": "#/$defs/AdvantageGrant"
+          },
+          "type": "array"
+        },
+        "armor": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "attackModifiers": {
+          "items": {
+            "$ref": "#/$defs/AttackModifierGrant"
+          },
+          "type": "array"
+        },
+        "attacks": {
+          "items": {
+            "$ref": "#/$defs/AttackGrant"
+          },
+          "type": "array"
+        },
+        "attunementLimit": {
+          "type": "integer"
+        },
+        "bonuses": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "type": "object"
+        },
+        "castingAbility": {
+          "$ref": "#/$defs/CastingAbilityGrant"
+        },
+        "choiceOverrides": {
+          "items": {
+            "$ref": "#/$defs/ChoiceOverride"
+          },
+          "type": "array"
+        },
+        "choicePackages": {
+          "items": {
+            "$ref": "#/$defs/ChoicePackage"
+          },
+          "type": "array"
+        },
+        "choices": {
+          "items": {
+            "$ref": "#/$defs/GrantChoice"
+          },
+          "type": "array"
+        },
+        "conditionImmunities": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "conditions": {
+          "items": {
+            "$ref": "#/$defs/GrantedCondition"
+          },
+          "type": "array"
+        },
+        "criticalRange": {
+          "type": "integer"
+        },
+        "damageImmunities": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "expertise": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "hpBonus": {
+          "type": "integer"
+        },
+        "hpPerClassLevel": {
+          "type": "integer"
+        },
+        "hpPerLevel": {
+          "type": "integer"
+        },
+        "initiativeBonuses": {
+          "items": {
+            "$ref": "#/$defs/CheckBonusGrant"
+          },
+          "type": "array"
+        },
+        "languages": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "prepareSpellListOf": {
+          "type": "string"
+        },
+        "proficiencies": {
+          "$ref": "#/$defs/ProficiencyGrants"
+        },
+        "resistances": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "resources": {
+          "items": {
+            "$ref": "#/$defs/ResourceGrant"
+          },
+          "type": "array"
+        },
+        "saveBonuses": {
+          "items": {
+            "$ref": "#/$defs/CheckBonusGrant"
+          },
+          "type": "array"
+        },
+        "saveDCs": {
+          "items": {
+            "$ref": "#/$defs/SaveDCGrant"
+          },
+          "type": "array"
+        },
+        "savingThrows": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "senseBonuses": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "type": "object"
+        },
+        "senses": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "type": "object"
+        },
+        "skillBonuses": {
+          "items": {
+            "$ref": "#/$defs/CheckBonusGrant"
+          },
+          "type": "array"
+        },
+        "skills": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "speedBonus": {
+          "type": "integer"
+        },
+        "speedBonuses": {
+          "items": {
+            "$ref": "#/$defs/SpeedBonusGrant"
+          },
+          "type": "array"
+        },
+        "speeds": {
+          "additionalProperties": {
+            "oneOf": [
+              {
+                "type": "number"
+              },
+              {
+                "const": "speed"
+              }
+            ]
+          },
+          "type": "object"
+        },
+        "spellList": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "spellLists": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "spellSlot": {
+          "$ref": "#/$defs/SpellSlotGrant"
+        },
+        "spellbookBonus": {
+          "items": {
+            "$ref": "#/$defs/SpellbookStep"
+          },
+          "type": "array"
+        },
+        "spells": {
+          "items": {
+            "$ref": "#/$defs/SpellGrantDecl"
+          },
+          "type": "array"
+        },
+        "tools": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "unquantifiable_modifiers": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "weaponMasterySlots": {
+          "type": "integer"
+        },
+        "weapons": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "LevelMaximum": {
+      "additionalProperties": false,
+      "properties": {
+        "level": {
+          "type": "integer"
+        },
+        "max": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "level",
+        "max"
+      ],
+      "type": "object"
+    },
+    "ProficiencyGrants": {
+      "additionalProperties": false,
+      "properties": {
+        "armor": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "languages": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "skills": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "tools": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "weapons": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "RecordFilter": {
+      "additionalProperties": false,
+      "properties": {
+        "creatureType": {
+          "type": "string"
+        },
+        "fly": {
+          "type": "boolean"
+        },
+        "itemTypes": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "maxCr": {
+          "type": "number"
+        },
+        "notItemTypes": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "rarity": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "ResourceGrant": {
+      "additionalProperties": false,
+      "properties": {
+        "abilityMod": {
+          "type": "string"
+        },
+        "add": {
+          "type": "integer"
+        },
+        "fixed": {
+          "type": "integer"
+        },
+        "key": {
+          "type": "string"
+        },
+        "min": {
+          "type": "integer"
+        },
+        "minLevel": {
+          "type": "integer"
+        },
+        "multiplier": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "perLevel": {
+          "type": "number"
+        },
+        "proficiencyBonus": {
+          "type": "boolean"
+        },
+        "progression": {
+          "items": {
+            "$ref": "#/$defs/LevelMaximum"
+          },
+          "type": "array"
+        },
+        "recharge": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "amount": {
+                    "oneOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "abilityMod": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "abilityMod"
+                        ],
+                        "type": "object"
+                      }
+                    ]
+                  },
+                  "minLevel": {
+                    "type": "integer"
+                  },
+                  "on": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "on"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            }
+          ]
+        }
+      },
+      "required": [
+        "key"
+      ],
+      "type": "object"
+    },
+    "SaveDCGrant": {
+      "additionalProperties": false,
+      "properties": {
+        "abilities": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "abilities"
+      ],
+      "type": "object"
+    },
+    "SpeedBonusGrant": {
+      "additionalProperties": false,
+      "properties": {
+        "add": {
+          "type": "integer"
+        },
+        "column": {
+          "type": "string"
+        },
+        "requires": {
+          "$ref": "#/$defs/ArmorCondition"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "SpellFromDecl": {
+      "additionalProperties": false,
+      "properties": {
+        "castingTime": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ]
+        },
+        "class": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "ids": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "ritual": {
+          "type": "boolean"
+        },
+        "school": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "SpellGrantDecl": {
+      "additionalProperties": false,
+      "properties": {
+        "alwaysPrepared": {
+          "type": "boolean"
+        },
+        "atLevel": {
+          "type": "integer"
+        },
+        "atWill": {
+          "type": "boolean"
+        },
+        "castAtLevelByLevel": {
+          "items": {
+            "$ref": "#/$defs/CastAtLevelStep"
+          },
+          "type": "array"
+        },
+        "choose": {
+          "type": "integer"
+        },
+        "classId": {
+          "type": "string"
+        },
+        "components": {
+          "type": "boolean"
+        },
+        "default": {
+          "type": "string"
+        },
+        "free": {
+          "type": "string"
+        },
+        "from": {
+          "$ref": "#/$defs/SpellFromDecl"
+        },
+        "id": {
+          "type": "string"
+        },
+        "ids": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "level": {
+          "type": "integer"
+        },
+        "levelReplacements": {
+          "type": "integer"
+        },
+        "maxSpellLevel": {
+          "oneOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "const": "class"
+            }
+          ]
+        },
+        "resource": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "cost": {
+                  "type": "integer"
+                },
+                "key": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "key"
+              ],
+              "type": "object"
+            }
+          ]
+        },
+        "ritualOnly": {
+          "type": "boolean"
+        },
+        "spellLevel": {
+          "type": "integer"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "SpellSlotGrant": {
+      "additionalProperties": false,
+      "properties": {
+        "count": {
+          "type": "integer"
+        },
+        "level": {
+          "$ref": "#/$defs/SpellSlotLevel"
+        },
+        "recharge": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "amount": {
+                    "oneOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "abilityMod": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "abilityMod"
+                        ],
+                        "type": "object"
+                      }
+                    ]
+                  },
+                  "minLevel": {
+                    "type": "integer"
+                  },
+                  "on": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "on"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            }
+          ]
+        },
+        "restriction": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "level"
+      ],
+      "type": "object"
+    },
+    "SpellSlotLevel": {
+      "additionalProperties": false,
+      "properties": {
+        "divisor": {
+          "type": "integer"
+        },
+        "max": {
+          "type": "integer"
+        },
+        "min": {
+          "type": "integer"
+        },
+        "round": {
+          "type": "string"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "SpellbookStep": {
+      "additionalProperties": false,
+      "properties": {
+        "count": {
+          "type": "integer"
+        },
+        "level": {
+          "type": "integer"
+        },
+        "school": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "level",
+        "count"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "abilityScoreBonus": {
+      "$ref": "#/$defs/AbilityScoreBonus"
+    },
+    "abilityScoreIncrease": {
+      "$ref": "#/$defs/AbilityScoreIncrease"
+    },
+    "acBonus": {
+      "type": "integer"
+    },
+    "acBonuses": {
+      "items": {
+        "$ref": "#/$defs/ACBonusGrant"
+      },
+      "type": "array"
+    },
+    "acFormulas": {
+      "items": {
+        "$ref": "#/$defs/ACFormulaGrant"
+      },
+      "type": "array"
+    },
+    "activations": {
+      "items": {
+        "$ref": "#/$defs/ActivationGrant"
+      },
+      "type": "array"
+    },
+    "advantages": {
+      "items": {
+        "$ref": "#/$defs/AdvantageGrant"
+      },
+      "type": "array"
+    },
+    "armor": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "attackModifiers": {
+      "items": {
+        "$ref": "#/$defs/AttackModifierGrant"
+      },
+      "type": "array"
+    },
+    "attacks": {
+      "items": {
+        "$ref": "#/$defs/AttackGrant"
+      },
+      "type": "array"
+    },
+    "attunementLimit": {
+      "type": "integer"
+    },
+    "bonuses": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "type": "object"
+    },
+    "castingAbility": {
+      "$ref": "#/$defs/CastingAbilityGrant"
+    },
+    "choiceOverrides": {
+      "items": {
+        "$ref": "#/$defs/ChoiceOverride"
+      },
+      "type": "array"
+    },
+    "choicePackages": {
+      "items": {
+        "$ref": "#/$defs/ChoicePackage"
+      },
+      "type": "array"
+    },
+    "choices": {
+      "items": {
+        "$ref": "#/$defs/GrantChoice"
+      },
+      "type": "array"
+    },
+    "conditionImmunities": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "conditions": {
+      "items": {
+        "$ref": "#/$defs/GrantedCondition"
+      },
+      "type": "array"
+    },
+    "criticalRange": {
+      "type": "integer"
+    },
+    "damageImmunities": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "expertise": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "hpBonus": {
+      "type": "integer"
+    },
+    "hpPerClassLevel": {
+      "type": "integer"
+    },
+    "hpPerLevel": {
+      "type": "integer"
+    },
+    "initiativeBonuses": {
+      "items": {
+        "$ref": "#/$defs/CheckBonusGrant"
+      },
+      "type": "array"
+    },
+    "languages": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "prepareSpellListOf": {
+      "type": "string"
+    },
+    "proficiencies": {
+      "$ref": "#/$defs/ProficiencyGrants"
+    },
+    "resistances": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "resources": {
+      "items": {
+        "$ref": "#/$defs/ResourceGrant"
+      },
+      "type": "array"
+    },
+    "saveBonuses": {
+      "items": {
+        "$ref": "#/$defs/CheckBonusGrant"
+      },
+      "type": "array"
+    },
+    "saveDCs": {
+      "items": {
+        "$ref": "#/$defs/SaveDCGrant"
+      },
+      "type": "array"
+    },
+    "savingThrows": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "senseBonuses": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "type": "object"
+    },
+    "senses": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "type": "object"
+    },
+    "skillBonuses": {
+      "items": {
+        "$ref": "#/$defs/CheckBonusGrant"
+      },
+      "type": "array"
+    },
+    "skills": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "speedBonus": {
+      "type": "integer"
+    },
+    "speedBonuses": {
+      "items": {
+        "$ref": "#/$defs/SpeedBonusGrant"
+      },
+      "type": "array"
+    },
+    "speeds": {
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "type": "number"
+          },
+          {
+            "const": "speed"
+          }
+        ]
+      },
+      "type": "object"
+    },
+    "spellList": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "spellLists": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "spellSlot": {
+      "$ref": "#/$defs/SpellSlotGrant"
+    },
+    "spellbookBonus": {
+      "items": {
+        "$ref": "#/$defs/SpellbookStep"
+      },
+      "type": "array"
+    },
+    "spells": {
+      "items": {
+        "$ref": "#/$defs/SpellGrantDecl"
+      },
+      "type": "array"
+    },
+    "tools": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "unquantifiable_modifiers": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "weaponMasterySlots": {
+      "type": "integer"
+    },
+    "weapons": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "required": [],
+  "title": "Rules record grants (dnd5e.rules-engine 6)",
+  "type": "object"
+}

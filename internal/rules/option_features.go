@@ -50,7 +50,7 @@ func choiceCountAt(choice Object, classLevel int) int {
 	count := max(1, integer(choice["count"], 1))
 	selectedLevel := -1
 	for level, amount := range object(choice["countByLevel"]) {
-		parsed := integer(level, 0)
+		parsed := wholeNumber(level, 0)
 		if parsed <= classLevel && parsed > selectedLevel {
 			selectedLevel = parsed
 			count = max(1, integer(amount, count))

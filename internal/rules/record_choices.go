@@ -18,10 +18,10 @@ func recordChoiceOptions(choice Object, classLevel int, records Records) []strin
 	ids := stringsOf(choice["from"])
 	levels := []int{}
 	for level := range object(choice["fromByLevel"]) {
-		levels = append(levels, integer(level, 0))
+		levels = append(levels, wholeNumber(level, 0))
 	}
 	for level := range object(choice["filterByLevel"]) {
-		levels = append(levels, integer(level, 0))
+		levels = append(levels, wholeNumber(level, 0))
 	}
 	sort.Ints(levels)
 	filter := cloneObject(object(choice["filter"]))

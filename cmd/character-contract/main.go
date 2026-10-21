@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/pjunak/addon-dnd-engine/character"
+	"github.com/pjunak/addon-dnd-engine/internal/rules"
 )
 
 func main() {
@@ -23,6 +24,11 @@ func main() {
 		}
 	}
 	write("character-inputs.schema.json", character.Schema(character.Inputs{}))
+	// Rules-data providers copy this schema to enforce the grants vocabulary.
+	grants := character.Schema(rules.Grants{})
+	grants["$schema"] = "https://json-schema.org/draft/2020-12/schema"
+	grants["title"] = "Rules record grants (dnd5e.rules-engine 6)"
+	write("grants.schema.json", grants)
 	write("character-result.schema.json", character.Schema(character.Result{}))
 	request := map[string]any{"type": "object", "additionalProperties": false, "required": []string{"contractVersion", "inputs"}, "properties": map[string]any{"contractVersion": map[string]any{"const": character.ContractVersion}, "inputs": map[string]any{"$ref": "character-inputs.schema.json"}, "change": character.Schema(character.PlayCommand{})}}
 	write("character.request.schema.json", request)

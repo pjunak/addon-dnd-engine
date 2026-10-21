@@ -965,13 +965,13 @@ func hitDieSize(hitDie string) int {
 	if len(match) != 2 {
 		return 0
 	}
-	return integer(match[1], 0)
+	return wholeNumber(match[1], 0)
 }
 
 func strengthRequirement(value any) int {
 	match := digitsPattern.FindString(text(value))
 	if match != "" {
-		return integer(match, 0)
+		return wholeNumber(match, 0)
 	}
 	return integer(value, 0)
 }

@@ -604,7 +604,7 @@ func choiceKind(choice Object, from []string) character.ChoiceKind {
 func sourceLevelOf(choice Object, fallback int) int {
 	parts := strings.Split(text(choice["source"]), ":")
 	if len(parts) > 1 {
-		if parsed := integer(parts[1], fallback); parsed > 0 {
+		if parsed := wholeNumber(parts[1], fallback); parsed > 0 {
 			return parsed
 		}
 	}

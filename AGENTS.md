@@ -22,8 +22,9 @@ go tool -modfile=go.tools.mod codex-addon-inspect dist/dnd-engine-<version>.zip
 
 The repository builds from a plain clone: the host's worker SDK is a normal Go
 module requirement. To work against a local host change, use an uncommitted
-`go work init . ../ttrpg-codex`. Regenerate the public character schemas with
-`go run ./cmd/character-contract` when the `character` model changes.
+`go work init . ../ttrpg-codex`. Regenerate the public character schemas and
+`contracts/grants.schema.json` with `go run ./cmd/character-contract` when the
+`character` model or the grants vocabulary changes.
 
 ## Layout
 
@@ -47,6 +48,8 @@ internal/rules/     pure, deterministic rules computation
 - Keep `internal/rules` free of the worker protocol, host services, storage and
   network. Incomplete choices produce structured warnings, not errors.
 - Keep public APIs small and versioned; fail closed on incompatible input.
+- Every closed set is a named type listed once; `exhaustive` checks switches
+  and map literals over it. Public outputs are typed, never `map[string]any`.
 - No combat or encounter automation; that belongs in a separate add-on.
 - Add a regression test for every bug. Test fixtures are synthetic; never copy
   compendium content here.

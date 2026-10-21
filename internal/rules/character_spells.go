@@ -95,7 +95,17 @@ func validateCharacterSpells(input character.Inputs, records Records, result *ch
 			addCharacterIssue(result, "spellbook-school:"+classID+":"+strings.ToLower(short.school), "spells", "Choose the free spellbook spells from the school their feature names.", "blocker", &character.Reference{Kind: text(short.source["type"]), ID: text(short.source["id"])})
 		}
 	}
+	// An owned item that is not in effect keeps its picks and toggles for when
+	// it is equipped again; they are not checked against today's sources.
+	activeItems := activeCharacterItems(input, records)
+	inactiveItem := func(key string) bool {
+		owner := itemGrantOwner(key, input.Play.Inventory)
+		return owner != "" && !activeItems[owner]
+	}
 	for _, key := range sortedKeys(input.Build.Spells.GrantChoices) {
+		if inactiveItem(key) {
+			continue
+		}
 		ids := input.Build.Spells.GrantChoices[key]
 		choice := choices[key]
 		seen := map[string]bool{}
@@ -114,6 +124,9 @@ func validateCharacterSpells(input character.Inputs, records Records, result *ch
 		abilityChoices[text(choice["key"])] = choice
 	}
 	for _, key := range sortedKeys(input.Build.Spells.CastingAbilities) {
+		if inactiveItem(key) {
+			continue
+		}
 		ability := input.Build.Spells.CastingAbilities[key]
 		choice := abilityChoices[key]
 		eligible := stringsOf(choice["options"])
@@ -128,7 +141,7 @@ func validateCharacterSpells(input character.Inputs, records Records, result *ch
 	groups := map[string]string{}
 	for _, key := range sortedKeys(input.Play.ActiveFeatures) {
 		enabled := input.Play.ActiveFeatures[key]
-		if !enabled {
+		if !enabled || inactiveItem(key) {
 			continue
 		}
 		activation := activations[key]

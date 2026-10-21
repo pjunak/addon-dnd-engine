@@ -56,7 +56,7 @@ func handEligibility(input character.Inputs, item *character.Item, records Recor
 	proposed.Play.Inventory = append([]character.Item(nil), input.Play.Inventory...)
 	candidate := handItem(proposed, item.ID)
 	candidate.Location = "equipped"
-	if !characterEquipmentMechanics(*candidate, recordByID(records, item.Reference.Kind, item.Reference.ID), proposed) {
+	if !characterEquipmentMechanics(*candidate, recordByID(records, item.Reference.Kind, item.Reference.ID), proposed, records) {
 		return "ineligible"
 	}
 	return ""

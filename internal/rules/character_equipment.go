@@ -31,12 +31,12 @@ func characterItemHasGrant(item character.Item, input character.Inputs) bool {
 	return false
 }
 
-func characterEquipmentMechanics(item character.Item, record Object, proposed character.Inputs) bool {
+func characterEquipmentMechanics(item character.Item, record Object, proposed character.Inputs, records Records) bool {
 	if item.Reference == nil {
 		return characterItemHasGrant(item, proposed)
 	}
 	check := character.Result{Issues: []character.Issue{}}
-	validateCharacterItemMechanics(item, record, proposed, &check)
+	validateCharacterItemMechanics(item, record, proposed, records, &check)
 	return !characterHasBlocker(check)
 }
 
@@ -99,7 +99,7 @@ func characterEquipmentOptions(input character.Inputs, records Records, profile 
 		equipped := item
 		equipped.Location = "equipped"
 		proposed.Play.Inventory[index] = equipped
-		entry["canEquip"] = characterEquipmentMechanics(equipped, record, proposed)
+		entry["canEquip"] = characterEquipmentMechanics(equipped, record, proposed, records)
 		if !truth(entry["canEquip"]) {
 			entry["equipReason"] = "mechanics"
 		}
@@ -111,7 +111,7 @@ func characterEquipmentOptions(input character.Inputs, records Records, profile 
 			entry["attuneReason"] = "not-required"
 			continue
 		}
-		if !characterEquipmentMechanics(attuned, record, proposed) {
+		if !characterEquipmentMechanics(attuned, record, proposed, records) {
 			entry["attuneReason"] = "mechanics"
 			continue
 		}

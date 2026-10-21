@@ -82,6 +82,7 @@ func consumeCharacterItem(input *character.Inputs, change Object) error {
 		}
 		item.Quantity--
 		if item.Quantity == 0 {
+			clearCharacterItemState(input, id)
 			item.BodyPlacement = ""
 			item.Attuned = false
 			if item.Location == "equipped" {

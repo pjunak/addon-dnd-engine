@@ -88,8 +88,8 @@ func captureCharacterSources(sheet Object, records *characterRecords) {
 		_, _ = records.Value("feature", text(feature["id"]))
 	}
 	for _, resource := range objects(sheet["resources"]) {
-		source := object(resource["source"])
-		_, _ = records.Value(text(source["type"]), text(source["id"]))
+		ref := grantSourceReference(object(resource["source"]))
+		_, _ = records.Value(ref.Kind, ref.ID)
 	}
 
 }
@@ -184,9 +184,8 @@ func characterExplanations(input character.Inputs, sheet Object, evidence []char
 	hp := object(sheet["hp"])
 	hpTerms := []character.Term{{Label: "Level gains", Value: hp["levels"]}}
 	for _, bonus := range objects(hp["fixedBonuses"]) {
-		source := object(bonus["source"])
-		hpTerms = append(hpTerms, character.Term{Label: text(bonus["name"]), Value: bonus["value"],
-			Source: &character.Reference{Kind: text(source["type"]), ID: text(source["id"])}})
+		ref := grantSourceReference(object(bonus["source"]))
+		hpTerms = append(hpTerms, character.Term{Label: text(bonus["name"]), Value: bonus["value"], Source: &ref})
 	}
 	makeExplanation("derived.maxHp", "Maximum HP", "sum of each level's max(minimum gain, hit die result + Constitution modifier) + per-level grants + fixed grants", derived["maxHp"], hpTerms...)
 	ac := object(sheet["ac"])
@@ -197,9 +196,9 @@ func characterExplanations(input character.Inputs, sheet Object, evidence []char
 		}
 	}
 	for _, bonus := range objects(ac["bonuses"]) {
-		source := object(bonus["source"])
+		ref := grantSourceReference(object(bonus["source"]))
 		terms = append(terms, character.Term{Label: text(bonus["name"]), Value: Object{"bonus": bonus["value"], "requires": bonus["requires"]},
-			Source: &character.Reference{Kind: text(source["type"]), ID: text(source["id"])}, Status: text(bonus["status"])})
+			Source: &ref, Status: text(bonus["status"])})
 	}
 	makeExplanation("derived.armorClass", "Armor Class", "highest eligible AC formula + shield + applicable bonuses", derived["armorClass"], terms...)
 	dex := object(object(sheet["abilities"])["DEX"])["mod"]
@@ -221,27 +220,40 @@ func characterExplanations(input character.Inputs, sheet Object, evidence []char
 	for key, value := range object(sheet["senses"]) {
 		terms := []character.Term{}
 		for _, entry := range evidence {
+			ref := entry.Reference
+			grants := object(entry.Facts["grants"])
 			if senses := object(entry.Facts["senses"]); senses[key] != nil {
-				ref := entry.Reference
 				terms = append(terms, character.Term{Label: entry.Name, Value: senses[key], Source: &ref})
 			}
-			if senses := object(object(entry.Facts["grants"])["senses"]); senses[key] != nil {
-				ref := entry.Reference
+			if senses := object(grants["senses"]); senses[key] != nil {
 				terms = append(terms, character.Term{Label: entry.Name, Value: senses[key], Source: &ref})
 			}
-			for _, activation := range append(objects(entry.Facts["activations"]), objects(object(entry.Facts["grants"])["activations"])...) {
+			if bonuses := object(grants["senseBonuses"]); bonuses[key] != nil {
+				terms = append(terms, character.Term{Label: entry.Name, Value: Object{"add": bonuses[key]}, Source: &ref})
+			}
+			// Items toggle only their allowlisted grants, never record-level
+			// activations.
+			activations := objects(grants["activations"])
+			if ref.Kind != "magic-item" {
+				activations = append(objects(entry.Facts["activations"]), activations...)
+			}
+			for _, activation := range activations {
 				for _, modifier := range objects(activation["modifiers"]) {
-					if text(modifier["target"]) == "sense" && text(modifier["key"]) == key {
-						ref := entry.Reference
-						status := "inactive"
-						for _, current := range objects(sheet["activations"]) {
-							owner := object(current["source"])
-							if text(owner["type"]) == entry.Reference.Kind && text(owner["id"]) == entry.Reference.ID && text(current["id"]) == text(activation["id"]) && truth(current["active"]) {
-								status = "applied"
-							}
-						}
-						terms = append(terms, character.Term{Label: entry.Name + ": " + text(activation["condition"]), Value: modifier["value"], Source: &ref, Status: status})
+					target := text(modifier["target"])
+					if target != "sense" && target != "senseBonus" || text(modifier["key"]) != key {
+						continue
 					}
+					status := "inactive"
+					for _, current := range objects(sheet["activations"]) {
+						if grantSourceReference(object(current["source"])) == ref && text(current["id"]) == text(activation["id"]) && truth(current["active"]) {
+							status = "applied"
+						}
+					}
+					amount := modifier["value"]
+					if target == "senseBonus" {
+						amount = Object{"add": modifier["add"]}
+					}
+					terms = append(terms, character.Term{Label: entry.Name + ": " + text(activation["condition"]), Value: amount, Source: &ref, Status: status})
 				}
 			}
 		}
@@ -269,12 +281,11 @@ func characterExplanations(input character.Inputs, sheet Object, evidence []char
 		ability := integer(object(object(sheet["abilities"])[abilityName])["mod"], 0)
 		modifiers := make([]character.Term, 0)
 		for _, row := range objects(weapon["modifiers"]) {
-			source := object(row["source"])
+			ref := grantSourceReference(object(row["source"]))
 			value := cloneObject(row)
 			delete(value, "name")
 			delete(value, "source")
-			modifiers = append(modifiers, character.Term{Label: text(row["name"]), Value: value, Status: "applied",
-				Source: &character.Reference{Kind: text(source["type"]), ID: text(source["id"])}})
+			modifiers = append(modifiers, character.Term{Label: text(row["name"]), Value: value, Status: "applied", Source: &ref})
 		}
 		prefix := fmtIndex("weapons", index)
 		abilityTerm := character.Term{Label: abilityName + " modifier", Value: ability}
@@ -346,13 +357,12 @@ func fmtIndex(path string, index int) string { return path + "." + jsonNumber(in
 func bonusTerms(bonuses []Object) []character.Term {
 	terms := make([]character.Term, 0, len(bonuses))
 	for _, bonus := range bonuses {
-		source := object(bonus["source"])
+		ref := grantSourceReference(object(bonus["source"]))
 		value := bonus["value"]
 		if bonus["requires"] != nil {
 			value = Object{"bonus": bonus["value"], "requires": bonus["requires"]}
 		}
-		terms = append(terms, character.Term{Label: text(bonus["name"]), Value: value, Status: text(bonus["status"]),
-			Source: &character.Reference{Kind: text(source["type"]), ID: text(source["id"])}})
+		terms = append(terms, character.Term{Label: text(bonus["name"]), Value: value, Status: text(bonus["status"]), Source: &ref})
 	}
 	return terms
 }

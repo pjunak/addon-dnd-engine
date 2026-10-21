@@ -143,6 +143,7 @@ func characterConditions(input character.Inputs, records Records, profile Rulese
 	if len(definitions) > 0 && len(rows) > 0 {
 		sources = append(sources, ref)
 	}
+	grantedTerms, grantedSources := characterGrantedConditions(input, records, immunities, &rows)
 	result.Sheet["conditions"] = rows
 	result.Sheet["conditionEffects"] = Object{"d20Adjustment": -penalty}
 	// Condition roll effects join the feature and armor entries; the net marks
@@ -151,7 +152,7 @@ func characterConditions(input character.Inputs, records Records, profile Rulese
 		result.Sheet["advantages"] = append(values(result.Sheet["advantages"]), rollEntries...)
 		applyRollMarks(result.Sheet)
 	}
-	result.Explanations["conditions"] = character.Explanation{Label: "Conditions", Formula: "Authored conditions are preserved until explicitly changed. Movement restrictions apply to displayed speeds. Apply the separate D20 adjustment to rolls; ability modifiers, printed roll bonuses and spell save DCs remain unchanged. Situational effects and ending conditions require adjudication.", Value: rows, Terms: terms, Sources: sources}
+	result.Explanations["conditions"] = character.Explanation{Label: "Conditions", Formula: "Authored conditions are preserved until explicitly changed. Movement restrictions apply to displayed speeds. Apply the separate D20 adjustment to rolls; ability modifiers, printed roll bonuses and spell save DCs remain unchanged. Situational effects and ending conditions require adjudication. Active items grant their own conditions, one level per item, with no automated effect.", Value: rows, Terms: append(append([]character.Term{}, terms...), grantedTerms...), Sources: append(append([]character.Reference{}, sources...), grantedSources...)}
 	result.Explanations["conditionEffects.d20Adjustment"] = character.Explanation{Label: "D20 roll adjustment", Formula: "Sum of source-declared penalties for active condition levels. Apply once to each D20 Test, including Initiative. This adjustment is not included in printed bonuses or spell save DCs.", Value: -penalty, Terms: terms, Sources: sources}
 	if !speedZero && speedPenalty == 0 {
 		return
@@ -183,4 +184,44 @@ func characterConditions(input character.Inputs, records Records, profile Rulese
 			result.Explanations[path] = explanation
 		}
 	}
+}
+
+// characterGrantedConditions adds one row per condition ID that active items
+// grant. Its level is the number of active items granting it, and the first
+// such item in inventory order names it. The rows are not authored play state,
+// cannot be removed and have no automated effect; condition immunity marks
+// them immune.
+func characterGrantedConditions(input character.Inputs, records Records, immunities []string, rows *[]any) ([]character.Term, []character.Reference) {
+	granted, byID := []Object{}, map[string]Object{}
+	for _, raw := range characterItemGrantSources(input, records) {
+		item := object(raw)
+		if !truth(item["active"]) {
+			continue
+		}
+		for _, condition := range objects(object(item["grants"])["conditions"]) {
+			id := text(condition["id"])
+			row := byID[id]
+			if row == nil {
+				status := "active"
+				if contains(immunities, id) {
+					status = "immune"
+				}
+				row = Object{"id": id, "name": text(condition["name"]), "summary": text(condition["summary"]), "level": 0, "granted": true, "sources": []any{}, "status": status}
+				byID[id] = row
+				granted = append(granted, row)
+			}
+			row["level"] = integer(row["level"], 0) + 1
+			row["sources"] = append(values(row["sources"]), cloneObjectDeep(object(item["source"])))
+		}
+	}
+	terms, refs := []character.Term{}, []character.Reference{}
+	for _, row := range granted {
+		*rows = append(*rows, row)
+		first := grantSourceReference(objects(row["sources"])[0])
+		terms = append(terms, character.Term{Label: text(row["name"]), Value: row["level"], Status: text(row["status"]), Source: &first})
+		for _, source := range objects(row["sources"]) {
+			refs = append(refs, grantSourceReference(source))
+		}
+	}
+	return terms, uniqueCharacterReferences(refs)
 }

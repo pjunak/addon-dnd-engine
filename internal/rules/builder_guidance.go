@@ -17,16 +17,24 @@ func builderGuidance(decisions, plan Object, records Records, profile Ruleset, c
 	hydrated := Hydrate(normalized, records, &profile)
 	choices, classes := Object{}, []any{}
 	sections := []Object{{"id": "foundation", "total": 0, "complete": 0, "issues": []any{}}, {"id": "progression", "total": 0, "complete": 0, "issues": []any{}}, {"id": "spells", "total": 0, "complete": 0, "issues": []any{}}}
-	add := func(group int, done bool, id, label, tab string, level int, args ...any) {
+	add := func(group int, done bool, id, label, tab string, level int, args ...any) Object {
 		section := sections[group]
 		section["total"] = integer(section["total"], 0) + 1
 		if done {
 			section["complete"] = integer(section["complete"], 0) + 1
-			return
+			return nil
 		}
 		issue := builderGuidanceText(label, args...)
 		issue["id"], issue["tab"], issue["level"] = id, tab, level
 		section["issues"] = append(values(section["issues"]), issue)
+		return issue
+	}
+	// An item's picks are ordinary steps, but they guide play rather than
+	// block it, so equipping an item never stops the sheet.
+	itemPick := func(issue, source Object) {
+		if issue != nil && text(source["type"]) == "item" {
+			issue["severity"] = "warning"
+		}
 	}
 	base := object(plan["baseStats"])
 	scoresValid, spent := true, 0
@@ -123,10 +131,12 @@ func builderGuidance(decisions, plan Object, records Records, profile Ruleset, c
 		}
 	}
 	for _, choice := range objects(casting["pendingChoices"]) {
-		add(2, len(unique(stringsOf(choice["picked"]))) >= max(1, integer(choice["choose"], 1)), text(choice["key"]), "Choose spells: {0}", "spells", 0, guidanceLabel(text(object(choice["source"])["id"])))
+		source := object(choice["source"])
+		itemPick(add(2, len(unique(stringsOf(choice["picked"]))) >= max(1, integer(choice["choose"], 1)), text(choice["key"]), "Choose spells: {0}", "spells", 0, grantSourceLabel(source)), source)
 	}
 	for _, choice := range objects(casting["castingAbilityChoices"]) {
-		add(2, text(choice["selected"]) != "", text(choice["key"]), "Choose casting ability: {0}", "spells", 0, guidanceLabel(text(object(choice["source"])["id"])))
+		source := object(choice["source"])
+		itemPick(add(2, text(choice["selected"]) != "", text(choice["key"]), "Choose casting ability: {0}", "spells", 0, grantSourceLabel(source)), source)
 	}
 	total, complete, sectionValues := 0, 0, []any{}
 	for _, section := range sections {
@@ -323,7 +333,8 @@ func choiceHeading(choice Object, records Records) (string, []any) {
 	}
 	source := object(choice["source"])
 	sourceID := text(source["id"])
-	sourceName := firstText(recordByID(records, text(source["type"]), sourceID)["name"], guidanceLabel(sourceID))
+	ref := grantSourceReference(source)
+	sourceName := firstText(recordByID(records, ref.Kind, ref.ID)["name"], guidanceLabel(sourceID))
 	if sourceName == "" {
 		return guidanceLabel(id), []any{}
 	}

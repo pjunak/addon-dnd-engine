@@ -273,6 +273,15 @@ are not automated. No HP,
 inventory or core status is changed by a condition. Sheets rejects a provider
 that drops or rewrites the authored list.
 
+Active items add granted rows after the authored ones (see
+[Item grants](#item-grants)): one `{id, name, summary, level, granted: true,
+sources, status}` row per condition ID. `level` is the number of active items
+granting it, the first of them in inventory order supplies `name` and
+`summary`, and `sources` lists their item sources. `status` is `active`, or
+`immune` under a matching condition immunity. Granted rows are not authored
+play state: they never enter `inputs.play.conditions`, cannot be removed and
+have no automated effect.
+
 ## Concentration
 
 Optional `inputs.play.concentration` is `{ref, saveDC?}`: the spell the
@@ -440,6 +449,9 @@ positive-quantity carried/equipped instance and rejects extra fields. No item
 effects, healing, rest replenishment or encounter resolution are implied. Using
 the last unit retains the entry, pin and notes while clearing its attunement
 and moving an equipped empty instance to carried, in the same detached result.
+It also clears the uses, toggles, spell choices and casting abilities that
+instance owns (its `item:<instance>:` keys); a scroll emptied by copying a
+spell is cleared the same way.
 All ordinary validation still applies. Explicit item deletion must also remove
 its pin in the same proposed input; an unpin alone never deletes inventory.
 Consumers persist through their existing authenticated optimistic command and
@@ -463,7 +475,9 @@ attuned instances, including carried/stored items, and uses the final class,
 item and authorized DM limit. Duplicate attunement has its own rejection.
 
 Equipment and custom-item eligibility evaluate the requested state, including
-equipped/attuned grant conditions. Attunement prerequisites are checked without
+equipped/attuned grant conditions. Item grants outside the
+[allowlist](#item-grants) make equipping or attuning that item report
+`mechanics`. Attunement prerequisites are checked without
 the candidate's own attunement effects or attunement-conditioned grants and
 waivers. Independent active grants can qualify it. A lost prerequisite blocks
 saving until explicitly repaired; evaluation never silently unattunes an item.
@@ -485,6 +499,14 @@ uses; the projection exposes capacity, spent and remaining. Spell and pact slot
 resources (`kind: "slot"`) also give their spell `level`. Ending an activation
 replaces its state map, so removed keys cannot survive as merged old values.
 Long rests clear active features through the common rest interpreter.
+Rests also restore the uses of owned items that are not equipped, which stay
+listed with `active: false`.
+
+Item spells (granted spells whose `source.type` is `item`) never use spell
+slots. `spellOptions.granted[].slots` lists only the item's own resource, and
+`""` for at-will spells and cantrips; `cast-granted-spell` refuses anything
+else. While the item's casting ability is still to be picked, the spell lists
+no cast options and cannot be cast.
 
 An activation's `resource` is a resource key, or `{key, cost}` when turning it
 on spends more than one use; turning it on fails when fewer than `cost` uses
@@ -518,8 +540,9 @@ properties are suppressed deterministically and explained; the profile can
 also prohibit attuning multiple copies of the same item definition.
 
 An equipped/attuned magic item requires `characterMechanics: "complete"`
-with supported typed effects, an explicitly narrative declaration, or linked DM
-adjudication. Reusable homebrew belongs in a compatible versioned source package.
+with supported typed effects and/or [item grants](#item-grants), an explicitly
+narrative declaration (which declares neither), or linked DM adjudication.
+Reusable homebrew belongs in a compatible versioned source package.
 
 The engine evaluates grant facts but cannot authenticate their origin. The
 coordinator must verify editor/DM roles, stamp grant authority, review imports,
@@ -549,7 +572,66 @@ capacities/remaining uses link to their relevant granting sources, including
 acquisition-owned grants, matching hit-die classes and shared/Pact slot owners.
 The full evidence, hashes and calculation terms remain retained once; narrative
 features do not multiply those per-statistic source lists. Typed item/DM effect
-terms retain their own source or authorization identity.
+terms retain their own source or authorization identity. An item grant source
+is keyed by its inventory instance, so explanations and evidence name its
+record through `source.ref`.
+
+### Item grants
+
+A complete `magic-item` record may declare `grants`, a closed subset of the
+feature grant vocabulary for what fixed numbers cannot express. The object is
+read all or nothing: any other field, key or malformed entry makes the item
+grant nothing and, while it is equipped or attuned, raises the
+`item-effects:<instance>` blocker ("This item declares an unsupported effect;
+its source needs correction."). Every list holds at most 20 entries. Local IDs
+and keys are kebab-case (`^[a-z0-9]+(-[a-z0-9]+)*$`, at most 100 characters)
+and distinct within their list.
+
+| Field | Accepted entries |
+| --- | --- |
+| `advantages` | `{on, mode?, abilities?, skills?, when?}`; `on` is `save`, `check`, `attack`, `initiative`, `concentration` or `deathSave`, `mode` is `advantage` or `disadvantage`, `when` at most 200 characters |
+| `castingAbility` | `{fixed: <ability>}` or `{id, choose: [<abilities>]}` |
+| `resources` | `{key, name?, fixed, recharge?}`; `fixed` is 1–100 and `recharge` `short` or `long` (Long Rest when omitted) |
+| `spells` | `{ids, resource?, atWill?}`, or one choice `{id, choose, spellLevel?, maxSpellLevel?, from?, resource?, atWill?}` with `choose` 1–10 and at least one numeric level bound (0–9); `from` takes `class`, `school`, `ids`, `castingTime` and `ritual` |
+| `activations` | `{id, name?, condition?, modifiers?}`; modifier targets are `advantage` (the advantage keys), `sense` `{key, value}`, `senseBonus` `{key, add}`, and `resistance`, `conditionImmunity` or `damageImmunity` `{value}` |
+| `resistances`, `damageImmunities`, `conditionImmunities` | IDs |
+| `conditions` | `{id, name, summary?}`; `summary` at most 2,000 characters |
+
+A spell's `resource` is one of the item's own resource keys, or `{key, cost}`
+with `cost` 1–100. A leveled spell needs `resource` or `atWill: true`. A
+choice bounded to level 0 needs neither, and nor do fixed `ids` that the
+Engine reads as cantrips; it cannot judge a spell missing from the rules data.
+Spell `free`, `alwaysPrepared`, `classId`, `maxSpellLevel: "class"` and
+`levelReplacements`, and activation `extends`, `while`, `exclusiveGroup`,
+`resource`, `restrictions` and `minLevel`, are refused: they match across
+sources or spend spell slots. For the same reason an item's toggle never
+satisfies another source's `extends` or `while`.
+
+An item is active while it is equipped, has a positive quantity, is not
+suspended from a hand, is attuned if its record requires attunement, and is
+the first such copy of its record by instance ID. The same rule decides its
+typed effects. An active item with grants becomes a grant source
+`{type: "item", id: <instance>, name: <item name>, ref: {kind: "magic-item", id}}`
+after the class, species, background and feat sources, at the character's
+total level. Only its allowlisted grants are read, never other record fields
+such as raw `activations`, `acFormulas` or `classId`. Everything it owns is
+keyed `item:<instance>:<local key>`: resources in `resourceUses`, toggles in
+`activeFeatures`, spell choices in `grantChoices`, casting abilities in
+`castingAbilities` and granted spell keys.
+
+An owned item that is not active keeps only its resources. Their rows carry
+`active: false`, so spent uses never block the sheet and rests still restore
+them. Its saved picks, casting ability and toggle state stay as they are and
+are not checked until it is active again; such state for an instance that is
+no longer owned still needs repair. Item spell and casting-ability picks are
+ordinary Builder steps whose guidance issues carry `severity: "warning"`, so
+they become warnings rather than blockers and equipping an item never stops
+play. Item spells never qualify for attunement prerequisites.
+
+`sheet.activeItems` lists every active magic item as `{itemId, name, ref}` in
+inventory order, whatever its `characterMechanics`, so a sheet can show its
+text without re-deriving the active rule. Older Engines ignore `grants`: such
+items stay valid but have no effect.
 
 ### Passive source bonuses
 
@@ -630,7 +712,10 @@ ability grant once the class reaches the feature's level.
 class (a fixed-bonus row in the HP explanation). `grants.initiativeBonuses`
 takes the skill/save bonus shape and is listed as `sheet.initiativeBonuses`.
 `grants.senseBonuses` (`{darkvision: 60}`) extends a sense range after the
-greatest granted range, or grants it when the character has none.
+greatest granted range, or grants it when the character has none. An active
+`senseBonus` modifier (`{key, add}`) does the same. Both apply before `sense`
+minimums, so a toggle with `senseBonus` 30 and `sense` 60 gives 60 ft
+Darkvision, or 30 ft more than an existing range.
 
 A `skillProficiencyOrExpertise` choice (Keen Mind, Observant) grants
 proficiency in the chosen skill, or Expertise when another source already
@@ -702,6 +787,10 @@ no provider-free manually writable projection.
 Repeatable feat spell selections, casting abilities, resource pools, bonus slots and activations use the same stable acquisition owner as Builder choices. A free-cast counter belongs to its source and, for a single selected spell, its granting choice. Replacing that spell does not refresh its spent allowance. Cast commands can spend only that grant's free counter or an eligible spell slot.
 
 Returned descriptors provide `source.acquisition`. Choices, casting abilities, activations and spent counters are keyed by that owner; a saved key with no current owner is reported as unavailable rather than reassigned.
+
+Item grants are owned by their inventory instance in the same way
+(`item:<instance>:<local key>`), and their spells are cast only with the
+item's own uses; see [Item grants](#item-grants).
 
 Generic `choicePackages` resolve against each acquisition. Source `originFeatChoices` presets constrain the corresponding origin-granted feat choice; the Engine applies those defaults without rewriting the source record. Unknown conditional-repeat rules remain closed.
 

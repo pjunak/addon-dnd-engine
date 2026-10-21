@@ -66,7 +66,7 @@ func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset)
 	validateClassReplacementLedger(input, profile, &result)
 	for _, section := range objects(result.Guidance["sections"]) {
 		for _, issue := range objects(section["issues"]) {
-			addCharacterIssue(&result, "choice:"+text(issue["id"]), text(issue["id"]), text(issue["label"]), "blocker", nil)
+			addCharacterIssue(&result, "choice:"+text(issue["id"]), text(issue["id"]), text(issue["label"]), firstText(issue["severity"], "blocker"), nil)
 		}
 	}
 	for _, warning := range hydrated.Warnings {
@@ -125,6 +125,7 @@ func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset)
 	result.Evidence = tracked.evidence()
 	characterHands(input, records, &result)
 	characterQuickUse(input, &result)
+	result.Sheet["activeItems"] = characterActiveItems(input, records)
 	characterStorage(input, &result)
 	characterCarrying(input, tracked, profile, &result)
 	characterPlacement(input, &result)
@@ -226,6 +227,7 @@ func characterDecisions(input character.Inputs, records Records, profile Ruleset
 		}
 		decisions["inventory"] = append(values(decisions["inventory"]), entry)
 	}
+	decisions["itemGrants"] = characterItemGrantSources(input, records)
 	return decisions
 }
 
@@ -383,10 +385,14 @@ func ApplyCharacterPlay(input character.Inputs, change Object, records Records, 
 		}
 		for index := range input.Play.Inventory {
 			item := &input.Play.Inventory[index]
+			before := item.Quantity
 			if next, ok := items[item.ID]; ok {
 				item.Quantity = integer(next["qty"], item.Quantity)
 			} else {
 				item.Quantity = 0
+			}
+			if before > 0 && item.Quantity == 0 {
+				clearCharacterItemState(&input, item.ID)
 			}
 		}
 		if ref := castConcentration(change, Object(current.Sheet), records); ref != "" {

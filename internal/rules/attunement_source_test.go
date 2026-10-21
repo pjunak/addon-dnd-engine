@@ -23,7 +23,7 @@ func TestSourceClassAndSpellcasterPrerequisites(t *testing.T) {
 		{"trait cantrip", Object{"spellcaster": true}, Object{"spellcasting": Object{"granted": []any{Object{"ref": "spark", "level": 0, "source": Object{"type": "species"}}}}}, true, true},
 		{"feat free spell", Object{"spellcaster": true}, Object{"spellcasting": Object{"granted": []any{Object{"ref": "ward", "level": 1, "free": "1/long", "source": Object{"type": "feat"}}}}}, true, true},
 		{"unusable prepared grant", Object{"spellcaster": true}, Object{"spellcasting": Object{"granted": []any{Object{"ref": "ward", "level": 1, "source": Object{"type": "feat"}}}}}, false, true},
-		{"item does not qualify", Object{"spellcaster": true}, Object{"spellcasting": Object{"granted": []any{Object{"ref": "spark", "level": 0, "source": Object{"type": "magic-item"}}}}}, false, true},
+		{"item does not qualify", Object{"spellcaster": true}, Object{"spellcasting": Object{"granted": []any{Object{"ref": "spark", "level": 0, "source": Object{"type": "item", "id": "ring", "name": "Ring", "ref": Object{"kind": "magic-item", "id": "spark-ring"}}}}}}, false, true},
 		{"unknown predicate", Object{"spellcaster": "yes"}, Object{}, false, false},
 	} {
 		t.Run(test.name, func(t *testing.T) {

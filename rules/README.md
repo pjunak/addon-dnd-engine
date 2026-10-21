@@ -35,6 +35,18 @@ capacity warnings use the final authorized limit. Pure regressions cover
 nonstandard record IDs/kinds, duplicate slots/copies, capacity grant withdrawal,
 self-qualification, expired/revoked prerequisites and explicit DM adjudication.
 
+Magic items may also declare `grants`, read all or nothing through a closed
+allowlist of the feature vocabulary ([item grants](../contract/README.md#item-grants)).
+One rule decides when an item is active, for its typed effects and its grants
+alike: equipped, present, not suspended from a hand, attuned when required, and
+the first copy of its record. An active item is a grant source keyed by its
+inventory instance, after the other sources, and its stand-in record carries
+only its name, so no other record field acts as a feature field. Item spells
+never spend spell slots. An inactive item keeps only its uses, which rests
+still restore; its saved picks and toggles wait without blocking, and using its
+last unit clears them. Item picks are warnings rather than blockers, and an
+item-granted condition's level counts the active items granting it.
+
 Progression checks each acquired class/feat against its earlier state. Normalized
 feat references retain their IDs through these checks and option filtering. A feat
 cannot qualify itself using its own ability increase. Source-declared conditional
@@ -103,8 +115,8 @@ See the [condition contract](../contract/README.md#authored-conditions).
 
 Character regressions cover deterministic recalculation, DM revocation/expiry,
 ability caps, multiclass acquisition order, HP bounds, recorded dice, rest and
-spent counters, attunement, item effects, conditional flight/senses, copying costs
-and level replacement budgets. Worker tests exercise the closed worker boundary.
+spent counters, attunement, item effects and grants, conditional flight/senses,
+copying costs and level replacement budgets. Worker tests exercise the closed worker boundary.
 
 `go test ./internal/rules -run '^$' -bench BenchmarkMulticlassCharacterCatalog -benchmem`
 measures a synthetic multiclass calculation with a larger choice catalog.

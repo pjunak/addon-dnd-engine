@@ -52,6 +52,11 @@ func SpellOptions(decisions, sheet Object, records Records, profile Ruleset) Obj
 		entry := cloneObjectDeep(grant)
 		ref := text(grant["ref"])
 		entry["key"] = spellGrantKey(grant)
+		if itemSpell(grant) {
+			entry["slots"] = anyStrings(itemSpellCasts(grant, casting))
+			grants = append(grants, entry)
+			continue
+		}
 		keys := spellSlotKeys(decisions, sheet, records, ref, integer(grant["level"], 0))
 		if truth(grant["ritualOnly"]) {
 			keys = []string{""}
@@ -187,6 +192,18 @@ func castGrantedSpell(decisions, sheet, change Object, records Records) error {
 		if recordByID(records, "spell", ref) == nil {
 			return fmt.Errorf("This granted spell is unavailable in the selected rules data.")
 		}
+		if itemSpell(grant) {
+			if itemCastingAbilityPending(grant, object(sheet["spellcasting"])) {
+				return fmt.Errorf("Choose the item's spellcasting ability before casting its spells.")
+			}
+			if !contains(itemSpellCasts(grant, object(sheet["spellcasting"])), slot) {
+				return fmt.Errorf("Cast this item spell with the item's own uses; item spells never use spell slots.")
+			}
+			if slot == "" {
+				return nil
+			}
+			return spendResourceUses(decisions, findPlayResource(sheet, slot), max(1, integer(grant["castResourceCost"], 1)))
+		}
 		if slot == grantFreeResourceKey(grant) && text(grant["free"]) != "" {
 			return spendResource(decisions, findPlayResource(sheet, slot))
 		}
@@ -203,6 +220,37 @@ func castGrantedSpell(decisions, sheet, change Object, records Records) error {
 		return spendSpellSlot(decisions, sheet, records, ref, integer(grant["level"], 0), slot)
 	}
 	return fmt.Errorf("This spell is not granted by the current build.")
+}
+
+func itemSpell(grant Object) bool {
+	return text(object(grant["source"])["type"]) == "item"
+}
+
+// itemSpellCasts lists how an item spell can be cast: with the item's own use,
+// or with nothing for at-will spells and cantrips, never with spell slots. It
+// lists nothing while the item's casting ability is still to be picked.
+func itemSpellCasts(grant, spellcasting Object) []string {
+	casts := []string{}
+	if itemCastingAbilityPending(grant, spellcasting) {
+		return casts
+	}
+	if key := text(grant["castResource"]); key != "" {
+		casts = append(casts, key)
+	}
+	if truth(grant["atWill"]) || grant["level"] != nil && integer(grant["level"], 0) == 0 {
+		casts = append(casts, "")
+	}
+	return casts
+}
+
+func itemCastingAbilityPending(grant, spellcasting Object) bool {
+	owner := grantOwner(object(grant["source"]))
+	for _, choice := range objects(spellcasting["castingAbilityChoices"]) {
+		if grantOwner(object(choice["source"])) == owner && text(choice["selected"]) == "" {
+			return true
+		}
+	}
+	return false
 }
 
 func spellSlotKeys(decisions, sheet Object, records Records, ref string, level int) []string {

@@ -153,7 +153,7 @@ func validateCharacter(input character.Inputs, decisions Object, records Records
 			block("item-source:"+item.ID, "inventory", "An item source is unavailable. Keep the saved sheet or review a replacement.")
 			continue
 		}
-		validateCharacterItemMechanics(item, record, input, result)
+		validateCharacterItemMechanics(item, record, input, records, result)
 		if item.Attuned {
 			identity := "attuned:" + item.Reference.Kind + ":" + item.Reference.ID
 			if profile.Constants.Character.UniqueAttunement && seen[identity] {

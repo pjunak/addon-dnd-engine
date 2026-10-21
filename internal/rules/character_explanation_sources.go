@@ -14,9 +14,7 @@ func scopeCharacterExplanationSources(input character.Inputs, decisions, sheet O
 	for _, entry := range evidence {
 		retained[entry.Reference] = true
 	}
-	sourceRef := func(source Object) character.Reference {
-		return character.Reference{Kind: text(source["type"]), ID: text(source["id"])}
-	}
+	sourceRef := grantSourceReference
 	set := func(path string, candidates []character.Reference) {
 		explanation, exists := explanations[path]
 		if !exists {

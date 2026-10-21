@@ -100,7 +100,7 @@ func Hydrate(decisions Object, records Records, ruleset *Ruleset) HydrationResul
 	}
 	sheet["featIdentities"] = identities
 	grantSources := applyChoicePackages(collectGrantSources(
-		classes, species, lineage, background, featRecords, objects(decisions["featAcquisitions"]), records, totalLevel,
+		classes, species, lineage, background, featRecords, objects(decisions["featAcquisitions"]), objects(decisions["itemGrants"]), records, totalLevel,
 		object(decisions["featureChoices"]),
 	), object(decisions["featureChoices"]))
 	activeModifiers := activeGrantModifiers(decisions, sheet, grantSources, classes, records)

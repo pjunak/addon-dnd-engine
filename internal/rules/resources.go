@@ -118,11 +118,15 @@ func hydrateResources(
 			if maximum < 1 {
 				continue
 			}
-			resources = append(resources, Object{
+			row := Object{
 				"key": grantResourceKey(source.Source, text(resource["key"])), "name": firstText(resource["name"], resource["key"]),
 				"max": maximum, "kind": "pool", "recharge": normalizeRecharge(resource["recharge"], source.Level),
 				"source": source.Source,
-			})
+			}
+			if source.Inactive {
+				row["active"] = false
+			}
+			resources = append(resources, row)
 		}
 	}
 
@@ -190,7 +194,7 @@ func hydrateResources(
 			recharge = append(recharge, Object{"on": rest, "amount": "full"})
 		}
 		source := object(choice["source"])
-		resources = append(resources, Object{"key": key, "name": guidanceLabel(text(source["id"])) + " (free cast)", "max": maximum, "kind": "charge", "recharge": recharge, "source": source})
+		resources = append(resources, Object{"key": key, "name": grantSourceLabel(source) + " (free cast)", "max": maximum, "kind": "charge", "recharge": recharge, "source": source})
 	}
 	sheet["resources"] = resources
 }

@@ -5,6 +5,9 @@ type grantSource struct {
 	Grants Object
 	Source Object
 	Level  int
+	// Inactive marks an owned item that is not in effect; it carries only its
+	// resources, so spent uses stay listed and rests still restore them.
+	Inactive bool
 }
 
 func collectGrantSources(
@@ -14,6 +17,7 @@ func collectGrantSources(
 	background Object,
 	feats []Object,
 	acquisitions []Object,
+	items []Object,
 	records Records,
 	totalLevel int,
 	selections Object,
@@ -60,6 +64,15 @@ func collectGrantSources(
 		for _, source := range acquisitions {
 			add(recordByID(records, "feat", text(source["id"])), source, totalLevel)
 		}
+	}
+	// Item grants were read through their allowlist; the stand-in record names
+	// the item, so no other item record field is read as a feature field.
+	for _, item := range items {
+		source := cloneObjectDeep(object(item["source"]))
+		result = append(result, grantSource{
+			Record: Object{"id": source["id"], "name": source["name"]}, Grants: cloneObjectDeep(object(item["grants"])),
+			Source: source, Level: totalLevel, Inactive: !truth(item["active"]),
+		})
 	}
 	return result
 }
@@ -182,7 +195,11 @@ func activeGrantModifiers(
 				row["active"] = false
 				dependents = append(dependents, deferred{activation, source, row})
 			} else if enabled {
-				enabledIDs[id] = true
+				// An item's toggle is its own: another source's extends or
+				// while never follows an item activation that shares its ID.
+				if text(source.Source["type"]) != "item" {
+					enabledIDs[id] = true
+				}
 				applyModifiers(activation, source, firstText(activation["name"], id))
 			}
 		}
@@ -314,10 +331,16 @@ func applyGenericGrants(
 			senses[id] = max(integer(senses[id], 0), integer(rawDistance, 0))
 		}
 	}
-	// senseBonuses extend a range, or grant it when absent (Umbral Sight).
+	// senseBonuses and active senseBonus modifiers extend a range, or grant it
+	// when absent (Umbral Sight), before sense minimums apply.
 	for _, source := range sources {
 		for id, rawDistance := range object(source.Grants["senseBonuses"]) {
 			senses[id] = integer(senses[id], 0) + max(0, integer(rawDistance, 0))
+		}
+	}
+	for _, modifier := range modifiers {
+		if key := text(modifier["key"]); key != "" && text(modifier["target"]) == "senseBonus" {
+			senses[key] = integer(senses[key], 0) + max(0, integer(modifier["add"], 0))
 		}
 	}
 	speedBonus := 0

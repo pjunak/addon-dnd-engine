@@ -184,6 +184,13 @@ features never satisfy a prerequisite. Inline-only features remain readable.
 A class table label with no class record resolves to a shared generic feature
 record of that name (`shared: true`, such as Ability Score Improvement), so its
 text reaches the evidence; any other unmatched label stays label-only.
+Once a subclass is chosen, the class table's subclass-choice slot — the label
+reading "<class name> Subclass" at the class's `subclassLevel` — becomes a row
+for the chosen subclass itself (`id`, `name`, `kind: "subclass"`, the class as
+`source`), its record retained as evidence, and the generic "Subclass Feature"
+placeholder labels disappear in favor of the subclass's own feature rows.
+Without a chosen subclass those printed labels stay as before. Feature rows
+without `kind` remain feature records.
 The additive `sheet.feats` array retains each acquired feat's `id`, `name` and
 `count`, with prose in the existing bounded evidence. It contains acquired feats,
 not the option catalog. Consumers can render saved feat details without live

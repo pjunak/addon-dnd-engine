@@ -43,6 +43,7 @@ func hydrateFeatures(sheet Object, classes []resolvedClass, records Records, sel
 			orderedLevels = append(orderedLevels, level)
 		}
 		sort.Ints(orderedLevels)
+		subclass := recordByID(records, "subclass", current.Subclass)
 		for _, level := range orderedLevels {
 			if level > current.Level {
 				continue
@@ -58,6 +59,22 @@ func hydrateFeatures(sheet Object, classes []resolvedClass, records Records, sel
 						match = candidate
 						break
 					}
+				}
+				// A chosen subclass replaces its table slot ("Wizard Subclass")
+				// with the subclass itself, and its own feature rows replace the
+				// generic "Subclass Feature" placeholders.
+				if subclass != nil && isSubclassSlotLabel(current, label, level) {
+					if match != nil {
+						taken[text(match["id"])] = struct{}{}
+					}
+					features = append(features, Object{
+						"id": text(subclass["id"]), "name": text(subclass["name"]),
+						"kind": "subclass", "source": source,
+					})
+					continue
+				}
+				if subclass != nil && normalizedName(label) == "subclass feature" {
+					continue
 				}
 				if match != nil {
 					taken[text(match["id"])] = struct{}{}
@@ -103,6 +120,13 @@ func optionFeatureRows(current resolvedClass, records Records, selections Object
 		rows = append(rows, row)
 	}
 	return rows
+}
+
+// The subclass-choice slot is the class table label "<Class> Subclass" at the
+// class's subclass level; the compendium's data contract reserves that label.
+func isSubclassSlotLabel(current resolvedClass, label string, level int) bool {
+	return level == classSubclassLevel(current.Record) &&
+		normalizedName(label) == normalizedName(current.Name)+" subclass"
 }
 
 // Inline subclass tables use local IDs. Resolve them within their owning

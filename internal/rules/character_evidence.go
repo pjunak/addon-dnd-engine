@@ -85,7 +85,8 @@ func (records *characterRecords) evidence() []character.Evidence {
 
 func captureCharacterSources(sheet Object, records *characterRecords) {
 	for _, feature := range objects(sheet["features"]) {
-		_, _ = records.Value("feature", text(feature["id"]))
+		// A chosen subclass fills its class's slot row with kind "subclass".
+		_, _ = records.Value(firstText(feature["kind"], "feature"), text(feature["id"]))
 	}
 	for _, resource := range objects(sheet["resources"]) {
 		ref := grantSourceReference(object(resource["source"]))

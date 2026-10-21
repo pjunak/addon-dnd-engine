@@ -42,7 +42,7 @@ func TestClassTableColumnsDriveConditionalSpeedAndMastery(t *testing.T) {
 	profile := syntheticRuleset(t)
 	records := classMechanicsRecords()
 	monk := func(level int, inventory ...any) Object {
-		return Hydrate(Object{"classes": []any{Object{"classId": "monk", "level": level}}, "inventory": inventory}, records, &profile).Sheet
+		return hydrateView(Object{"classes": []any{Object{"classId": "monk", "level": level}}, "inventory": inventory}, records, &profile).Sheet
 	}
 	sheet := monk(6)
 	if integer(sheet["speed"], 0) != 45 {
@@ -66,7 +66,7 @@ func TestClassTableColumnsDriveConditionalSpeedAndMastery(t *testing.T) {
 func TestGrantedCheckBonusesUseProficiencyAndAbilityRules(t *testing.T) {
 	t.Parallel()
 	profile := syntheticRuleset(t)
-	sheet := Hydrate(Object{
+	sheet := hydrateView(Object{
 		"baseStats":          Object{"CHA": 8, "WIS": 14},
 		"classes":            []any{Object{"classId": "monk", "level": 6}},
 		"skillProficiencies": []any{"insight"},
@@ -90,12 +90,12 @@ func TestFixedFeatureAbilityBonusRaisesItsCap(t *testing.T) {
 	profile := syntheticRuleset(t)
 	records := classMechanicsRecords()
 	decisions := Object{"baseStats": Object{"DEX": 20}, "classes": []any{Object{"classId": "monk", "level": 20}}}
-	sheet := Hydrate(NormalizeBuilderDecisions(decisions, records, profile), records, &profile).Sheet
+	sheet := hydrateView(NormalizeBuilderDecisions(decisions, records, profile), records, &profile).Sheet
 	if number(object(object(sheet["abilities"])["DEX"])["score"], 0) != 24 {
 		t.Fatalf("abilities = %+v", sheet["abilities"])
 	}
 	decisions["classes"] = []any{Object{"classId": "monk", "level": 19}}
-	sheet = Hydrate(NormalizeBuilderDecisions(decisions, records, profile), records, &profile).Sheet
+	sheet = hydrateView(NormalizeBuilderDecisions(decisions, records, profile), records, &profile).Sheet
 	if number(object(object(sheet["abilities"])["DEX"])["score"], 0) != 20 {
 		t.Fatal("the increase applied before its feature level")
 	}
@@ -108,7 +108,7 @@ func TestClassLevelHitPointsInitiativeAndSenseBonuses(t *testing.T) {
 	records.byKind["feature"]["monk-scales"] = mustJSON(Object{"kind": "feature", "id": "monk-scales", "name": "Scales", "classId": "monk", "level": 3,
 		"grants": Object{"hpPerClassLevel": 1, "initiativeBonuses": []any{Object{"addAbility": "WIS"}}, "senseBonuses": Object{"darkvision": 60}}})
 	hydrate := func(classes ...any) Object {
-		return Hydrate(Object{"baseStats": Object{"WIS": 14}, "species": "dwarf", "classes": classes}, records, &profile).Sheet
+		return hydrateView(Object{"baseStats": Object{"WIS": 14}, "species": "dwarf", "classes": classes}, records, &profile).Sheet
 	}
 	base := hydrate(Object{"classId": "monk", "level": 2}, Object{"classId": "wizard", "level": 3})
 	sheet := hydrate(Object{"classId": "monk", "level": 5}, Object{"classId": "wizard", "level": 3})
@@ -139,11 +139,11 @@ func TestWeaponMasterySlotsSumClassesAndFeatChoicesFillThem(t *testing.T) {
 		"feats":          []any{"drill"},
 		"featureChoices": Object{"feat:drill:drill-weapon": "longsword"},
 	}
-	plan := BuilderPlan(decisions, records, profile)
+	plan := view(BuilderPlan(decisions, records, profile))
 	if choice := findChoice(objects(plan["creationChoices"]), "feat:drill:drill-weapon"); choice == nil || text(choice["kind"]) != "weaponMastery" {
 		t.Fatalf("creation choices = %+v", plan["creationChoices"])
 	}
-	mastery := object(Hydrate(NormalizeBuilderDecisions(decisions, records, profile), records, &profile).Sheet["weaponMastery"])
+	mastery := object(hydrateView(NormalizeBuilderDecisions(decisions, records, profile), records, &profile).Sheet["weaponMastery"])
 	// Monk 4 (3) and Duelist 1 (3) are separate class features; the feat adds one.
 	if integer(mastery["slots"], 0) != 7 || !reflect.DeepEqual(stringsOf(mastery["chosen"]), []string{"longsword"}) {
 		t.Fatalf("weapon mastery = %+v", mastery)

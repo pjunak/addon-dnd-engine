@@ -27,7 +27,7 @@ func TestSourceClassAndSpellcasterPrerequisites(t *testing.T) {
 		{"unknown predicate", Object{"spellcaster": "yes"}, Object{}, false, false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			match, known := prerequisiteMatches(test.predicate, test.sheet)
+			match, known := prerequisiteMatches(test.predicate, decodeAs[*character.Calculation](test.sheet))
 			if match != test.match || known != test.known {
 				t.Fatalf("got %v/%v want %v/%v", match, known, test.match, test.known)
 			}
@@ -47,7 +47,7 @@ func TestAttunementClassWithdrawalRequiresExplicitRepair(t *testing.T) {
 	input.Build.Levels[0].ClassID = "scout"
 	before := cloneCharacter(input)
 	result := EvaluateCharacter(input, records, profile)
-	if !hasChoiceIssue(result, "attunement:focus") || truth(result.Guidance["canSave"]) {
+	if !hasChoiceIssue(result, "attunement:focus") || truth(view(result.Guidance)["canSave"]) {
 		t.Fatal("lost prerequisite accepted", result.Issues)
 	}
 	if !reflect.DeepEqual(before, input) || !reflect.DeepEqual(before, result.Inputs) {

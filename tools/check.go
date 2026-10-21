@@ -46,6 +46,9 @@ func fast() {
 	// Engine errors are complete user-facing sentences returned through the
 	// service contract, so ST1005's library-error style is intentionally inapplicable.
 	run("go", "tool", "-modfile=go.tools.mod", "staticcheck", "-checks=all,-ST1005", "./...")
+	// Every switch and map literal over a closed set lists all of its values.
+	// reflect.Kind switches in the schema tooling handle only the kinds used.
+	run("go", "tool", "-modfile=go.tools.mod", "exhaustive", "-check=switch,mapliteral", "-typeignore=^reflect\\.Kind$", "./...")
 }
 func checkFormatting(files []string) {
 	unformatted, err := unformattedFiles(files)

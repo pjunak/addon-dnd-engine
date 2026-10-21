@@ -104,8 +104,6 @@ func values(value any) []any {
 		return current
 	case []string:
 		return anyStrings(current)
-	case []int:
-		return anyInts(current)
 	case []Object:
 		result := make([]any, len(current))
 		for index := range current {

@@ -2,24 +2,21 @@
 
 The headless `dnd-engine` Add-on API v3 package evaluates character decisions
 and returns calculated values, choices, constraints and source explanations.
-It provides `dnd5e.rules-engine` **5.0.0** and consumes all compatible
+It provides `dnd5e.rules-engine` **6.0.0** and consumes all compatible
 `dnd5e.rules-data` **^3.0.0** providers through the host service broker.
 
 The engine has no character storage or UI. The sheets package owns its retained
 decisions and accepted results. Each evaluation uses the instance's complete
 rules profile and enabled books. Missing providers make character evaluation
-unavailable; `ability-modifier`, `clamp-hp` and `feat-asi-from` remain usable.
-It requires a ruleset of version 4 or later (Compendium 3.3.0).
+unavailable. It requires a ruleset of version 4 or later (Compendium 3.3.0).
 
 ## Public operations
 
 - `context`: availability and current provider/rules identity.
 - `get-record`, `query-records`: provider-neutral structured records.
-- `derive`: named arithmetic; formula operations read the rules profile and
-  return its identity.
 - `evaluate-character`: detached character inputs to a complete result,
   including unresolved choices and blockers.
-- `character-play`: one bounded play command followed by the same evaluation.
+- `character-play`: one typed play command followed by the same evaluation.
 
 See [the service contract](contract/README.md), [calculation ownership](rules/README.md)
 and [generated schemas](contracts/rules-engine.service.json). Shared arithmetic helpers remain internal. Fixture-only play/reconciliation

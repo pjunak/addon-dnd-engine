@@ -52,7 +52,7 @@ func TestFeatureAttacksUseTheirOwnFactsAndModifiers(t *testing.T) {
 	if !result.Ready {
 		t.Fatal(result.Issues)
 	}
-	blade, cannon := attackNamed(Object(result.Sheet), "Mind Blade"), attackNamed(Object(result.Sheet), "Arc Cannon")
+	blade, cannon := attackNamed(view(result.Sheet), "Mind Blade"), attackNamed(view(result.Sheet), "Arc Cannon")
 	if blade == nil || text(blade["ability"]) != "DEX" || integer(blade["attackBonus"], 0) != 3 || text(blade["damage"]) != "1d6 +1" || !truth(blade["masteryActive"]) {
 		t.Fatal("a finesse feature attack did not use its proficiency, ability and mastery", blade)
 	}
@@ -62,17 +62,17 @@ func TestFeatureAttacksUseTheirOwnFactsAndModifiers(t *testing.T) {
 	if cannon == nil || text(cannon["ability"]) != "INT" || integer(cannon["attackBonus"], 0) != 5 || text(cannon["damage"]) != "1d6 +3" {
 		t.Fatal("a feature attack's own ability or matched modifier was not applied", cannon)
 	}
-	for _, row := range objects(result.Sheet["weapons"]) {
+	for _, row := range objects(view(result.Sheet)["weapons"]) {
 		if integer(row["criticalRange"], 0) != 19 {
 			t.Fatal("the critical range did not reach every attack", row)
 		}
 	}
 	input.Play.ActiveFeatures = map[string]bool{activationKey(result, "holy"): true}
 	result = EvaluateCharacter(input, records, profile)
-	if blade = attackNamed(Object(result.Sheet), "Mind Blade"); integer(blade["attackBonus"], 0) != 4 {
+	if blade = attackNamed(view(result.Sheet), "Mind Blade"); integer(blade["attackBonus"], 0) != 4 {
 		t.Fatal("an ability-based attack bonus ignored its minimum", blade)
 	}
-	if cannon = attackNamed(Object(result.Sheet), "Arc Cannon"); integer(cannon["attackBonus"], 0) != 5 {
+	if cannon = attackNamed(view(result.Sheet), "Arc Cannon"); integer(cannon["attackBonus"], 0) != 5 {
 		t.Fatal("a melee-only attack bonus reached a ranged attack", cannon)
 	}
 }
@@ -80,25 +80,25 @@ func TestFeatureAttacksUseTheirOwnFactsAndModifiers(t *testing.T) {
 func TestFeatureValuesSaveDCsColumnsResourcesAndAttunement(t *testing.T) {
 	input, records, profile := featureValueFixture(t)
 	result := EvaluateCharacter(input, records, profile)
-	dcs := objects(result.Sheet["saveDCs"])
+	dcs := objects(view(result.Sheet)["saveDCs"])
 	if len(dcs) != 1 || integer(dcs[0]["value"], 0) != 8+2+1 || text(dcs[0]["ability"]) != "DEX" {
 		t.Fatal("a feature save DC did not use the best named ability", dcs)
 	}
 	found := false
-	for _, row := range objects(result.Sheet["classValues"]) {
+	for _, row := range objects(view(result.Sheet)["classValues"]) {
 		found = found || text(row["key"]) == "edge-die" && text(row["value"]) == "1d8" && text(row["subclassId"]) == "edge"
 	}
 	if !found {
-		t.Fatal("a subclass table column was not listed", result.Sheet["classValues"])
+		t.Fatal("a subclass table column was not listed", view(result.Sheet)["classValues"])
 	}
 	maximum := map[string]int{}
-	for _, resource := range objects(result.Sheet["resources"]) {
-		maximum[text(resource["key"])] = integer(resource["max"], 0)
+	for _, resource := range objects(view(result.Sheet)["resources"]) {
+		maximum[text(view(resource)["key"])] = integer(view(resource)["max"], 0)
 	}
 	if maximum["light"] != 4 || maximum["ward"] != 2*3+2 || maximum["store"] != 2 {
 		t.Fatal("combined resource formulas were not added up", maximum)
 	}
-	if integer(object(result.Sheet["attunement"])["limit"], 0) != 4 {
-		t.Fatal("a feature did not raise the attunement limit", result.Sheet["attunement"])
+	if integer(object(view(result.Sheet)["attunement"])["limit"], 0) != 4 {
+		t.Fatal("a feature did not raise the attunement limit", view(result.Sheet)["attunement"])
 	}
 }

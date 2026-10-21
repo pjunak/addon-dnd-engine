@@ -47,19 +47,19 @@ func validateCharacterPlacement(input character.Inputs, records Records, result 
 }
 
 func characterPlacement(input character.Inputs, result *character.Result) {
-	rows := []any{}
+	rows := []character.PlacementRow{}
 	terms := []character.Term{}
 	sources := []character.Reference{}
 	for _, item := range input.Play.Inventory {
 		if item.BodyPlacement == "" {
 			continue
 		}
-		rows = append(rows, Object{"itemId": item.ID, "name": item.Name, "placement": item.BodyPlacement})
+		rows = append(rows, character.PlacementRow{ItemID: item.ID, Name: item.Name, Placement: item.BodyPlacement})
 		terms = append(terms, character.Term{Label: item.Name, Value: item.BodyPlacement, Source: item.Reference, GrantID: item.GrantID})
 		if item.Reference != nil {
 			sources = append(sources, *item.Reference)
 		}
 	}
-	result.Sheet["bodyPlacement"] = rows
+	result.Sheet.BodyPlacement = rows
 	result.Explanations["bodyPlacement"] = character.Explanation{Label: "Body placement", Formula: "Authored display organization of equipped inventory instances. Placement grants no bonuses or extra equipment slots and does not limit the number of worn accessories. Armor, shield and attunement rules are evaluated separately.", Value: rows, Terms: terms, Sources: sources}
 }

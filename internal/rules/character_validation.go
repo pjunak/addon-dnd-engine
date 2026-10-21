@@ -15,7 +15,10 @@ func validateCharacter(input character.Inputs, decisions Object, records Records
 	validateCharacterStorage(input, result)
 	validateCharacterCarrying(input, result)
 	validateCharacterPlacement(input, records, result)
-	block := func(id, target, message string) { addCharacterIssue(result, id, target, message, "blocker", nil) }
+	block := func(id, target, message string) {
+		addCharacterIssue(result, id, target, message, character.SeverityBlocker, nil)
+	}
+	sheet := result.Sheet.Calculation
 	if len(input.Build.Levels) == 0 || len(input.Build.Levels) > profile.Constants.Character.MaximumLevel {
 		block("levels", "levels", fmt.Sprintf("Choose between 1 and %d ordered class levels.", profile.Constants.Character.MaximumLevel))
 	}
@@ -23,7 +26,7 @@ func validateCharacter(input character.Inputs, decisions Object, records Records
 		block("base-scores", "abilities", "Assign all six base ability scores.")
 	}
 	switch input.Build.Method {
-	case "point-buy":
+	case character.MethodPointBuy:
 		spent := 0
 		for _, ability := range Abilities {
 			score, ok := input.Build.BaseScores[ability]
@@ -36,7 +39,7 @@ func validateCharacter(input character.Inputs, decisions Object, records Records
 		if spent != profile.Constants.PointBuy.Budget {
 			block("point-buy", "abilities", fmt.Sprintf("Allocate %d ability points; currently %d.", profile.Constants.PointBuy.Budget, spent))
 		}
-	case "array":
+	case character.MethodArray:
 		scores := []int{}
 		for _, ability := range Abilities {
 			scores = append(scores, input.Build.BaseScores[ability])
@@ -47,7 +50,7 @@ func validateCharacter(input character.Inputs, decisions Object, records Records
 		if fmt.Sprint(scores) != fmt.Sprint(expected) {
 			block("standard-array", "abilities", fmt.Sprintf("Assign the ruleset standard array once each: %v.", profile.Constants.Character.StandardArray))
 		}
-	case "rolled":
+	case character.MethodRolled:
 		validateCharacterRolls(input, result, *profile.Constants.Character)
 	default:
 		block("creation-method", "abilities", "Choose point buy, standard array or recorded rolls.")
@@ -72,30 +75,29 @@ func validateCharacter(input character.Inputs, decisions Object, records Records
 			block("duplicate-choice:"+key, choice.ID, "This choice slot was selected more than once.")
 		}
 		choiceIDs[key] = true
-		plan := Object(result.Plan)
-		descriptor := findCharacterChoice(plan, choice.ID, decisions, records, profile)
+		descriptor := findCharacterChoice(result.Plan, choice.ID, decisions, records)
 		if descriptor == nil {
 			block("unavailable-choice:"+key, choice.ID, "This earlier selection is no longer granted. Remove it or choose a replacement.")
 			continue
 		}
-		count := max(1, integer(descriptor["count"], 1))
+		count := max(1, descriptor.Count)
 		if choice.Slot < 0 || choice.Slot >= count {
 			block("choice-count:"+key, choice.ID, "This selection exceeds its allowed choice count.")
 		}
 		var value any
 		_ = json.Unmarshal(choice.Value, &value)
-		if text(descriptor["kind"]) == "abilityBudget" {
+		if descriptor.Kind == character.ChoiceAbilityBudget {
 			assignment := object(value)
 			total, valid := 0, assignment != nil && choice.Slot == 0
 			for ability, raw := range assignment {
 				amount, ok := raw.(float64)
-				valid = valid && ok && amount == float64(int(amount)) && amount >= 0 && int(amount) <= integer(descriptor["perAbilityMax"], 0) && contains(Abilities[:], ability)
-				if descriptor["eligible"] != nil {
-					valid = valid && contains(stringsOf(descriptor["eligible"]), ability)
+				valid = valid && ok && amount == float64(int(amount)) && amount >= 0 && int(amount) <= descriptor.PerAbilityMax && contains(Abilities[:], ability)
+				if descriptor.Eligible != nil {
+					valid = valid && contains(descriptor.Eligible, ability)
 				}
 				total += int(amount)
 			}
-			if !valid || total != integer(descriptor["budget"], 0) {
+			if !valid || total != descriptor.Budget {
 				block("ability-assignment:"+key, choice.ID, "Assign exactly the available increase budget to eligible abilities, within each ability's limit.")
 			}
 			continue
@@ -105,18 +107,18 @@ func validateCharacter(input character.Inputs, decisions Object, records Records
 			continue
 		}
 		if selected, ok := value.(string); ok && selected != "" {
-			if valueKey := choice.ID + "/" + selected; choiceValues[valueKey] && !contains(stringsOf(descriptor["repeatableOptions"]), selected) {
+			if valueKey := choice.ID + "/" + selected; choiceValues[valueKey] && !contains(descriptor.RepeatableOptions, selected) {
 				block("duplicate-option:"+key, choice.ID, "Choose distinct options for each slot.")
 			} else {
 				choiceValues[valueKey] = true
 			}
-			options := builderChoiceOptions(descriptor, Object(result.Sheet), records)
-			if kind := text(descriptor["kind"]); kind == "expertise" || kind == "skillExpertise" || isProficiencyChoice(descriptor) || truth(descriptor["distinctAcrossAcquisitions"]) {
-				options = values(object(object(result.Guidance["choices"])[choice.ID])["options"])
+			options := builderChoiceOptions(*descriptor, sheet, records)
+			if kind := descriptor.Kind; kind == character.ChoiceExpertise || kind == character.ChoiceSkillExpertise || isProficiencyChoice(*descriptor) || descriptor.DistinctAcrossAcquisitions {
+				options = result.Guidance.Choices[choice.ID].Options
 			}
-			valid := text(descriptor["kind"]) == "asiMode" && (selected == "asi" || selected == "feat")
-			for _, option := range objects(options) {
-				if text(option["id"]) == selected {
+			valid := descriptor.Kind == character.ChoiceASIMode && (selected == "asi" || selected == "feat")
+			for _, option := range options {
+				if option.ID == selected {
 					valid = true
 				}
 			}
@@ -163,7 +165,7 @@ func validateCharacter(input character.Inputs, decisions Object, records Records
 			if !truth(record["attunement"]) {
 				block("attunement-ineligible:"+item.ID, "inventory", "This item does not declare an attunement requirement.")
 			}
-			validateCharacterAttunementPrerequisite(item, record, input, records, profile, Object(result.Sheet), result)
+			validateCharacterAttunementPrerequisite(item, record, input, records, profile, sheet, result)
 		}
 	}
 	equipped := map[string]string{}
@@ -180,11 +182,10 @@ func validateCharacter(input character.Inputs, decisions Object, records Records
 			equipped[slot] = item.ID
 		}
 	}
-	attunement := object(result.Sheet["attunement"])
-	if integer(attunement["count"], 0) > integer(attunement["limit"], 0) {
+	if sheet.Attunement.Count > sheet.Attunement.Limit {
 		block("attunement-capacity", "inventory", "Choose which items remain attuned, or record a DM capacity grant.")
 	}
-	maximum := integer(object(result.Sheet["derived"])["maxHp"], 0)
+	maximum := sheet.Derived.MaxHP
 	if input.Play.HP < 0 || input.Play.HP > maximum {
 		block("hp-bounds", "hp", fmt.Sprintf("Current HP must be between 0 and %d; review the required correction.", maximum))
 	}
@@ -201,8 +202,8 @@ func validateCharacter(input character.Inputs, decisions Object, records Records
 		}
 	}
 	resources := map[string]int{}
-	for _, resource := range objects(result.Sheet["resources"]) {
-		resources[text(resource["key"])] = integer(resource["max"], 0)
+	for _, resource := range sheet.Resources {
+		resources[resource.Key] = resource.Max
 	}
 	for _, key := range sortedKeys(input.Play.ResourceUses) {
 		used := input.Play.ResourceUses[key]
@@ -216,7 +217,7 @@ func validateCharacter(input character.Inputs, decisions Object, records Records
 			block("grant-id:"+grant.ID, "grants", "DM grants need unique IDs.")
 		}
 		seen["grant:"+grant.ID] = true
-		if !contains([]string{"always", "equipped", "attuned"}, grant.Condition) {
+		if !grant.Condition.Valid() {
 			block("grant-condition:"+grant.ID, "grants", "Choose a supported grant condition.")
 		}
 		if grant.ActorID == "" || strings.TrimSpace(grant.Reason) == "" || grant.EffectiveLevel < 1 {
@@ -228,13 +229,13 @@ func validateCharacter(input character.Inputs, decisions Object, records Records
 			}
 		}
 		for _, effect := range grant.Effects {
-			if !contains([]string{"set", "add", "minimum", "maximum"}, effect.Mode) {
+			if !effect.Mode.Valid() {
 				block("effect-mode:"+grant.ID, "grants", "Choose a supported effect operation.")
 			}
 			if effect.Value < -100000 || effect.Value > 100000 {
 				block("effect-value:"+grant.ID, "grants", "Effect amount exceeds the supported range.")
 			}
-			if (effect.Target == "abilityScore" || effect.Target == "abilityCap") && !contains(Abilities[:], effect.Key) {
+			if (effect.Target == character.TargetAbilityScore || effect.Target == character.TargetAbilityCap) && !contains(Abilities[:], effect.Key) {
 				block("effect-key:"+grant.ID, "grants", "Choose a supported ability.")
 			}
 			if !validCharacterEffect(effect) {
@@ -281,27 +282,26 @@ func validateCharacterRolls(input character.Inputs, result *character.Result, po
 			valid = valid && total == highest
 		}
 		if !valid || input.Build.BaseScores[roll.Ability] != total {
-			addCharacterIssue(result, "roll:"+roll.ID, "abilities", fmt.Sprintf("Record %d d%d and retain the highest %d results without rerolling during recalculation.", policy.RollDice, policy.RollSides, policy.RollKeep), "blocker", nil)
+			addCharacterIssue(result, "roll:"+roll.ID, "abilities", fmt.Sprintf("Record %d d%d and retain the highest %d results without rerolling during recalculation.", policy.RollDice, policy.RollSides, policy.RollKeep), character.SeverityBlocker, nil)
 		}
 	}
 	if len(selected) != 6 {
-		addCharacterIssue(result, "roll-count", "abilities", "Record a roll for each ability.", "blocker", nil)
+		addCharacterIssue(result, "roll-count", "abilities", "Record a roll for each ability.", character.SeverityBlocker, nil)
 	}
 }
 
-func findCharacterChoice(plan Object, id string, decisions Object, records Records, profile Ruleset) Object {
+func findCharacterChoice(plan character.Plan, id string, decisions Object, records Records) *character.PlanChoice {
 	if ability := findAbilityChoice(plan, id, decisions, records); ability != nil {
 		return ability
 	}
-	for _, group := range []string{"classChoices", "creationChoices", "creationAbilityChoices"} {
-		for _, choice := range objects(plan[group]) {
-			if text(choice["id"]) == id {
-				return choice
+	for _, group := range [][]character.PlanChoice{plan.ClassChoices, plan.CreationChoices, plan.CreationAbilityChoices} {
+		for _, choice := range group {
+			if choice.ID == id {
+				return &choice
 			}
-			if feat := object(choice["feat"]); text(feat["id"]) == id {
-				copy := cloneObjectDeep(feat)
-				copy["kind"] = "feat"
-				return copy
+			if choice.Feat != nil && choice.Feat.ID == id {
+				feat := choice.Feat.Choice()
+				return &feat
 			}
 		}
 	}
@@ -341,7 +341,8 @@ func validateSelectedProgression(input character.Inputs, records Records, profil
 		var authored Object
 		if checks.feats {
 			authored = characterDecisions(prefix, records, profile, &detached)
-			acquisitions = selectedFeatAcquisitions(authored, records, collectClassChoices(values(authored["classes"]), object(authored["featureChoices"]), records, profile))
+			_, classes := builderModel(authored)
+			acquisitions = selectedFeatAcquisitions(authored, records, collectClassChoices(classes, object(authored["featureChoices"]), records, profile))
 		}
 		if checks.classes && index > 0 && !seenClasses[level.ClassID] {
 			classIDs := []string{level.ClassID}
@@ -352,7 +353,7 @@ func validateSelectedProgression(input character.Inputs, records Records, profil
 			beforeLevel := replacementPrefix(input, index)
 			priorDecisions := NormalizeBuilderDecisions(characterDecisions(beforeLevel, records, profile, &detached), records, profile)
 			applyCharacterAbilityEffects(beforeLevel, priorDecisions, &detached, profile, records)
-			beforeSheet := Hydrate(priorDecisions, records, &profile).Sheet
+			beforeSheet := Hydrate(priorDecisions, records, profile).Sheet
 			for _, id := range classIDs {
 				record := recordByID(records, "class", id)
 				requirement := record["multiclassPrerequisites"]
@@ -378,7 +379,8 @@ func validateSelectedProgression(input character.Inputs, records Records, profil
 			continue
 		}
 		newFeats := map[string]bool{}
-		var decisions, plan Object
+		var decisions Object
+		var plan *character.Plan
 		featCounts := map[string]int{}
 		currentAcquisitions := map[string]string{}
 		for _, acquired := range acquisitions {
@@ -402,7 +404,7 @@ func validateSelectedProgression(input character.Inputs, records Records, profil
 						message = "This feat's repeatability rule is unsupported."
 					}
 				}
-				addCharacterIssue(result, "feat:"+id, "choices", message, "blocker", &character.Reference{Kind: "feat", ID: id})
+				addCharacterIssue(result, "feat:"+id, "choices", message, character.SeverityBlocker, &character.Reference{Kind: "feat", ID: id})
 			}
 			if emptyPrerequisite(record["prerequisites"]) {
 				continue
@@ -417,7 +419,8 @@ func validateSelectedProgression(input character.Inputs, records Records, profil
 						newFeats[id] = true
 					}
 				}
-				plan = BuilderPlan(decisions, records, profile)
+				built := BuilderPlan(decisions, records, profile)
+				plan = &built
 			}
 			prior := cloneObjectDeep(decisions)
 			remaining := []any{}
@@ -431,7 +434,7 @@ func validateSelectedProgression(input character.Inputs, records Records, profil
 			for _, grant := range objects(prior["abilityGrants"]) {
 				remove := strings.HasSuffix(acquired.id, ":feat") && text(grant["id"]) == strings.TrimSuffix(acquired.id, ":feat")+":featability"
 				for featID := range newFeats {
-					remove = remove || characterGrantFromFeat(grant, featID, plan, decisions)
+					remove = remove || characterGrantFromFeat(grant, featID, *plan, decisions)
 				}
 				if !remove {
 					grants = append(grants, grant)
@@ -439,7 +442,7 @@ func validateSelectedProgression(input character.Inputs, records Records, profil
 			}
 			prior["abilityGrants"] = grants
 			applyCharacterAbilityEffects(prefix, prior, &detached, profile, records)
-			before := Hydrate(prior, records, &profile).Sheet
+			before := Hydrate(prior, records, profile).Sheet
 			validatePrerequisite(record["prerequisites"], "feat:"+id, "choices", prefix, before, result, &character.Reference{Kind: "feat", ID: id})
 		}
 		seenAcquisitions = currentAcquisitions
@@ -450,14 +453,14 @@ func validateSelectedProgression(input character.Inputs, records Records, profil
 	}
 }
 
-func characterGrantFromFeat(grant Object, featID string, plan, decisions Object) bool {
+func characterGrantFromFeat(grant Object, featID string, plan character.Plan, decisions Object) bool {
 	source := object(grant["source"])
 	if text(source["type"]) == "feat" && text(source["id"]) == featID {
 		return true
 	}
-	for _, choice := range objects(plan["classChoices"]) {
-		feat := object(choice["feat"])
-		if text(object(feat["ability"])["id"]) == text(grant["id"]) && text(object(decisions["featureChoices"])[text(feat["id"])]) == featID {
+	for _, choice := range plan.ClassChoices {
+		feat := choice.Feat
+		if feat != nil && feat.Ability != nil && feat.Ability.ID == text(grant["id"]) && text(object(decisions["featureChoices"])[feat.ID]) == featID {
 			return true
 		}
 	}
@@ -466,13 +469,13 @@ func characterGrantFromFeat(grant Object, featID string, plan, decisions Object)
 
 // Predicates are a small serializable vocabulary. Narrative prerequisites need
 // an exact recorded waiver; the engine never parses prose into authority.
-func validatePrerequisite(value any, id, target string, input character.Inputs, sheet Object, result *character.Result, reference *character.Reference) {
+func validatePrerequisite(value any, id, target string, input character.Inputs, sheet *character.Calculation, result *character.Result, reference *character.Reference) {
 	if emptyPrerequisite(value) {
 		return
 	}
 	for _, grant := range activeCharacterGrants(input) {
 		if contains(grant.Waivers, id) {
-			addCharacterIssue(result, "waived:"+id, target, "DM given: "+grant.Name+" waives this requirement.", "info", reference)
+			addCharacterIssue(result, "waived:"+id, target, "DM given: "+grant.Name+" waives this requirement.", character.SeverityInfo, reference)
 			return
 		}
 	}
@@ -484,16 +487,19 @@ func validatePrerequisite(value any, id, target string, input character.Inputs, 
 	if !known {
 		message = "This prerequisite needs recorded DM adjudication: " + firstText(object(value)["text"], "unsupported rule predicate")
 	}
-	addCharacterIssue(result, id, target, message, "blocker", reference)
+	addCharacterIssue(result, id, target, message, character.SeverityBlocker, reference)
 }
 func emptyPrerequisite(value any) bool {
 	return value == nil || object(value) != nil && len(object(value)) == 0
 }
 
-func prerequisiteMatches(value Object, sheet Object) (bool, bool) {
+func prerequisiteMatches(value Object, sheet *character.Calculation) (bool, bool) {
+	if sheet == nil {
+		sheet = &character.Calculation{}
+	}
 	return prerequisiteMatchesDepth(value, sheet, 0)
 }
-func prerequisiteMatchesDepth(value Object, sheet Object, depth int) (bool, bool) {
+func prerequisiteMatchesDepth(value Object, sheet *character.Calculation, depth int) (bool, bool) {
 	if len(value) == 0 || depth > 12 {
 		return false, false
 	}
@@ -504,7 +510,7 @@ func prerequisiteMatchesDepth(value Object, sheet Object, depth int) (bool, bool
 			if !positivePredicateNumber(raw) {
 				return false, false
 			}
-			valid = valid && integer(sheet["totalLevel"], 0) >= integer(raw, 0)
+			valid = valid && sheet.TotalLevel >= integer(raw, 0)
 		case "abilities":
 			if len(object(raw)) == 0 {
 				return false, false
@@ -513,7 +519,7 @@ func prerequisiteMatchesDepth(value Object, sheet Object, depth int) (bool, bool
 				if !contains(Abilities[:], ability) || !positivePredicateNumber(minScore) {
 					return false, false
 				}
-				valid = valid && integer(object(object(sheet["abilities"])[ability])["score"], 0) >= integer(minScore, 0)
+				valid = valid && sheet.Abilities[ability].Score >= integer(minScore, 0)
 			}
 		case "all", "any":
 			children := objects(raw)
@@ -542,8 +548,8 @@ func prerequisiteMatchesDepth(value Object, sheet Object, depth int) (bool, bool
 					return false, false
 				}
 				found := false
-				for _, class := range objects(sheet["classes"]) {
-					found = found || text(class["classId"]) == classID && integer(class["level"], 0) >= integer(minimum, 0)
+				for _, class := range sheet.Classes {
+					found = found || class.ClassID == classID && class.Level >= integer(minimum, 0)
 				}
 				valid = valid && found
 			}
@@ -558,19 +564,15 @@ func prerequisiteMatchesDepth(value Object, sheet Object, depth int) (bool, bool
 			if required, ok := raw.(bool); !ok || !required {
 				return false, false
 			}
-			valid = valid && len(objects(object(sheet["spellcasting"])["perClass"])) > 0
+			valid = valid && len(sheet.Spellcasting.PerClass) > 0
 		case "feat", "featCategory", "withoutFeatCategory":
 			wanted := text(raw)
 			if wanted == "" {
 				return false, false
 			}
-			field := "id"
-			if key != "feat" {
-				field = "category"
-			}
 			found := false
-			for _, feat := range objects(sheet["featIdentities"]) {
-				found = found || text(feat[field]) == wanted
+			for _, feat := range sheet.FeatIdentities {
+				found = found || key == "feat" && feat.ID == wanted || key != "feat" && feat.Category == wanted
 			}
 			valid = valid && found == (key != "withoutFeatCategory")
 		case "weaponTraining":
@@ -578,14 +580,14 @@ func prerequisiteMatchesDepth(value Object, sheet Object, depth int) (bool, bool
 			if wanted != "simple" && wanted != "martial" {
 				return false, false
 			}
-			valid = valid && contains(stringsOf(object(sheet["proficiencies"])["weapons"]), wanted)
+			valid = valid && contains(sheet.Proficiencies.Weapons, wanted)
 		case "armorTraining":
 			wanted := strings.TrimSuffix(text(raw), "s")
 			if !contains([]string{"light", "medium", "heavy", "shield"}, wanted) {
 				return false, false
 			}
 			found := false
-			for _, armor := range stringsOf(object(sheet["proficiencies"])["armor"]) {
+			for _, armor := range sheet.Proficiencies.Armor {
 				found = found || strings.TrimSuffix(strings.ToLower(armor), "s") == wanted
 			}
 			valid = valid && found
@@ -594,8 +596,8 @@ func prerequisiteMatchesDepth(value Object, sheet Object, depth int) (bool, bool
 				return false, false
 			}
 			found := false
-			for _, feature := range objects(sheet["features"]) {
-				found = found || text(feature["id"]) == text(raw)
+			for _, feature := range sheet.Features {
+				found = found || feature.ID == text(raw)
 			}
 			valid = valid && found
 		default:

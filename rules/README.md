@@ -12,8 +12,8 @@ policy, movement units, melee reach, coin values, the concentration save, carryi
 capacity and coin weight, spell slots and recovery, and the core formulas: the
 proficiency bonus by level, the spell save DC base, the passive check base,
 the unarmored AC base and the fixed hit-point bonus (half the die plus it).
-Only the ability modifier, clamping and the first level's maximum hit die are
-engine arithmetic. Class/source facts supply specific progression,
+Only the ability modifier, keeping current HP within the maximum and the first
+level's maximum hit die are engine arithmetic. Class/source facts supply specific progression,
 prerequisites, choices, activations and effects. No book/add-on ID selects math.
 
 Every evaluation builds fresh output. A request-local decoded record cache reuses

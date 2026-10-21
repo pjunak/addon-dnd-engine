@@ -32,7 +32,7 @@ func optionFixture(t *testing.T) (character.Inputs, memoryRecords, Ruleset) {
 }
 
 func sheetFeature(result character.Result, id string) Object {
-	for _, feature := range objects(result.Sheet["features"]) {
+	for _, feature := range objects(view(result.Sheet)["features"]) {
 		if text(feature["id"]) == id {
 			return feature
 		}
@@ -43,8 +43,8 @@ func sheetFeature(result character.Result, id string) Object {
 func TestOnlyChosenOptionsBecomeFeaturesAndGrants(t *testing.T) {
 	input, records, profile := optionFixture(t)
 	result := EvaluateCharacter(input, records, profile)
-	if sheetFeature(result, "vision-sight") != nil || integer(object(result.Sheet["senses"])["darkvision"], 0) != 120 {
-		t.Fatal("an unchosen option became a feature or granted its senses", result.Sheet["features"], result.Sheet["senses"])
+	if sheetFeature(result, "vision-sight") != nil || integer(object(view(result.Sheet)["senses"])["darkvision"], 0) != 120 {
+		t.Fatal("an unchosen option became a feature or granted its senses", view(result.Sheet)["features"], view(result.Sheet)["senses"])
 	}
 	if classGrantOffers(result, "visions", "vision-deep") || !classGrantOffers(result, "visions", "vision-sight") {
 		t.Fatal("option prerequisites did not filter the level 1 choice")
@@ -53,7 +53,7 @@ func TestOnlyChosenOptionsBecomeFeaturesAndGrants(t *testing.T) {
 	result = EvaluateCharacter(input, records, profile)
 	feature := sheetFeature(result, "vision-sight")
 	if !result.Ready || feature == nil || text(feature["category"]) != "vision" || text(object(feature["source"])["id"]) != "fighter" {
-		t.Fatal("the chosen option is not an acquired class feature", result.Issues, result.Sheet["features"])
+		t.Fatal("the chosen option is not an acquired class feature", result.Issues, view(result.Sheet)["features"])
 	}
 	if _, retained := evidenceFor(result, "feature", "vision-sight"); !retained {
 		t.Fatal("the chosen option's text is not retained for the sheet")
@@ -72,8 +72,8 @@ func TestOptionPrerequisitesAndRepeatableOptions(t *testing.T) {
 		{ID: "visions", Slot: 2, Value: mustJSON("vision-lesson")},
 	}
 	result := EvaluateCharacter(input, records, profile)
-	if integer(object(result.Sheet["senses"])["truesight"], 0) != 30 || sheetFeature(result, "vision-deep") == nil {
-		t.Fatal("a qualified option did not apply", result.Issues, result.Sheet["senses"])
+	if integer(object(view(result.Sheet)["senses"])["truesight"], 0) != 30 || sheetFeature(result, "vision-deep") == nil {
+		t.Fatal("a qualified option did not apply", result.Issues, view(result.Sheet)["senses"])
 	}
 	input.Build.Choices[0].Value = mustJSON("vision-lesson")
 	result = EvaluateCharacter(input, records, profile)
@@ -86,7 +86,7 @@ func TestOptionPrerequisitesAndRepeatableOptions(t *testing.T) {
 	if lesson := sheetFeature(result, "vision-lesson"); integer(lesson["count"], 0) != 2 {
 		t.Fatal("a repeated option lost its count", lesson)
 	}
-	choice := object(object(result.Guidance["choices"])["lesson-feat"])
+	choice := object(object(view(result.Guidance)["choices"])["lesson-feat"])
 	if integer(choice["required"], 0) != 2 || !classGrantOffers(result, "lesson-feat", "alert") || classGrantOffers(result, "lesson-feat", "strong") {
 		t.Fatal("the repeated option did not offer one feat per pick", choice)
 	}
@@ -94,8 +94,8 @@ func TestOptionPrerequisitesAndRepeatableOptions(t *testing.T) {
 	input.Build.Choices = append(input.Build.Choices,
 		character.Choice{ID: "lesson-feat", Slot: 0, Value: mustJSON("alert")}, character.Choice{ID: "lesson-feat", Slot: 1, Value: mustJSON("lucky")})
 	result = EvaluateCharacter(input, records, profile)
-	if !result.Ready || len(objects(result.Sheet["feats"])) != 2 {
-		t.Fatal("feats from a repeated option were not acquired", result.Issues, result.Sheet["feats"])
+	if !result.Ready || len(objects(view(result.Sheet)["feats"])) != 2 {
+		t.Fatal("feats from a repeated option were not acquired", result.Issues, view(result.Sheet)["feats"])
 	}
 	input.Build.Choices[2].Value = mustJSON("vision-sight")
 	result = EvaluateCharacter(input, records, profile)

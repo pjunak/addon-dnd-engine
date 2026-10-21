@@ -27,10 +27,10 @@ type conditionDefinition struct {
 // conditionRoll is one of the character's own rolls a condition gives
 // Advantage or Disadvantage on, as in grants.advantages.
 type conditionRoll struct {
-	On        string   `json:"on"`
-	Mode      string   `json:"mode"`
-	Abilities []string `json:"abilities,omitempty"`
-	When      string   `json:"when,omitempty"`
+	On        character.RollKind `json:"on"`
+	Mode      character.RollMode `json:"mode"`
+	Abilities []string           `json:"abilities,omitempty"`
+	When      string             `json:"when,omitempty"`
 }
 
 var conditionID = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
@@ -62,7 +62,7 @@ func conditionDefinitions(records Records, profile Ruleset) ([]conditionDefiniti
 			return nil, ref
 		}
 		for _, roll := range definition.Rolls {
-			if !contains(advantageRolls, roll.On) || (roll.Mode != "advantage" && roll.Mode != "disadvantage") || utf8.RuneCountInString(roll.When) > 200 {
+			if !roll.On.Valid() || !roll.Mode.Valid() || utf8.RuneCountInString(roll.When) > 200 {
 				return nil, ref
 			}
 			for _, ability := range roll.Abilities {
@@ -86,7 +86,7 @@ func validateCharacterConditions(input character.Inputs, records Records, profil
 	for _, condition := range input.Play.Conditions {
 		definition, exists := byID[condition.ID]
 		if !exists || seen[condition.ID] || condition.Level < 1 || condition.Level > definition.MaximumLevel {
-			addCharacterIssue(result, "condition:"+condition.ID, "conditions", "Choose a distinct available condition and a supported level, or remove it.", "blocker", &ref)
+			addCharacterIssue(result, "condition:"+condition.ID, "conditions", "Choose a distinct available condition and a supported level, or remove it.", character.SeverityBlocker, &ref)
 		}
 		seen[condition.ID] = true
 	}
@@ -94,96 +94,103 @@ func validateCharacterConditions(input character.Inputs, records Records, profil
 
 func characterConditions(input character.Inputs, records Records, profile Ruleset, result *character.Result) {
 	definitions, ref := conditionDefinitions(records, profile)
-	byID, options := map[string]conditionDefinition{}, []any{}
-	immunities := stringsOf(result.Sheet["conditionImmunities"])
+	byID, options := map[string]conditionDefinition{}, []character.ConditionOption{}
+	sheet := result.Sheet.Calculation
+	var immunities []string
+	if sheet != nil {
+		immunities = sheet.ConditionImmunities
+	}
 	for _, definition := range definitions {
 		byID[definition.ID] = definition
-		options = append(options, Object{"id": definition.ID, "name": definition.Name, "labelKey": definition.LabelKey, "summary": definition.Summary, "maximumLevel": definition.MaximumLevel, "canAdd": !contains(immunities, definition.ID), "reference": ref})
+		options = append(options, character.ConditionOption{ID: definition.ID, Name: definition.Name, LabelKey: definition.LabelKey, Summary: definition.Summary, MaximumLevel: definition.MaximumLevel, CanAdd: !contains(immunities, definition.ID), Reference: ref})
 	}
-	result.Guidance["conditions"] = Object{"available": len(definitions) > 0, "options": options}
-	rows, terms, sources := []any{}, []character.Term{}, []character.Reference{}
+	result.Guidance.Conditions = character.ConditionGuidance{Available: len(definitions) > 0, Options: options}
+	rows, terms, sources := []character.SheetCondition{}, []character.Term{}, []character.Reference{}
 	penalty, speedPenalty, speedZero := 0, 0, false
-	rollEntries := []any{}
+	rollEntries := []character.RollEntry{}
 	seen := map[string]bool{}
 	for _, condition := range input.Play.Conditions {
 		definition, exists := byID[condition.ID]
-		status := "active"
+		status := character.ConditionActive
 		if !exists || seen[condition.ID] || condition.Level < 1 || condition.Level > definition.MaximumLevel {
-			status = "unavailable"
+			status = character.ConditionUnavailable
 		} else if contains(immunities, condition.ID) {
-			status = "immune"
+			status = character.ConditionImmune
 		}
 		seen[condition.ID] = true
 		name := definition.Name
 		if name == "" {
 			name = condition.ID
 		}
-		row := Object{"id": condition.ID, "level": condition.Level, "name": name, "labelKey": definition.LabelKey, "summary": definition.Summary, "status": status, "reference": ref}
-		if status == "active" {
+		reference := ref
+		row := character.SheetCondition{ID: condition.ID, Level: condition.Level, Name: name, LabelKey: definition.LabelKey, Summary: definition.Summary, Status: status, Reference: &reference}
+		if status == character.ConditionActive {
 			penalty += definition.D20PenaltyPerLevel * condition.Level
 			speedPenalty += definition.SpeedPenaltyPerLevel * condition.Level
 			speedZero = speedZero || definition.SpeedZero
-			row["terminal"] = definition.TerminalLevel > 0 && condition.Level >= definition.TerminalLevel
-			if definition.EndsConcentration {
-				row["endsConcentration"] = true
-			}
+			terminal := definition.TerminalLevel > 0 && condition.Level >= definition.TerminalLevel
+			row.Terminal = &terminal
+			row.EndsConcentration = definition.EndsConcentration
 			for _, roll := range definition.Rolls {
-				declared := Object{"on": roll.On, "mode": roll.Mode, "when": roll.When}
+				declared := Object{"on": string(roll.On), "mode": string(roll.Mode), "when": roll.When}
 				if len(roll.Abilities) > 0 {
 					declared["abilities"] = anyStrings(roll.Abilities)
 				}
-				if entry := rollEntry(declared, name, Object{"type": "condition", "id": condition.ID}); entry != nil {
-					rollEntries = append(rollEntries, entry)
+				if entry := rollEntry(declared, name, character.Source{Type: character.SourceCondition, ID: condition.ID}); entry != nil {
+					rollEntries = append(rollEntries, *entry)
 				}
 			}
 		}
 		rows = append(rows, row)
-		terms = append(terms, character.Term{Label: name, Value: condition.Level, Status: status, Source: &ref})
+		terms = append(terms, character.Term{Label: name, Value: condition.Level, Status: string(status), Source: &reference})
 	}
 	if len(definitions) > 0 && len(rows) > 0 {
 		sources = append(sources, ref)
 	}
 	grantedTerms, grantedSources := characterGrantedConditions(input, records, immunities, &rows)
-	result.Sheet["conditions"] = rows
-	result.Sheet["conditionEffects"] = Object{"d20Adjustment": -penalty}
+	result.Sheet.Conditions = rows
+	result.Sheet.ConditionEffects = character.ConditionEffects{D20Adjustment: -penalty}
 	// Condition roll effects join the feature and armor entries; the net marks
 	// are recomputed so Advantage and Disadvantage from different sources cancel.
-	if len(rollEntries) > 0 {
-		result.Sheet["advantages"] = append(values(result.Sheet["advantages"]), rollEntries...)
-		applyRollMarks(result.Sheet)
+	if len(rollEntries) > 0 && sheet != nil {
+		sheet.Advantages = append(sheet.Advantages, rollEntries...)
+		applyRollMarks(sheet)
 	}
 	result.Explanations["conditions"] = character.Explanation{Label: "Conditions", Formula: "Authored conditions are preserved until explicitly changed. Movement restrictions apply to displayed speeds. Apply the separate D20 adjustment to rolls; ability modifiers, printed roll bonuses and spell save DCs remain unchanged. Situational effects and ending conditions require adjudication. Active items grant their own conditions, one level per item, with no automated effect.", Value: rows, Terms: append(append([]character.Term{}, terms...), grantedTerms...), Sources: append(append([]character.Reference{}, sources...), grantedSources...)}
 	result.Explanations["conditionEffects.d20Adjustment"] = character.Explanation{Label: "D20 roll adjustment", Formula: "Sum of source-declared penalties for active condition levels. Apply once to each D20 Test, including Initiative. This adjustment is not included in printed bonuses or spell save DCs.", Value: -penalty, Terms: terms, Sources: sources}
-	if !speedZero && speedPenalty == 0 {
+	if !speedZero && speedPenalty == 0 || sheet == nil {
 		return
 	}
 	// Speed-zero restrictions apply after equipment and DM bonuses. They must
 	// also constrain independently granted movement, not just walking speed.
-	for _, key := range []string{"speed", "flySpeed", "swimSpeed", "climbSpeed", "burrowSpeed"} {
-		parent, path := Object(result.Sheet), key
-		if key == "speed" {
-			parent, path = object(result.Sheet["derived"]), "derived.speed"
+	for _, speed := range []struct {
+		path    string
+		value   *int
+		present bool
+	}{
+		{"derived.speed", &sheet.Derived.Speed, true}, {"flySpeed", &sheet.FlySpeed, true},
+		{"swimSpeed", &sheet.SwimSpeed, sheet.SwimSpeed != 0}, {"climbSpeed", &sheet.ClimbSpeed, sheet.ClimbSpeed != 0},
+		{"burrowSpeed", &sheet.BurrowSpeed, sheet.BurrowSpeed != 0},
+	} {
+		if !speed.present {
+			continue
 		}
-		if value, exists := parent[key]; exists && value != nil {
-			before := integer(value, 0)
-			after := max(0, before-speedPenalty)
-			if speedZero {
-				after = 0
-			}
-			parent[key] = after
-			if key == "speed" {
-				// The top-level copy mirrors derived.speed, as in applyCharacterEffects.
-				result.Sheet["speed"] = after
-			}
-			explanation := result.Explanations[path]
-			explanation.Value = after
-			explanation.Formula += " Apply source-declared condition restrictions after other speed effects; zero Speed takes precedence."
-			explanation.Terms = append(explanation.Terms, character.Term{Label: "Before conditions", Value: before})
-			explanation.Terms = append(explanation.Terms, terms...)
-			explanation.Sources = append(explanation.Sources, sources...)
-			result.Explanations[path] = explanation
+		before := *speed.value
+		after := max(0, before-speedPenalty)
+		if speedZero {
+			after = 0
 		}
+		*speed.value = after
+		explanation := result.Explanations[speed.path]
+		explanation.Value = after
+		explanation.Formula += " Apply source-declared condition restrictions after other speed effects; zero Speed takes precedence."
+		explanation.Terms = append(explanation.Terms, character.Term{Label: "Before conditions", Value: before})
+		explanation.Terms = append(explanation.Terms, terms...)
+		explanation.Sources = append(explanation.Sources, sources...)
+		result.Explanations[speed.path] = explanation
 	}
+	// The top-level copy mirrors derived.speed, as in applyCharacterEffects.
+	sheet.Speed = sheet.Derived.Speed
 }
 
 // characterGrantedConditions adds one row per condition ID that active items
@@ -191,8 +198,8 @@ func characterConditions(input character.Inputs, records Records, profile Rulese
 // such item in inventory order names it. The rows are not authored play state,
 // cannot be removed and have no automated effect; condition immunity marks
 // them immune.
-func characterGrantedConditions(input character.Inputs, records Records, immunities []string, rows *[]any) ([]character.Term, []character.Reference) {
-	granted, byID := []Object{}, map[string]Object{}
+func characterGrantedConditions(input character.Inputs, records Records, immunities []string, rows *[]character.SheetCondition) ([]character.Term, []character.Reference) {
+	granted, byID := []string{}, map[string]*character.SheetCondition{}
 	for _, raw := range characterItemGrantSources(input, records) {
 		item := object(raw)
 		if !truth(item["active"]) {
@@ -202,24 +209,25 @@ func characterGrantedConditions(input character.Inputs, records Records, immunit
 			id := text(condition["id"])
 			row := byID[id]
 			if row == nil {
-				status := "active"
+				status := character.ConditionActive
 				if contains(immunities, id) {
-					status = "immune"
+					status = character.ConditionImmune
 				}
-				row = Object{"id": id, "name": text(condition["name"]), "summary": text(condition["summary"]), "level": 0, "granted": true, "sources": []any{}, "status": status}
+				row = &character.SheetCondition{ID: id, Name: text(condition["name"]), Summary: text(condition["summary"]), Granted: true, Sources: []character.Source{}, Status: status}
 				byID[id] = row
-				granted = append(granted, row)
+				granted = append(granted, id)
 			}
-			row["level"] = integer(row["level"], 0) + 1
-			row["sources"] = append(values(row["sources"]), cloneObjectDeep(object(item["source"])))
+			row.Level++
+			row.Sources = append(row.Sources, sourceFromObject(object(item["source"])))
 		}
 	}
 	terms, refs := []character.Term{}, []character.Reference{}
-	for _, row := range granted {
-		*rows = append(*rows, row)
-		first := grantSourceReference(objects(row["sources"])[0])
-		terms = append(terms, character.Term{Label: text(row["name"]), Value: row["level"], Status: text(row["status"]), Source: &first})
-		for _, source := range objects(row["sources"]) {
+	for _, id := range granted {
+		row := byID[id]
+		*rows = append(*rows, *row)
+		first := grantSourceReference(row.Sources[0])
+		terms = append(terms, character.Term{Label: row.Name, Value: row.Level, Status: string(row.Status), Source: &first})
+		for _, source := range row.Sources {
 			refs = append(refs, grantSourceReference(source))
 		}
 	}

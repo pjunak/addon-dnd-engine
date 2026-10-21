@@ -36,7 +36,7 @@ func pounds(value float64) float64 { return math.Round(value*100) / 100 }
 // weightless container are reported but not counted. Coins count unless the
 // character turns coin weight off. Nothing is enforced.
 func characterCarrying(input character.Inputs, records Records, profile Ruleset, result *character.Result) {
-	containerItems := []any{}
+	containerItems := []character.ContainerItem{}
 	itemRecords := map[string]Object{}
 	for _, item := range input.Play.Inventory {
 		if item.Reference == nil {
@@ -45,16 +45,10 @@ func characterCarrying(input character.Inputs, records Records, profile Ruleset,
 		record := recordByID(records, item.Reference.Kind, item.Reference.ID)
 		itemRecords[item.ID] = record
 		if capacity, weightless, ok := itemContainer(record); ok {
-			row := Object{"itemId": item.ID, "weightless": weightless}
-			if capacity > 0 {
-				row["capacityLb"] = capacity
-			}
-			containerItems = append(containerItems, row)
+			containerItems = append(containerItems, character.ContainerItem{ItemID: item.ID, Weightless: weightless, CapacityLb: max(0, capacity)})
 		}
 	}
-	if storage := object(result.Guidance["storage"]); storage != nil {
-		storage["containerItems"] = containerItems
-	}
+	result.Guidance.Storage.ContainerItems = containerItems
 	policy := profile.Constants.Carrying
 	if policy == nil {
 		return
@@ -69,9 +63,9 @@ func characterCarrying(input character.Inputs, records Records, profile Ruleset,
 		}
 		return capacity, weightless
 	}
-	items, loads, members, storedMembers := Object{}, map[string]float64{}, map[string]int{}, map[string]int{}
+	items, loads, members, storedMembers := map[string]character.CarriedItem{}, map[string]float64{}, map[string]int{}, map[string]int{}
 	carried, storedLb, weightlessLb := 0.0, 0.0, 0.0
-	unknown := []any{}
+	unknown := []string{}
 	for _, item := range input.Play.Inventory {
 		each, known := itemWeight(item, itemRecords[item.ID])
 		if !known {
@@ -79,7 +73,7 @@ func characterCarrying(input character.Inputs, records Records, profile Ruleset,
 			continue
 		}
 		total := each * float64(max(0, item.Quantity))
-		items[item.ID] = Object{"eachLb": pounds(each), "totalLb": pounds(total), "custom": item.WeightLb != nil}
+		items[item.ID] = character.CarriedItem{EachLb: pounds(each), TotalLb: pounds(total), Custom: item.WeightLb != nil}
 		if item.ContainerID != "" {
 			loads[item.ContainerID] += total
 			members[item.ContainerID]++
@@ -105,21 +99,20 @@ func characterCarrying(input character.Inputs, records Records, profile Ruleset,
 	if countCoins {
 		coinsLb = coins / policy.CoinsPerLb
 	}
-	containers := Object{}
+	containers := map[string]character.CarriedContainer{}
 	for _, container := range input.Play.Containers {
 		capacity, weightless := containerFacts(container.ID)
-		row := Object{"loadLb": pounds(loads[container.ID]), "weightless": weightless, "stored": members[container.ID] > 0 && storedMembers[container.ID] == members[container.ID]}
-		if capacity > 0 {
-			row["capacityLb"] = capacity
-		}
-		containers[container.ID] = row
+		containers[container.ID] = character.CarriedContainer{LoadLb: pounds(loads[container.ID]), Weightless: weightless, Stored: members[container.ID] > 0 && storedMembers[container.ID] == members[container.ID], CapacityLb: max(0, capacity)}
 	}
-	strength := integer(object(object(result.Sheet["abilities"])["STR"])["score"], 0)
+	strength := 0
+	if sheet := result.Sheet.Calculation; sheet != nil {
+		strength = sheet.Abilities["STR"].Score
+	}
 	capacity := pounds(float64(strength) * policy.CapacityPerStrength)
 	total := pounds(carried + coinsLb)
-	result.Sheet["carrying"] = Object{
-		"weightLb": total, "capacityLb": capacity, "itemsLb": pounds(carried), "coinsLb": pounds(coinsLb), "coinWeight": countCoins,
-		"storedLb": pounds(storedLb), "weightlessLb": pounds(weightlessLb), "unknown": unknown, "items": items, "containers": containers,
+	result.Sheet.Carrying = &character.Carrying{
+		WeightLb: total, CapacityLb: capacity, ItemsLb: pounds(carried), CoinsLb: pounds(coinsLb), CoinWeight: countCoins,
+		StoredLb: pounds(storedLb), WeightlessLb: pounds(weightlessLb), Unknown: unknown, Items: items, Containers: containers,
 	}
 	terms := []character.Term{{Label: "Equipped and carried items", Value: pounds(carried)}}
 	if countCoins && coins > 0 {

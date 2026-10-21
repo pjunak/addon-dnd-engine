@@ -104,13 +104,13 @@ func characterItemGrantSources(input character.Inputs, records Records) []any {
 
 // characterActiveItems lists the magic items whose properties apply now, so a
 // sheet can show their text without re-deriving the active rule.
-func characterActiveItems(input character.Inputs, records Records) []any {
+func characterActiveItems(input character.Inputs, records Records) []character.ActiveItem {
 	active := activeCharacterItems(input, records)
-	rows := []any{}
+	rows := []character.ActiveItem{}
 	for _, item := range input.Play.Inventory {
 		if active[item.ID] && item.Reference.Kind == "magic-item" {
 			record := recordByID(records, item.Reference.Kind, item.Reference.ID)
-			rows = append(rows, Object{"itemId": item.ID, "name": characterItemName(item, record), "ref": Object{"kind": item.Reference.Kind, "id": item.Reference.ID}})
+			rows = append(rows, character.ActiveItem{ItemID: item.ID, Name: characterItemName(item, record), Ref: *item.Reference})
 		}
 	}
 	return rows
@@ -174,23 +174,6 @@ func validateCharacterItemMechanics(item character.Item, record Object, input ch
 		}
 	}
 	addCharacterIssue(result, "item-mechanics:"+item.ID, "inventory", "This item's character mechanics are not structured. A versioned source definition or explicit typed DM adjustment is required before use.", "blocker", item.Reference)
-}
-
-func validCharacterEffect(effect character.Effect) bool {
-	if !contains([]string{"set", "add", "minimum", "maximum"}, effect.Mode) || effect.Value < -100000 || effect.Value > 100000 {
-		return false
-	}
-	switch effect.Target {
-	case "abilityScore", "abilityCap":
-		return contains(Abilities[:], effect.Key)
-	case "savingThrow":
-		return contains(Abilities[:], effect.Key)
-	case "armorClass", "initiative", "speed", "maxHp", "attunementLimit":
-		return effect.Key == ""
-	case "sense", "resourceMax", "proficiency":
-		return effect.Key != ""
-	}
-	return false
 }
 
 // itemGrantLimit bounds every list an item's grants declare.
@@ -270,7 +253,7 @@ func itemGrantEntries(value any, identity string, valid func(Object) bool) bool 
 }
 
 func validItemRoll(entry Object) bool {
-	if !contains(advantageRolls, text(entry["on"])) {
+	if !character.RollKind(text(entry["on"])).Valid() {
 		return false
 	}
 	if mode, exists := entry["mode"]; exists && mode != "advantage" && mode != "disadvantage" {

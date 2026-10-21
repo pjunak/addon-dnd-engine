@@ -38,8 +38,8 @@ func TestPassiveBonusesRecalculateWithoutChangingAuthoredState(t *testing.T) {
 	before := cloneCharacter(input)
 	result := EvaluateCharacter(input, records, profile)
 	// Two recorded level gains: (10+1+2) + (3+1+2), then one fixed 17.
-	if !result.Ready || integer(object(result.Sheet["derived"])["maxHp"], 0) != 36 || integer(result.Sheet["speed"], 0) != 42 {
-		t.Fatal("fixed/per-level grants or recorded dice were lost", result.Issues, result.Sheet["hp"], result.Sheet["speed"])
+	if !result.Ready || integer(object(view(result.Sheet)["derived"])["maxHp"], 0) != 36 || integer(view(result.Sheet)["speed"], 0) != 42 {
+		t.Fatal("fixed/per-level grants or recorded dice were lost", result.Issues, view(result.Sheet)["hp"], view(result.Sheet)["speed"])
 	}
 	if !reflect.DeepEqual(input, before) || !reflect.DeepEqual(result.Inputs, before) || !reflect.DeepEqual(result, EvaluateCharacter(input, records, profile)) {
 		t.Fatal("evaluation changed authored state or was nondeterministic")
@@ -47,12 +47,12 @@ func TestPassiveBonusesRecalculateWithoutChangingAuthoredState(t *testing.T) {
 	if !passiveTerm(result, "derived.maxHp", "vitality", "") || !passiveTerm(result, "derived.speed", "vitality", "") {
 		t.Fatal("numeric bonuses lost source explanations")
 	}
-	if integer(object(result.Sheet["senses"])["blindsight"], 0) != 10 || integer(object(result.Sheet["senses"])["truesight"], 0) != 40 {
+	if integer(object(view(result.Sheet)["senses"])["blindsight"], 0) != 10 || integer(object(view(result.Sheet)["senses"])["truesight"], 0) != 40 {
 		t.Fatal("sense grants missing")
 	}
 	input.Grants[0].Active = false
 	removed := EvaluateCharacter(input, records, profile)
-	if integer(object(removed.Sheet["derived"])["maxHp"], 0) != 15 || integer(removed.Sheet["speed"], 0) != 30 || object(removed.Sheet["senses"])["blindsight"] != nil {
+	if integer(object(view(removed.Sheet)["derived"])["maxHp"], 0) != 15 || integer(view(removed.Sheet)["speed"], 0) != 30 || object(view(removed.Sheet)["senses"])["blindsight"] != nil {
 		t.Fatal("withdrawn grants survived", removed.Sheet)
 	}
 	if !reflect.DeepEqual(removed.Inputs.Play, before.Play) {
@@ -74,8 +74,8 @@ func TestPassiveArmorBonusFollowsBodyArmorAndRetainsInactiveEvidence(t *testing.
 			input, records, profile := passiveFixture(t)
 			input.Play.Inventory = []character.Item{{ID: "worn", Name: scenario.id, Reference: &character.Reference{Kind: scenario.kind, ID: scenario.id}, Location: scenario.location, Quantity: scenario.quantity}}
 			result := EvaluateCharacter(input, records, profile)
-			if integer(object(result.Sheet["derived"])["armorClass"], 0) != scenario.ac {
-				t.Fatal(result.Sheet["ac"])
+			if integer(object(view(result.Sheet)["derived"])["armorClass"], 0) != scenario.ac {
+				t.Fatal(view(result.Sheet)["ac"])
 			}
 			status := "inactive"
 			if scenario.applied {
@@ -93,7 +93,7 @@ func TestPassiveArmorBonusFollowsBodyArmorAndRetainsInactiveEvidence(t *testing.
 			if scenario.applied {
 				want -= 2
 			}
-			if integer(object(removed.Sheet["derived"])["armorClass"], 0) != want || passiveTerm(removed, "derived.armorClass", "guard", status) {
+			if integer(object(view(removed.Sheet)["derived"])["armorClass"], 0) != want || passiveTerm(removed, "derived.armorClass", "guard", status) {
 				t.Fatal("withdrawn armor bonus survived")
 			}
 		})
@@ -110,11 +110,11 @@ func TestSourceBonusesComposeWithLineageAndTypedEffects(t *testing.T) {
 	input.Grants = append(input.Grants, character.Grant{ID: "adjustment", Name: "Adjustment", Reason: "Test", ActorID: "dm", GrantedAt: input.Play.AsOf, Active: true, EffectiveLevel: 1, Condition: "always",
 		Effects: []character.Effect{{Target: "maxHp", Mode: "add", Value: 3}, {Target: "speed", Mode: "minimum", Value: 55}, {Target: "sense", Key: "blindsight", Mode: "add", Value: 5}}})
 	result := EvaluateCharacter(input, records, profile)
-	if integer(object(result.Sheet["derived"])["maxHp"], 0) != 45 || integer(result.Sheet["speed"], 0) != 55 || integer(object(result.Sheet["senses"])["blindsight"], 0) != 35 {
-		t.Fatal("bonuses stacked twice or applied after typed effects", result.Sheet["hp"], result.Sheet["speed"], result.Sheet["senses"])
+	if integer(object(view(result.Sheet)["derived"])["maxHp"], 0) != 45 || integer(view(result.Sheet)["speed"], 0) != 55 || integer(object(view(result.Sheet)["senses"])["blindsight"], 0) != 35 {
+		t.Fatal("bonuses stacked twice or applied after typed effects", view(result.Sheet)["hp"], view(result.Sheet)["speed"], view(result.Sheet)["senses"])
 	}
 	input.Grants = input.Grants[:2]
-	if speed := integer(EvaluateCharacter(input, records, profile).Sheet["speed"], 0); speed != 50 {
+	if speed := integer(view(EvaluateCharacter(input, records, profile).Sheet)["speed"], 0); speed != 50 {
 		t.Fatal("lineage counted more than once", speed)
 	}
 }
@@ -126,7 +126,7 @@ func TestUnsupportedPassiveArmorConditionsFailClosed(t *testing.T) {
 		objects(object(feat["grants"])["acBonuses"])[0]["requires"] = requirement
 		records.byKind["feat"]["guard"] = mustJSON(feat)
 		input.Play.Inventory = []character.Item{{ID: "worn", Name: "Suit", Reference: &character.Reference{Kind: "armor", ID: "soft-suit"}, Location: "equipped", Quantity: 1}}
-		if ac := integer(object(EvaluateCharacter(input, records, profile).Sheet["derived"])["armorClass"], 0); ac != 13 {
+		if ac := integer(object(view(EvaluateCharacter(input, records, profile).Sheet)["derived"])["armorClass"], 0); ac != 13 {
 			t.Fatalf("unknown requirement granted AC: %v => %d", requirement, ac)
 		}
 	}
@@ -140,15 +140,15 @@ func TestPassiveBonusesFollowSelectedClassPackages(t *testing.T) {
 	records.byKind["feature"]["martial-training"] = mustJSON(feature)
 	input.Build.Choices = []character.Choice{{ID: "training-path", Value: mustJSON("style")}, {ID: "training-feat", Value: mustJSON("guard")}}
 	result := EvaluateCharacter(input, records, profile)
-	if integer(object(result.Sheet["derived"])["maxHp"], 0) != 25 || integer(result.Sheet["speed"], 0) != 34 ||
+	if integer(object(view(result.Sheet)["derived"])["maxHp"], 0) != 25 || integer(view(result.Sheet)["speed"], 0) != 34 ||
 		!passiveTerm(result, "derived.maxHp", "martial-training", "") {
-		t.Fatal("selected class package did not grant or explain its fixed benefit", result.Sheet["hp"])
+		t.Fatal("selected class package did not grant or explain its fixed benefit", view(result.Sheet)["hp"])
 	}
 	input.Build.Choices = []character.Choice{{ID: "training-path", Value: mustJSON("cantrips")}}
 	result = EvaluateCharacter(input, records, profile)
-	if integer(object(result.Sheet["derived"])["maxHp"], 0) != 18 || integer(result.Sheet["speed"], 0) != 30 ||
+	if integer(object(view(result.Sheet)["derived"])["maxHp"], 0) != 18 || integer(view(result.Sheet)["speed"], 0) != 30 ||
 		passiveTerm(result, "derived.maxHp", "martial-training", "") {
-		t.Fatal("inactive class package retained its passive benefit", result.Sheet["hp"])
+		t.Fatal("inactive class package retained its passive benefit", view(result.Sheet)["hp"])
 	}
 }
 
@@ -157,8 +157,8 @@ func TestArmorReferenceDoesNotFallBackToADifferentCatalogKind(t *testing.T) {
 	records.byKind["magic-item"]["soft-suit"] = mustJSON(Object{"kind": "magic-item", "id": "soft-suit", "name": "Decorative suit", "characterMechanics": "narrative"})
 	input.Play.Inventory = []character.Item{{ID: "decorative", Name: "Soft suit", Reference: &character.Reference{Kind: "magic-item", ID: "soft-suit"}, Location: "equipped", Quantity: 1}}
 	result := EvaluateCharacter(input, records, profile)
-	if integer(object(result.Sheet["derived"])["armorClass"], 0) != 12 || !passiveTerm(result, "derived.armorClass", "guard", "inactive") {
-		t.Fatal("an unrelated armor record with the same ID granted AC", result.Sheet["ac"])
+	if integer(object(view(result.Sheet)["derived"])["armorClass"], 0) != 12 || !passiveTerm(result, "derived.armorClass", "guard", "inactive") {
+		t.Fatal("an unrelated armor record with the same ID granted AC", view(result.Sheet)["ac"])
 	}
 }
 

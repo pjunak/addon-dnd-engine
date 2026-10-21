@@ -62,7 +62,7 @@ func spellGrantFixture(t *testing.T) (character.Inputs, memoryRecords, Ruleset) 
 }
 
 func grantedOption(result character.Result, ref string) Object {
-	for _, grant := range objects(result.SpellOptions["granted"]) {
+	for _, grant := range objects(view(result.SpellOptions)["granted"]) {
 		if text(grant["ref"]) == ref {
 			return grant
 		}
@@ -86,7 +86,7 @@ func TestGrantedSpellsCastAtWillAsRitualsOrFromTheirResource(t *testing.T) {
 	if slots := stringsOf(step["slots"]); len(slots) < 2 || slots[0] != "steps" {
 		t.Fatal("a resource-cast spell did not offer its resource first", step)
 	}
-	next, err := ApplyCharacterPlay(result.Inputs, Object{"operation": "cast-granted-spell", "key": ward["key"], "slot": ""}, records, profile)
+	next, err := applyPlay(result.Inputs, Object{"operation": "cast-granted-spell", "key": ward["key"], "slot": ""}, records, profile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,19 +95,19 @@ func TestGrantedSpellsCastAtWillAsRitualsOrFromTheirResource(t *testing.T) {
 			t.Fatal("an at-will cast spent", key)
 		}
 	}
-	if _, err = ApplyCharacterPlay(result.Inputs, Object{"operation": "cast-granted-spell", "key": listen["key"], "slot": "slot-1"}, records, profile); err == nil {
+	if _, err = applyPlay(result.Inputs, Object{"operation": "cast-granted-spell", "key": listen["key"], "slot": "slot-1"}, records, profile); err == nil {
 		t.Fatal("a ritual-only spell was cast with a slot")
 	}
-	next, err = ApplyCharacterPlay(result.Inputs, Object{"operation": "cast-granted-spell", "key": step["key"], "slot": "steps"}, records, profile)
+	next, err = applyPlay(result.Inputs, Object{"operation": "cast-granted-spell", "key": step["key"], "slot": "steps"}, records, profile)
 	if err != nil || next.Inputs.Play.ResourceUses["steps"] != 1 {
 		t.Fatal("a resource-cast spell did not spend its resource", err, next.Inputs.Play.ResourceUses)
 	}
 	leap := grantedOption(result, "leap")
-	next, err = ApplyCharacterPlay(next.Inputs, Object{"operation": "cast-granted-spell", "key": leap["key"], "slot": "steps"}, records, profile)
+	next, err = applyPlay(next.Inputs, Object{"operation": "cast-granted-spell", "key": leap["key"], "slot": "steps"}, records, profile)
 	if err == nil {
 		t.Fatal("a spell costing more uses than remain was cast", next.Inputs.Play.ResourceUses)
 	}
-	next, err = ApplyCharacterPlay(result.Inputs, Object{"operation": "cast-granted-spell", "key": leap["key"], "slot": "steps"}, records, profile)
+	next, err = applyPlay(result.Inputs, Object{"operation": "cast-granted-spell", "key": leap["key"], "slot": "steps"}, records, profile)
 	if err != nil || next.Inputs.Play.ResourceUses["steps"] != 2 {
 		t.Fatal("a spell's resource cost was not spent", err, next.Inputs.Play.ResourceUses)
 	}
@@ -116,7 +116,7 @@ func TestGrantedSpellsCastAtWillAsRitualsOrFromTheirResource(t *testing.T) {
 func TestSpellChoicesAndListsFollowTheGrantingClass(t *testing.T) {
 	input, records, profile := spellGrantFixture(t)
 	result := EvaluateCharacter(input, records, profile)
-	for _, choice := range objects(result.SpellOptions["pendingChoices"]) {
+	for _, choice := range objects(view(result.SpellOptions)["pendingChoices"]) {
 		eligible := stringsOf(choice["eligibleSpellIds"])
 		switch text(choice["key"]) {
 		case "feature:singer-gifts:discoveries":
@@ -129,7 +129,7 @@ func TestSpellChoicesAndListsFollowTheGrantingClass(t *testing.T) {
 			}
 		}
 	}
-	singer := objects(result.SpellOptions["classes"])[0]
+	singer := objects(view(result.SpellOptions)["classes"])[0]
 	if !contains(stringsOf(singer["spellIds"]), "blessing") || contains(stringsOf(singer["spellIds"]), "miracle") || hasChoiceIssue(result, "spell-eligibility:prepared:singer:blessing") {
 		t.Fatal("an added class list did not reach preparation", singer["spellIds"], result.Issues)
 	}
@@ -142,7 +142,7 @@ func TestSpellChoicesAndListsFollowTheGrantingClass(t *testing.T) {
 	input.Build.Levels = []character.Level{{ID: "one", ClassID: "mage"}, {ID: "two", ClassID: "mage"}, {ID: "three", ClassID: "mage"}}
 	input.Play.PreparedSpells = nil
 	result = EvaluateCharacter(input, records, profile)
-	for _, caster := range objects(object(result.Sheet["spellcasting"])["perClass"]) {
+	for _, caster := range objects(object(view(result.Sheet)["spellcasting"])["perClass"]) {
 		if integer(caster["spellbookKnown"], 0) != 6+2*2+3 || integer(caster["spellbookBonus"], 0) != 3 {
 			t.Fatal("the spellbook bonus did not follow its class level", caster)
 		}
@@ -169,7 +169,7 @@ func TestSpellbookBonusSchoolRequiresSpellsOfThatSchool(t *testing.T) {
 	input.Play.PreparedSpells = nil
 	input.Build.Spells.Spellbook = map[string][]string{"mage": book[:8]}
 	result := EvaluateCharacter(input, records, profile)
-	caster := objects(object(result.Sheet["spellcasting"])["perClass"])[0]
+	caster := objects(object(view(result.Sheet)["spellcasting"])["perClass"])[0]
 	sources := objects(caster["spellbookBonusSources"])
 	if integer(caster["spellbookKnown"], 0) != 8 || len(sources) != 1 || text(sources[0]["school"]) != "Evocation" || integer(sources[0]["count"], 0) != 2 || text(object(sources[0]["source"])["id"]) != "mage-savant" {
 		t.Fatal("the spellbook bonus did not name its source and school", caster)
@@ -193,10 +193,10 @@ func TestSpellbookBonusSchoolRequiresSpellsOfThatSchool(t *testing.T) {
 func TestActiveSpellSaveDCModifiersRaiseTheirClassDC(t *testing.T) {
 	input, records, profile := spellGrantFixture(t)
 	result := EvaluateCharacter(input, records, profile)
-	before := integer(objects(object(result.Sheet["spellcasting"])["perClass"])[0]["saveDC"], 0)
+	before := integer(objects(object(view(result.Sheet)["spellcasting"])["perClass"])[0]["saveDC"], 0)
 	input.Play.ActiveFeatures = map[string]bool{activationKey(result, "innate"): true}
 	result = EvaluateCharacter(input, records, profile)
-	if after := integer(objects(object(result.Sheet["spellcasting"])["perClass"])[0]["saveDC"], 0); after != before+1 {
+	if after := integer(objects(object(view(result.Sheet)["spellcasting"])["perClass"])[0]["saveDC"], 0); after != before+1 {
 		t.Fatal("an active spell save DC modifier did not raise the class DC", before, after)
 	}
 }

@@ -44,7 +44,7 @@ func TestOriginToolChoicesRemainDistinctAcrossBackgroundAndFeat(t *testing.T) {
 		{ID: "feat:performer:instruments", Slot: 2, Value: mustJSON("lyre")},
 	}
 	result := EvaluateCharacter(input, records, profile)
-	if !truth(result.Guidance["canSave"]) || len(stringsOf(object(result.Sheet["proficiencies"])["tools"])) != 4 {
+	if !truth(view(result.Guidance)["canSave"]) || len(stringsOf(object(view(result.Sheet)["proficiencies"])["tools"])) != 4 {
 		t.Fatal("separate background and feat grants did not combine", result.Issues)
 	}
 	if !contains(expertiseOptions(result, "background:artisan:tool"), "flute") || contains(expertiseOptions(result, "feat:performer:instruments"), "flute") || !contains(expertiseOptions(result, "feat:performer:instruments"), "lyre") {
@@ -52,7 +52,7 @@ func TestOriginToolChoicesRemainDistinctAcrossBackgroundAndFeat(t *testing.T) {
 	}
 	input.Build.Choices[3].Value = mustJSON("flute")
 	result = EvaluateCharacter(input, records, profile)
-	if !hasChoiceIssue(result, "invalid-option:feat:performer:instruments#2") || hasChoiceIssue(result, "invalid-option:background:artisan:tool#0") || truth(result.Guidance["canSave"]) {
+	if !hasChoiceIssue(result, "invalid-option:feat:performer:instruments#2") || hasChoiceIssue(result, "invalid-option:background:artisan:tool#0") || truth(view(result.Guidance)["canSave"]) {
 		t.Fatal("a later tool duplicate invalidated the wrong owner", result.Issues)
 	}
 }
@@ -100,13 +100,13 @@ func TestOriginFeatPoolRequiresExplicitEligibleSelectionAndKeepsDependentOwners(
 	if contains(options, "performer") || contains(options, "advanced") || !contains(options, "training") {
 		t.Fatal("origin feat pool ignored category or duplicate eligibility", options)
 	}
-	if object(result.Guidance["choices"])["feat:training@species%3Adwarf%3Atraining:proficiencies"] != nil {
+	if object(view(result.Guidance)["choices"])["feat:training@species%3Adwarf%3Atraining:proficiencies"] != nil {
 		t.Fatal("unselected species feat was applied automatically")
 	}
 	const mixed = "feat:training@species%3Adwarf%3Atraining:proficiencies"
 	input.Build.Choices = []character.Choice{{ID: mixed, Value: mustJSON("skill:arcana")}, {ID: "species:dwarf:training", Value: mustJSON("training")}}
 	result = EvaluateCharacter(input, records, profile)
-	if !truth(result.Guidance["canSave"]) || !truth(object(object(result.Sheet["skills"])["arcana"])["proficient"]) {
+	if !truth(view(result.Guidance)["canSave"]) || !truth(object(object(view(result.Sheet)["skills"])["arcana"])["proficient"]) {
 		t.Fatal("dependent feat selection was not resolved", result.Issues)
 	}
 	input.Build.Choices[1].Value = mustJSON("advanced")
@@ -134,7 +134,7 @@ func TestCombinedExpertiseDoesNotDisqualifyAnEarlierProficiencyChoice(t *testing
 	records.byKind["feature"] = map[string]json.RawMessage{"study": mustJSON(Object{"kind": "feature", "id": "study", "classId": "fighter", "level": 1, "grants": Object{"choices": []any{Object{"id": "study", "type": "skillExpertise", "count": 1}}}})}
 	input.Build.Choices = []character.Choice{{ID: "species:dwarf:skill", Value: mustJSON("arcana")}, {ID: "study", Value: mustJSON("arcana")}}
 	result := EvaluateCharacter(input, records, profile)
-	if !truth(result.Guidance["canSave"]) || !truth(object(object(result.Sheet["skills"])["arcana"])["expertise"]) {
+	if !truth(view(result.Guidance)["canSave"]) || !truth(object(object(view(result.Sheet)["skills"])["arcana"])["expertise"]) {
 		t.Fatal("combined training invalidated an existing proficiency", result.Issues)
 	}
 	input.Build.Choices[0].Value = mustJSON("religion")
@@ -189,7 +189,7 @@ func TestSkillUpgradeChoiceGivesProficiencyOrExpertise(t *testing.T) {
 		if hasChoiceIssue(result, "invalid-option:feat:observant:keen-observer#0") {
 			t.Fatal("the choice rejected its own option", result.Issues)
 		}
-		return object(object(result.Sheet["skills"])["perception"])
+		return object(object(view(result.Sheet)["skills"])["perception"])
 	}
 	if perception := evaluate(); !truth(perception["proficient"]) || truth(perception["expertise"]) {
 		t.Fatalf("new skill = %+v", perception)

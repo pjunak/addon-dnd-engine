@@ -3,6 +3,8 @@ package rules
 import (
 	"sort"
 	"strings"
+
+	"github.com/pjunak/addon-dnd-engine/character"
 )
 
 // A choice can offer records of another kind (optionKind), such as Beast stat
@@ -100,35 +102,33 @@ func containsFold(values []string, wanted string) bool {
 // their own (Divine Order, Hunter's Prey, Wild Shape forms), so the play sheet
 // shows what was chosen. Chosen option features are already features. A pick
 // of another record kind is retained as evidence for offline reading.
-func characterSelections(decisions, plan, guidance Object, records Records) []any {
-	rows := []any{}
-	for _, choice := range objects(plan["classChoices"]) {
-		if text(choice["kind"]) != "enumerated" || text(choice["fromCategory"]) != "" {
+func characterSelections(decisions Object, plan character.Plan, guidance character.Guidance, records Records) []character.Selection {
+	rows := []character.Selection{}
+	for _, choice := range plan.ClassChoices {
+		if choice.Kind != character.ChoiceEnumerated || choice.FromCategory != "" {
 			continue
 		}
 		picked := choiceValues(decisions, choice)
 		if len(picked) == 0 {
 			continue
 		}
-		entry := object(object(guidance["choices"])[text(choice["id"])])
+		entry := guidance.Choices[choice.ID]
 		labels := map[string]string{}
-		for _, option := range objects(entry["options"]) {
-			labels[text(option["id"])] = text(option["label"])
+		for _, option := range entry.Options {
+			labels[option.ID] = option.Label
 		}
-		values := []any{}
+		values := []character.SelectionValue{}
 		for _, id := range picked {
-			value := Object{"id": id, "label": firstText(labels[id], guidanceLabel(id))}
-			if kind := text(choice["optionKind"]); kind != "" {
-				value["kind"] = kind
+			value := character.SelectionValue{ID: id, Label: firstText(labels[id], guidanceLabel(id))}
+			if kind := choice.OptionKind; kind != "" {
+				value.Kind = kind
 				recordView(records, kind, id)
 			}
 			values = append(values, value)
 		}
-		row := Object{"id": text(choice["id"]), "source": cloneValue(choice["source"]), "values": values}
-		for _, key := range []string{"label", "labelKey", "labelArgs"} {
-			if value, exists := entry[key]; exists {
-				row[key] = cloneValue(value)
-			}
+		row := character.Selection{ID: choice.ID, Values: values, Label: entry.Label, LabelKey: entry.LabelKey, LabelArgs: append([]string{}, entry.LabelArgs...)}
+		if choice.Source != nil {
+			row.Source = *choice.Source
 		}
 		rows = append(rows, row)
 	}

@@ -24,7 +24,7 @@ func featChoiceOwner(acquired featAcquisition, record Object) string {
 	return owner
 }
 
-func selectedFeatAcquisitions(source Object, records Records, classChoices []any) []featAcquisition {
+func selectedFeatAcquisitions(source Object, records Records, classChoices []character.PlanChoice) []featAcquisition {
 	result := []featAcquisition{}
 	add := func(id, featID, name, classID string, level int, ancestors []string) {
 		if featID == "" || contains(ancestors, featID) || recordView(records, "feat", featID) == nil {
@@ -35,39 +35,47 @@ func selectedFeatAcquisitions(source Object, records Records, classChoices []any
 	}
 	for _, origin := range selectedOrigins(source, records) {
 		record := origin.record
-		add(origin.kind+":"+text(record["id"]), text(record["originFeat"]), firstText(record["name"], record["id"]), "", 1, nil)
-		if len(result) > 0 && result[len(result)-1].id == origin.kind+":"+text(record["id"]) {
+		id := string(origin.kind) + ":" + text(record["id"])
+		add(id, text(record["originFeat"]), firstText(record["name"], record["id"]), "", 1, nil)
+		if len(result) > 0 && result[len(result)-1].id == id {
 			result[len(result)-1].presets = object(record["originFeatChoices"])
 		}
 	}
 	for _, grant := range objects(source["extraFeats"]) {
 		add("grant:"+text(grant["id"]), text(grant["featId"]), firstText(grant["name"], grant["id"]), "", integer(grant["level"], 1), nil)
 	}
-	appendSelections := func(choices []any, ancestors []string) {
-		for _, descriptor := range objects(choices) {
+	appendSelections := func(choices []character.PlanChoice, ancestors []string) {
+		for _, descriptor := range choices {
 			choice := descriptor
-			if text(descriptor["kind"]) == "asiMode" {
-				if text(object(source["featureChoices"])[text(descriptor["id"])]) != "feat" {
+			if descriptor.Kind == character.ChoiceASIMode {
+				if text(object(source["featureChoices"])[descriptor.ID]) != "feat" {
 					continue
 				}
-				choice = object(descriptor["feat"])
-			} else if text(descriptor["kind"]) != "feat" {
+				choice = descriptor.Feat.Choice()
+			} else if descriptor.Kind != character.ChoiceFeat {
 				continue
 			}
-			ref := object(descriptor["source"])
-			name := firstText(recordView(records, text(ref["type"]), text(ref["id"]))["name"], ref["id"])
-			classID := text(descriptor["classId"])
+			ref := character.Source{}
+			if descriptor.Source != nil {
+				ref = *descriptor.Source
+			}
+			name := firstText(recordView(records, string(ref.Type), ref.ID)["name"], ref.ID)
+			classID := descriptor.ClassID
 			if classID != "" {
 				name = firstText(recordView(records, "class", classID)["name"], classID)
 			}
-			count := max(1, integer(choice["count"], 1))
+			level := ref.Level
+			if level == 0 {
+				level = 1
+			}
+			count := max(1, choice.Count)
 			for slot := 0; slot < count; slot++ {
-				id := choiceIDForSlot(text(choice["id"]), slot, count)
+				id := choiceIDForSlot(choice.ID, slot, count)
 				value := text(object(source["featureChoices"])[id])
 				if slot == 0 && value == "" {
-					value = text(choice["default"])
+					value = choice.Default
 				}
-				add(id, value, name, classID, integer(ref["level"], 1), ancestors)
+				add(id, value, name, classID, level, ancestors)
 			}
 		}
 	}
@@ -104,31 +112,31 @@ func selectedFeatAcquisitions(source Object, records Records, classChoices []any
 	return result
 }
 
-func featChoices(acquired featAcquisition, record Object) []any {
-	result := []any{}
+func featChoices(acquired featAcquisition, record Object) []character.PlanChoice {
+	result := []character.PlanChoice{}
 	choices := objects(object(record["grants"])["choices"])
 	for _, choice := range choices {
 		if text(choice["id"]) == "" {
 			continue
 		}
-		descriptor := Object{
-			"id":   featChoiceOwner(acquired, record) + ":" + text(choice["id"]),
-			"kind": choiceKind(choice, choice["from"]), "count": max(1, integer(choice["count"], 1)),
-			"source": Object{"type": "feat", "id": acquired.featID, "level": acquired.level},
+		descriptor := character.PlanChoice{
+			ID:   featChoiceOwner(acquired, record) + ":" + text(choice["id"]),
+			Kind: choiceKind(choice, stringsOf(choice["from"])), Count: max(1, integer(choice["count"], 1)),
+			Source: &character.Source{Type: character.SourceFeat, ID: acquired.featID, Level: acquired.level},
 		}
-		copyChoiceFields(descriptor, choice)
+		copyChoiceFields(&descriptor, choice)
 		if preset := text(acquired.presets[text(choice["id"])]); preset != "" && contains(stringsOf(choice["from"]), preset) {
-			descriptor["from"] = []any{preset}
-			descriptor["default"] = preset
+			descriptor.From = []string{preset}
+			descriptor.Default = preset
 		}
 		if conditional := conditionalFeatChoice(record); conditional != nil && text(conditional["id"]) == text(choice["id"]) {
-			descriptor["distinctAcrossAcquisitions"] = true
+			descriptor.DistinctAcrossAcquisitions = true
 		}
 		if strings.Contains(featChoiceOwner(acquired, record), "@") {
-			descriptor["acquisition"] = Object{"id": acquired.id, "name": acquired.name, "classId": acquired.classID, "level": acquired.level}
-			descriptor["name"] = firstText(record["name"], acquired.featID)
+			descriptor.Acquisition = &character.Acquisition{ID: acquired.id, Name: acquired.name, ClassID: acquired.classID, Level: acquired.level}
+			descriptor.Name = firstText(record["name"], acquired.featID)
 			if len(choices) > 1 {
-				descriptor["choiceName"] = firstText(choice["prompt"], guidanceLabel(text(choice["id"])))
+				descriptor.ChoiceName = firstText(choice["prompt"], guidanceLabel(text(choice["id"])))
 			}
 		}
 		result = append(result, descriptor)

@@ -14,12 +14,11 @@ func TestIncrementalBuildCanSaveWithoutAllowingInvalidValues(t *testing.T) {
 	check := func(want bool) {
 		t.Helper()
 		result := EvaluateCharacter(input, records, profile)
-		issues, ok := result.Guidance["saveIssues"].([]character.Issue)
-		if !ok || (len(issues) == 0) != want {
+		if (len(result.Guidance.SaveIssues) == 0) != want {
 			t.Fatalf("save issues do not match save eligibility: %+v", result.Guidance)
 		}
-		if truth(result.Guidance["canSave"]) != want {
-			t.Fatalf("canSave=%v; issues=%+v", result.Guidance["canSave"], result.Issues)
+		if truth(view(result.Guidance)["canSave"]) != want {
+			t.Fatalf("canSave=%v; issues=%+v", view(result.Guidance)["canSave"], result.Issues)
 		}
 	}
 	check(true)
@@ -46,7 +45,7 @@ func TestClassOptionsRespectMulticlassPrerequisites(t *testing.T) {
 	fighter["multiclassRequirements"] = Object{"STR|DEX": 13}
 	records.byKind["class"]["fighter"] = mustJSON(fighter)
 	result := EvaluateCharacter(input, records, profile)
-	for _, option := range objects(result.Guidance["classOptions"]) {
+	for _, option := range objects(view(result.Guidance)["classOptions"]) {
 		if text(option["id"]) == "mage" {
 			t.Fatal("offered unqualified multiclass")
 		}
@@ -55,11 +54,11 @@ func TestClassOptionsRespectMulticlassPrerequisites(t *testing.T) {
 	input.Build.BaseScores["INT"] = 13
 	result = EvaluateCharacter(input, records, profile)
 	found := false
-	for _, option := range objects(result.Guidance["classOptions"]) {
+	for _, option := range objects(view(result.Guidance)["classOptions"]) {
 		found = found || text(option["id"]) == "mage"
 	}
 	if !found {
-		t.Fatal("qualified class absent", result.Guidance["classOptions"])
+		t.Fatal("qualified class absent", view(result.Guidance)["classOptions"])
 	}
 }
 
@@ -84,16 +83,16 @@ func TestEquipmentControlsRespectAvailabilityAndAttunement(t *testing.T) {
 	}
 	profile.Constants.Character.UniqueAttunement = true
 	result := EvaluateCharacter(input, records, profile)
-	guidance := object(result.Guidance["equipment"])
+	guidance := object(view(result.Guidance)["equipment"])
 	if truth(object(guidance["second"])["canAttune"]) || truth(object(guidance["empty"])["canEquip"]) || truth(object(guidance["unknown"])["canEquip"]) || truth(object(guidance["weapon"])["canAttune"]) || !truth(object(guidance["weapon"])["canEquip"]) {
 		t.Fatal("offered invalid equipment action", guidance)
 	}
 	input.Play.Inventory[0].Attuned = false
-	guidance = object(EvaluateCharacter(input, records, profile).Guidance["equipment"])
+	guidance = object(view(EvaluateCharacter(input, records, profile).Guidance)["equipment"])
 	if !truth(object(guidance["second"])["canAttune"]) {
 		t.Fatal("available attunement option missing", guidance)
 	}
-	result.Sheet["attunement"] = Object{"count": 3, "limit": 3}
+	view(result.Sheet)["attunement"] = Object{"count": 3, "limit": 3}
 	if truth(object(characterEquipmentOptions(input, records, profile, &result)["second"])["canAttune"]) {
 		t.Fatal("offered attunement beyond capacity")
 	}
@@ -121,11 +120,11 @@ func TestSaveBlockersIncludeUnknownScoresAndUnavailableOrigins(t *testing.T) {
 				}
 				result := EvaluateCharacter(input, records, profile)
 				found := false
-				for _, issue := range result.Guidance["saveIssues"].([]character.Issue) {
+				for _, issue := range result.Guidance.SaveIssues {
 					found = found || issue.ID == id
 				}
-				if result.Ready || truth(result.Guidance["canSave"]) || !found {
-					t.Fatal("invalid supplied value must block both saving and play with a reason", result.Ready, result.Issues, result.Guidance["saveIssues"])
+				if result.Ready || truth(view(result.Guidance)["canSave"]) || !found {
+					t.Fatal("invalid supplied value must block both saving and play with a reason", result.Ready, result.Issues, view(result.Guidance)["saveIssues"])
 				}
 			})
 		}

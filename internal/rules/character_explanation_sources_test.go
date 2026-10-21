@@ -25,7 +25,7 @@ func TestCharacterExplanationsScopeMulticlassAndAcquisitionSources(t *testing.T)
 		case "training":
 			facts["grants"] = Object{"choices": []any{Object{"type": "skillProficiency"}}}
 		}
-		evidence = append(evidence, character.Evidence{Reference: r, Facts: facts})
+		evidence = append(evidence, character.Evidence{Reference: r, Facts: character.RecordFacts(mustJSON(facts))})
 	}
 	input := character.Blank()
 	input.Build.Subclasses["fighter"] = "arcane"
@@ -64,7 +64,7 @@ func TestCharacterExplanationsScopeMulticlassAndAcquisitionSources(t *testing.T)
 	e.Terms = append(e.Terms, character.Term{Label: "Typed item effect", Value: 1, Source: &item, Status: "applied"})
 	explanations["abilities.INT.score"] = e
 	before := string(mustJSON(Object{"input": input, "sheet": sheet, "decisions": decisions, "evidence": evidence}))
-	scopeCharacterExplanationSources(input, decisions, sheet, evidence, explanations)
+	scopeCharacterExplanationSources(input, decisions, decodeAs[*character.Calculation](sheet), evidence, explanations)
 	for path, sources := range want {
 		actual := explanations[path]
 		if !reflect.DeepEqual(actual.Sources, sources) {
@@ -74,7 +74,7 @@ func TestCharacterExplanationsScopeMulticlassAndAcquisitionSources(t *testing.T)
 			t.Fatal("scoping changed a calculation", actual)
 		}
 	}
-	scopeCharacterExplanationSources(input, decisions, sheet, evidence, explanations)
+	scopeCharacterExplanationSources(input, decisions, decodeAs[*character.Calculation](sheet), evidence, explanations)
 	for path, sources := range want {
 		if !reflect.DeepEqual(explanations[path].Sources, sources) {
 			t.Fatal("unstable repeated scoping", path)

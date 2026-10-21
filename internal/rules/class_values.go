@@ -1,6 +1,10 @@
 package rules
 
-import "math"
+import (
+	"math"
+
+	"github.com/pjunak/addon-dnd-engine/character"
+)
 
 // Class tables print per-level values such as Rage Damage or Martial Arts.
 // A class record declares them as tableColumns, each with ascending
@@ -24,8 +28,8 @@ func classColumnValue(record Object, key string, level int) (any, bool) {
 
 // A subclass may print its own columns (a Battle Master's Superiority Die),
 // read at the level of its class and listed with the subclass.
-func hydrateClassValues(sheet Object, classes []resolvedClass, records Records) {
-	rows := make([]any, 0)
+func hydrateClassValues(sheet *character.Calculation, classes []resolvedClass, records Records) {
+	rows := make([]character.ClassValue, 0)
 	for _, current := range classes {
 		tables := []Object{current.Record}
 		if subclass := recordByID(records, "subclass", current.Subclass); subclass != nil {
@@ -35,16 +39,16 @@ func hydrateClassValues(sheet Object, classes []resolvedClass, records Records) 
 			for _, column := range objects(table["tableColumns"]) {
 				key := text(column["key"])
 				if value, found := classColumnValue(table, key, current.Level); found {
-					row := Object{"classId": current.ID, "key": key, "name": firstText(column["name"], key), "value": value}
+					row := character.ClassValue{ClassID: current.ID, Key: key, Name: firstText(column["name"], key), Value: character.TableValueOf(value)}
 					if index > 0 {
-						row["subclassId"] = current.Subclass
+						row.SubclassID = current.Subclass
 					}
 					rows = append(rows, row)
 				}
 			}
 		}
 	}
-	sheet["classValues"] = rows
+	sheet.ClassValues = rows
 }
 
 // The source's own class supplies a column reference, so a multiclass
@@ -122,26 +126,26 @@ func armorRequirementMet(raw any, armor armorState) bool {
 
 // Conditional speed bonuses, such as Fast Movement or Unarmored Movement,
 // apply after worn-armor penalties. Each row keeps its status for explanations.
-func applySpeedBonuses(sheet Object, sources []grantSource, classes []resolvedClass, armor armorState) {
-	rows, total := make([]any, 0), 0
+func applySpeedBonuses(sheet *character.Calculation, sources []grantSource, classes []resolvedClass, armor armorState) {
+	rows, total := make([]character.ConditionalBonus, 0), 0
 	for _, source := range sources {
 		for _, bonus := range objects(source.Grants["speedBonuses"]) {
 			value, valid := integer(bonus["add"], 0), bonus["add"] != nil
 			if column := text(bonus["column"]); column != "" {
 				value, valid = sourceClassColumn(source, classes, column)
 			}
-			status := "inactive"
+			status := character.BonusInactive
 			if valid && armorRequirementMet(bonus["requires"], armor) {
 				total += value
-				status = "applied"
+				status = character.BonusApplied
 			}
-			rows = append(rows, Object{"name": firstText(source.Record["name"], source.Source["id"]),
-				"source": source.Source, "value": value, "status": status, "requires": bonus["requires"]})
+			rows = append(rows, character.ConditionalBonus{Name: firstText(source.Record["name"], source.Source.ID),
+				Source: source.Source, Value: value, Status: status, Requires: armorRequirementOf(bonus["requires"])})
 		}
 	}
-	sheet["speedBonuses"] = rows
-	sheet["speed"] = integer(sheet["speed"], 0) + total
-	object(sheet["derived"])["speed"] = sheet["speed"]
+	sheet.SpeedBonuses = rows
+	sheet.Speed += total
+	sheet.Derived.Speed = sheet.Speed
 }
 
 // checkBonus resolves one skill or saving throw bonus: a flat add, half the
@@ -176,8 +180,8 @@ func checkBonus(bonus Object, mods map[string]int, pb int) (int, bool) {
 	return value, true
 }
 
-func grantCheckBonuses(sources []grantSource, field, id string, proficient bool, mods map[string]int, pb int) (int, []any) {
-	rows, total := make([]any, 0), 0
+func grantCheckBonuses(sources []grantSource, field, id string, proficient bool, mods map[string]int, pb int) (int, []character.NamedValue) {
+	rows, total := make([]character.NamedValue, 0), 0
 	for _, source := range sources {
 		for _, bonus := range objects(source.Grants[field]) {
 			scope := stringsOf(bonus["skills"])
@@ -192,17 +196,9 @@ func grantCheckBonuses(sources []grantSource, field, id string, proficient bool,
 				continue
 			}
 			total += value
-			rows = append(rows, Object{"name": firstText(source.Record["name"], source.Source["id"]),
-				"source": source.Source, "value": value})
+			rows = append(rows, character.NamedValue{Name: firstText(source.Record["name"], source.Source.ID),
+				Source: source.Source, Value: value})
 		}
 	}
 	return total, rows
-}
-
-// withBonuses lists applied bonuses only where a grant contributed one.
-func withBonuses(row Object, bonuses []any) Object {
-	if len(bonuses) > 0 {
-		row["bonuses"] = bonuses
-	}
-	return row
 }

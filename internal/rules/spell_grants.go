@@ -2,26 +2,40 @@ package rules
 
 import (
 	"strings"
+
+	"github.com/pjunak/addon-dnd-engine/character"
 )
+
+// spellGrantOptions are how a granted spell is prepared and cast.
+type spellGrantOptions struct {
+	alwaysPrepared   bool
+	free             string
+	castingAbility   string
+	atWill           bool
+	ritualOnly       bool
+	castResource     string
+	castResourceCost int
+	castAtLevel      *float64
+	resourceKey      string
+}
 
 func hydrateSpellGrants(
 	decisions Object,
-	sheet Object,
+	sheet *character.Calculation,
 	classes []resolvedClass,
 	feats []Object,
 	sources []grantSource,
 	records Records,
 ) {
-	spellcasting := object(sheet["spellcasting"])
-	granted := make([]any, 0)
-	pendingChoices := make([]any, 0)
-	castingChoices := make([]any, 0)
+	granted := make([]character.SpellGrant, 0)
+	pendingChoices := make([]character.SpellChoice, 0)
+	castingChoices := make([]character.CastingAbilityChoice, 0)
 	castingKeys := make(map[string]struct{})
 	grantChoices := object(decisions["grantChoices"])
 	grantCastingAbilities := object(decisions["grantCastingAbilities"])
 	featureChoices := object(decisions["featureChoices"])
 
-	castingAbilityFor := func(source, sourceGrants Object) string {
+	castingAbilityFor := func(source character.Source, sourceGrants Object) string {
 		grants := sourceGrants
 		if grants == nil {
 			for _, candidate := range sources {
@@ -41,15 +55,14 @@ func hydrateSpellGrants(
 		}
 		if truth(declaration["fromAbilityScoreIncrease"]) {
 			for _, grant := range objects(decisions["abilityGrants"]) {
-				grantSource := object(grant["source"])
-				if text(grantSource["type"]) != "feat" {
+				if text(object(grant["source"])["type"]) != "feat" {
 					continue
 				}
 				choiceID := text(grant["id"])
 				if strings.HasSuffix(choiceID, ":featability") {
 					choiceID = strings.TrimSuffix(choiceID, ":featability") + ":feat"
 				}
-				if text(featureChoices[choiceID]) != text(source["id"]) || object(source["acquisition"]) != nil && text(object(source["acquisition"])["id"]) != choiceID {
+				if text(featureChoices[choiceID]) != source.ID || source.Acquisition != nil && source.Acquisition.ID != choiceID {
 					continue
 				}
 				for _, ability := range Abilities {
@@ -69,8 +82,8 @@ func hydrateSpellGrants(
 		}
 		if _, exists := castingKeys[key]; !exists {
 			castingKeys[key] = struct{}{}
-			castingChoices = append(castingChoices, Object{
-				"key": key, "source": source, "options": anyStrings(options), "selected": nullableString(selected),
+			castingChoices = append(castingChoices, character.CastingAbilityChoice{
+				Key: key, Source: source, Options: options, Selected: nullableText(selected),
 			})
 		}
 		return selected
@@ -78,82 +91,70 @@ func hydrateSpellGrants(
 
 	// maxSpellLevel "class" is the highest spell level the granting class can
 	// cast, such as Magical Discoveries' "a level for which you have slots".
-	casterMaxSpellLevel := func(source Object) int {
-		classID := text(source["classId"])
-		if classID == "" && text(source["type"]) == "class" {
-			classID = text(source["id"])
+	casterMaxSpellLevel := func(source character.Source) int {
+		classID := source.ClassID
+		if classID == "" && source.Type == character.SourceClass {
+			classID = source.ID
 		} else if classID == "" {
-			classID = text(recordByID(records, text(source["type"]), text(source["id"]))["classId"])
+			classID = text(recordByID(records, string(source.Type), source.ID)["classId"])
 		}
-		for _, caster := range objects(spellcasting["perClass"]) {
-			if text(caster["classId"]) == classID {
-				return integer(caster["maxSpellLevel"], 0)
+		for _, caster := range sheet.Spellcasting.PerClass {
+			if caster.ClassID == classID {
+				return caster.MaxSpellLevel
 			}
 		}
 		return 0
 	}
 
-	addGrant := func(reference string, source, options Object) {
+	addGrant := func(reference string, source character.Source, options spellGrantOptions) {
 		if reference == "" {
 			return
 		}
 		record := recordByID(records, "spell", reference)
-		var level any
+		var level *int
 		if record != nil {
-			level = integer(record["level"], 0)
+			value := integer(record["level"], 0)
+			level = &value
 		}
-		entry := Object{
-			"ref": reference, "name": firstText(record["name"], reference), "level": level,
-			"school": text(record["school"]), "source": source,
-			"alwaysPrepared": truth(options["alwaysPrepared"]),
-			"free":           nullableText(options["free"]), "castingAbility": nullableText(options["castingAbility"]),
-			"castAtLevel": nullableNumber(options["castAtLevel"]), "resourceKey": options["resourceKey"],
+		entry := character.SpellGrant{
+			Ref: reference, Name: firstText(record["name"], reference), Level: level,
+			School: text(record["school"]), Source: source,
+			AlwaysPrepared: options.alwaysPrepared,
+			Free:           nullableText(options.free), CastingAbility: nullableText(options.castingAbility),
+			CastAtLevel: options.castAtLevel, ResourceKey: options.resourceKey,
+			AtWill: options.atWill, RitualOnly: options.ritualOnly,
+			CastResource: options.castResource,
 		}
-		for _, flag := range []string{"atWill", "ritualOnly"} {
-			if truth(options[flag]) {
-				entry[flag] = true
-			}
-		}
-		if key := text(options["castResource"]); key != "" {
-			entry["castResource"] = key
-			if cost := integer(options["castResourceCost"], 1); cost > 1 {
-				entry["castResourceCost"] = cost
-			}
+		if options.castResource != "" && options.castResourceCost > 1 {
+			entry.CastResourceCost = options.castResourceCost
 		}
 		granted = append(granted, entry)
 	}
 
-	addGrantEntry := func(spell, source Object, unlocked bool, sourceLevel int, sourceGrants Object) {
+	addGrantEntry := func(spell Object, source character.Source, unlocked bool, sourceLevel int, sourceGrants Object) {
 		if !unlocked {
 			return
 		}
 		castingAbility := castingAbilityFor(source, sourceGrants)
-		castAtLevel := 0
-		hasCastAtLevel := false
+		var castAtLevel *float64
 		for _, row := range objects(spell["castAtLevelByLevel"]) {
 			if sourceLevel >= integer(row["level"], 0) {
-				castAtLevel = integer(row["castAtLevel"], 0)
-				hasCastAtLevel = true
+				value := float64(integer(row["castAtLevel"], 0))
+				castAtLevel = &value
 			}
 		}
 		if classID := text(spell["classId"]); classID != "" {
-			source = cloneObject(source)
-			source["classId"] = classID
+			source.ClassID = classID
 		}
-		options := Object{
-			"alwaysPrepared": spell["alwaysPrepared"], "free": spell["free"],
-			"castingAbility": castingAbility, "atWill": spell["atWill"], "ritualOnly": spell["ritualOnly"],
+		options := spellGrantOptions{
+			alwaysPrepared: truth(spell["alwaysPrepared"]), free: text(spell["free"]),
+			castingAbility: castingAbility, atWill: truth(spell["atWill"]), ritualOnly: truth(spell["ritualOnly"]),
+			castAtLevel: castAtLevel,
 		}
 		// A spell cast by spending a declared resource (a key, or {key, cost}),
 		// such as Misty Step through Steps of the Fey.
-		if resource := object(grantActivationResource(source, spell["resource"])); resource != nil {
-			options["castResource"] = text(resource["key"])
-			if cost := integer(resource["cost"], 1); cost > 1 {
-				options["castResourceCost"] = cost
-			}
-		}
-		if hasCastAtLevel {
-			options["castAtLevel"] = castAtLevel
+		if resource := grantActivationResource(source, spell["resource"]); resource != nil {
+			options.castResource, options.castResourceCost = resource.Key, resource.Cost
 		}
 		if ids := stringsOf(spell["ids"]); len(ids) > 0 {
 			for _, reference := range ids {
@@ -168,7 +169,7 @@ func hydrateSpellGrants(
 		}
 		key := grantOwner(source) + ":" + choiceID
 		if count == 1 && text(spell["free"]) != "" {
-			options["resourceKey"] = "charge:" + key
+			options.resourceKey = "charge:" + key
 		}
 		picked := stringsOf(grantChoices[key])
 		if len(picked) > count {
@@ -183,30 +184,31 @@ func hydrateSpellGrants(
 		}
 		maxSpellLevel := optionalInteger(spell, "maxSpellLevel")
 		if text(spell["maxSpellLevel"]) == "class" {
-			maxSpellLevel = casterMaxSpellLevel(source)
+			level := casterMaxSpellLevel(source)
+			maxSpellLevel = &level
 		}
-		pendingChoices = append(pendingChoices, Object{
-			"key": key, "source": source, "choose": count,
-			"spellLevel":    optionalInteger(spell, "spellLevel"),
-			"maxSpellLevel": maxSpellLevel,
-			"from":          objectOrEmpty(spell["from"]), "default": nullableText(spell["default"]),
-			"alwaysPrepared": truth(spell["alwaysPrepared"]), "picked": anyStrings(picked),
-		})
+		choice := character.SpellChoice{
+			Key: key, Source: source, Choose: count,
+			SpellLevel:    optionalInteger(spell, "spellLevel"),
+			MaxSpellLevel: maxSpellLevel,
+			From:          spellFilterOf(spell["from"]), Default: nullableText(spell["default"]),
+			AlwaysPrepared: truth(spell["alwaysPrepared"]), Picked: picked,
+		}
 		if text(spell["free"]) != "" && count == 1 {
-			object(pendingChoices[len(pendingChoices)-1])["free"] = spell["free"]
+			choice.Free = text(spell["free"])
 		}
 		if spell["levelReplacements"] != nil {
-			entry := object(pendingChoices[len(pendingChoices)-1])
-			entry["levelReplacements"] = cloneValue(spell["levelReplacements"])
-			entry["acquiredAt"] = max(integer(spell["atLevel"], integer(spell["level"], 1)), integer(recordByID(records, text(source["type"]), text(source["id"]))["level"], 1))
+			choice.LevelReplacements = integer(spell["levelReplacements"], 0)
+			choice.AcquiredAt = max(integer(spell["atLevel"], integer(spell["level"], 1)), integer(recordByID(records, string(source.Type), source.ID)["level"], 1))
 		}
+		pendingChoices = append(pendingChoices, choice)
 	}
 
 	for _, current := range classes {
 		subclass := recordByID(records, "subclass", current.Subclass)
 		for _, spell := range objects(subclass["spells"]) {
 			unlock := integer(spell["atLevel"], integer(spell["level"], 0))
-			addGrantEntry(spell, Object{"type": "subclass", "id": current.Subclass},
+			addGrantEntry(spell, character.Source{Type: character.SourceSubclass, ID: current.Subclass},
 				unlock <= current.Level, current.Level, nil)
 		}
 	}
@@ -225,49 +227,35 @@ func hydrateSpellGrants(
 			if text(sourceFeat["category"]) != target {
 				continue
 			}
-			source := Object{"type": "feat", "id": text(sourceFeat["id"])}
+			source := character.Source{Type: character.SourceFeat, ID: text(sourceFeat["id"])}
 			for _, reference := range stringsOf(object(sourceFeat["grants"])["spellList"]) {
-				addGrant(reference, source, Object{
-					"alwaysPrepared": true, "castingAbility": castingAbilityFor(source, nil),
-				})
+				addGrant(reference, source, spellGrantOptions{alwaysPrepared: true, castingAbility: castingAbilityFor(source, nil)})
 			}
 		}
 	}
-
-	for _, grant := range objects(granted) {
-		if text(grant["resourceKey"]) == "" {
-			delete(grant, "resourceKey")
-		}
-	}
-	spellcasting["granted"] = granted
-	spellcasting["pendingChoices"] = pendingChoices
-	spellcasting["castingAbilityChoices"] = castingChoices
+	sheet.Spellcasting.Granted = granted
+	sheet.Spellcasting.PendingChoices = pendingChoices
+	sheet.Spellcasting.CastingAbilityChoices = castingChoices
 }
 
-func nullableString(value string) any {
-	if value == "" {
-		return nil
+// spellFilterOf reads a spell choice's from filter. A single casting time is
+// read as a list of one.
+func spellFilterOf(value any) character.SpellFilter {
+	from := object(value)
+	times := stringsOf(from["castingTime"])
+	if single := text(from["castingTime"]); single != "" {
+		times = []string{single}
 	}
-	return value
+	return character.SpellFilter{
+		Class: stringsOf(from["class"]), School: stringsOf(from["school"]), IDs: stringsOf(from["ids"]),
+		CastingTime: times, Ritual: truth(from["ritual"]),
+	}
 }
 
-func nullableNumber(value any) any {
-	if value == nil {
-		return nil
-	}
-	return number(value, 0)
-}
-
-func optionalInteger(source Object, key string) any {
+func optionalInteger(source Object, key string) *int {
 	if source[key] == nil {
 		return nil
 	}
-	return integer(source[key], 0)
-}
-
-func objectOrEmpty(value any) Object {
-	if result := object(value); result != nil {
-		return result
-	}
-	return Object{}
+	value := integer(source[key], 0)
+	return &value
 }

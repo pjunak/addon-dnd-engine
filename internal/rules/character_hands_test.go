@@ -36,28 +36,28 @@ func TestHandsSuspendExactOffHandAndRestoreWithoutChangingAttunement(t *testing.
 	if !start.Ready {
 		t.Fatal(start.Issues)
 	}
-	two, err := ApplyCharacterPlay(input, Object{"operation": "set-grip", "grip": "two"}, records, profile)
+	two, err := applyPlay(input, Object{"operation": "set-grip", "grip": "two"}, records, profile)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(input, before) || two.Inputs.Play.Hands.Off != "" || two.Inputs.Play.Hands.SuspendedOff.ItemID != "off-copy" || !two.Inputs.Play.Inventory[1].Attuned || two.Inputs.Play.Inventory[1].Location != "carried" {
 		t.Fatal("suspension changed ownership or caller", two.Inputs)
 	}
-	if integer(object(two.Sheet["derived"])["armorClass"], 0) != integer(object(start.Sheet["derived"])["armorClass"], 0)-2 || integer(object(two.Sheet["derived"])["speed"], 0) != integer(object(start.Sheet["derived"])["speed"], 0)-5 {
-		t.Fatal("suspended effects remain", start.Sheet["derived"], two.Sheet["derived"])
+	if integer(object(view(two.Sheet)["derived"])["armorClass"], 0) != integer(object(view(start.Sheet)["derived"])["armorClass"], 0)-2 || integer(object(view(two.Sheet)["derived"])["speed"], 0) != integer(object(view(start.Sheet)["derived"])["speed"], 0)-5 {
+		t.Fatal("suspended effects remain", view(start.Sheet)["derived"], view(two.Sheet)["derived"])
 	}
-	weapon := objects(two.Sheet["weapons"])[0]
+	weapon := objects(view(two.Sheet)["weapons"])[0]
 	if text(weapon["itemId"]) != "main-copy" || text(weapon["damage"]) != "1d10 +2" || two.Explanations["weapons.0.damage"].Value != weapon["damage"] {
 		t.Fatal("grip and explanation differ", weapon)
 	}
 	if !reflect.DeepEqual(two.Inputs, EvaluateCharacter(two.Inputs, records, profile).Inputs) {
 		t.Fatal("recalculation changed hands")
 	}
-	one, err := ApplyCharacterPlay(two.Inputs, Object{"operation": "set-grip", "grip": "one"}, records, profile)
+	one, err := applyPlay(two.Inputs, Object{"operation": "set-grip", "grip": "one"}, records, profile)
 	if err != nil || !reflect.DeepEqual(one.Inputs, input) {
 		t.Fatal("did not restore exact off-hand instance", one.Inputs, err)
 	}
-	if !reflect.DeepEqual(one.Sheet["derived"], start.Sheet["derived"]) {
+	if !reflect.DeepEqual(view(one.Sheet)["derived"], view(start.Sheet)["derived"]) {
 		t.Fatal("restored effects differ")
 	}
 }
@@ -66,7 +66,7 @@ func TestHandsNeverRestoreChangedMissingConsumedOrIneligibleInstances(t *testing
 	for _, scenario := range []string{"removed", "consumed", "moved", "edited", "source", "occupied"} {
 		t.Run(scenario, func(t *testing.T) {
 			input, records, profile := handsFixture(t)
-			two, err := ApplyCharacterPlay(input, Object{"operation": "set-grip", "grip": "two"}, records, profile)
+			two, err := applyPlay(input, Object{"operation": "set-grip", "grip": "two"}, records, profile)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -93,12 +93,12 @@ func TestHandsNeverRestoreChangedMissingConsumedOrIneligibleInstances(t *testing
 				input.Play.Inventory = append(input.Play.Inventory, duplicate)
 			}
 			before := cloneCharacter(input)
-			one, err := ApplyCharacterPlay(input, Object{"operation": "set-grip", "grip": "one"}, records, profile)
+			one, err := applyPlay(input, Object{"operation": "set-grip", "grip": "one"}, records, profile)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if one.Inputs.Play.Hands.Off != "" || one.Inputs.Play.Hands.SuspendedOff != nil || text(object(one.Sheet["hands"])["restoreReason"]) == "" || !reflect.DeepEqual(one.Inputs.Play.Inventory, before.Play.Inventory) {
-				t.Fatal("changed instance was restored or lost", one.Inputs, one.Sheet["hands"])
+			if one.Inputs.Play.Hands.Off != "" || one.Inputs.Play.Hands.SuspendedOff != nil || text(object(view(one.Sheet)["hands"])["restoreReason"]) == "" || !reflect.DeepEqual(one.Inputs.Play.Inventory, before.Play.Inventory) {
+				t.Fatal("changed instance was restored or lost", one.Inputs, view(one.Sheet)["hands"])
 			}
 		})
 	}
@@ -118,23 +118,23 @@ func TestHandSelectionAndCapacityUseSourceFactsAndOwnedInstances(t *testing.T) {
 		{"operation": "set-grip", "grip": "many"},
 		{"operation": "set-grip", "grip": "two", "extra": true},
 	} {
-		if _, err := ApplyCharacterPlay(input, command, records, profile); err == nil {
+		if _, err := applyPlay(input, command, records, profile); err == nil {
 			t.Fatal("invalid command accepted", command)
 		}
 	}
 	input.Play.Inventory[0].Reference.ID = "heavy"
 	result := EvaluateCharacter(input, records, profile)
-	if result.Ready || truth(result.Guidance["canSave"]) {
+	if result.Ready || truth(view(result.Guidance)["canSave"]) {
 		t.Fatal("required two-handed weapon accepted with shield", result.Issues)
 	}
-	result, err := ApplyCharacterPlay(input, Object{"operation": "set-hand", "hand": "main", "itemId": "main-copy"}, records, profile)
+	result, err := applyPlay(input, Object{"operation": "set-hand", "hand": "main", "itemId": "main-copy"}, records, profile)
 	if err != nil || result.Inputs.Play.Hands.Grip != "two" || result.Inputs.Play.Hands.SuspendedOff == nil {
 		t.Fatal("required two-handed selection", err, result.Issues)
 	}
-	if _, err = ApplyCharacterPlay(result.Inputs, Object{"operation": "set-grip", "grip": "one"}, records, profile); err == nil {
+	if _, err = applyPlay(result.Inputs, Object{"operation": "set-grip", "grip": "one"}, records, profile); err == nil {
 		t.Fatal("one hand permitted for a two-handed source")
 	}
-	result, err = ApplyCharacterPlay(result.Inputs, Object{"operation": "set-hand", "hand": "main", "itemId": "spare-copy"}, records, profile)
+	result, err = applyPlay(result.Inputs, Object{"operation": "set-hand", "hand": "main", "itemId": "spare-copy"}, records, profile)
 	if err != nil || result.Inputs.Play.Hands.Main != "spare-copy" || result.Inputs.Play.Hands.Off != "off-copy" || result.Inputs.Play.Inventory[0].Location != "carried" {
 		t.Fatal("copy replacement lost instance identity", err, result.Inputs)
 	}
@@ -142,14 +142,14 @@ func TestHandSelectionAndCapacityUseSourceFactsAndOwnedInstances(t *testing.T) {
 
 func TestSuspendedHandEffectsRemainInactiveWhenMovedOutsideHandCommands(t *testing.T) {
 	input, records, profile := handsFixture(t)
-	two, err := ApplyCharacterPlay(input, Object{"operation": "set-grip", "grip": "two"}, records, profile)
+	two, err := applyPlay(input, Object{"operation": "set-grip", "grip": "two"}, records, profile)
 	if err != nil {
 		t.Fatal(err)
 	}
 	two.Inputs.Play.Inventory[1].Location = "equipped"
 	moved := EvaluateCharacter(two.Inputs, records, profile)
-	if !reflect.DeepEqual(moved.Sheet["derived"], two.Sheet["derived"]) || text(object(moved.Sheet["hands"])["restoreReason"]) != "changed" {
-		t.Fatal("suspended effects returned before the hand was resolved", moved.Sheet["derived"])
+	if !reflect.DeepEqual(view(moved.Sheet)["derived"], view(two.Sheet)["derived"]) || text(object(view(moved.Sheet)["hands"])["restoreReason"]) != "changed" {
+		t.Fatal("suspended effects returned before the hand was resolved", view(moved.Sheet)["derived"])
 	}
 }
 
@@ -162,7 +162,7 @@ func TestSavedHandsRejectInvalidIdentityAndGrip(t *testing.T) {
 		input, records, profile := handsFixture(t)
 		input.Play.Hands = hands
 		result := EvaluateCharacter(input, records, profile)
-		if result.Ready || truth(result.Guidance["canSave"]) {
+		if result.Ready || truth(view(result.Guidance)["canSave"]) {
 			t.Fatal("invalid saved hand state accepted", hands)
 		}
 	}

@@ -26,14 +26,14 @@ func TestEquipmentSlotsUseDeclaredArmorTypeAcrossCatalogKinds(t *testing.T) {
 	}
 	result := EvaluateCharacter(input, records, profile)
 	for id, slot := range map[string]string{"plate": "armor", "guard": "shield", "ward": "shield"} {
-		if text(object(object(result.Guidance["equipment"])[id])["slot"]) != slot || text(object(object(result.Sheet["equipment"])[id])["slot"]) != slot {
-			t.Fatal("guidance and saved projection must share declared slots", id, result.Guidance["equipment"], result.Sheet["equipment"])
+		if text(object(object(view(result.Guidance)["equipment"])[id])["slot"]) != slot || text(object(object(view(result.Sheet)["equipment"])[id])["slot"]) != slot {
+			t.Fatal("guidance and saved projection must share declared slots", id, view(result.Guidance)["equipment"], view(result.Sheet)["equipment"])
 		}
 	}
 	input.Play.Inventory[2].Location = "equipped"
 	original := cloneCharacter(input)
 	result = EvaluateCharacter(input, records, profile)
-	if !hasChoiceIssue(result, "equipped:shield") || truth(result.Guidance["canSave"]) {
+	if !hasChoiceIssue(result, "equipped:shield") || truth(view(result.Guidance)["canSave"]) {
 		t.Fatal("duplicate shield slot was accepted", result.Issues)
 	}
 	if !reflect.DeepEqual(input, original) || !reflect.DeepEqual(result.Inputs, original) {
@@ -51,8 +51,8 @@ func TestAttunementPrerequisitesCannotBeSuppliedByTheItemBeingAttuned(t *testing
 	input.Play.Inventory = []character.Item{{ID: "focus", Reference: &character.Reference{Kind: "magic-item", ID: "test-focus"}, Name: "Focus", Quantity: 1, Location: "equipped", Attuned: true}}
 	original := cloneCharacter(input)
 	result := EvaluateCharacter(input, records, profile)
-	if !hasChoiceIssue(result, "attunement:focus") || truth(result.Guidance["canSave"]) || truth(object(object(result.Guidance["equipment"])["focus"])["canAttune"]) {
-		t.Fatal("item qualified for its own attunement", result.Issues, result.Guidance["equipment"])
+	if !hasChoiceIssue(result, "attunement:focus") || truth(view(result.Guidance)["canSave"]) || truth(object(object(view(result.Guidance)["equipment"])["focus"])["canAttune"]) {
+		t.Fatal("item qualified for its own attunement", result.Issues, view(result.Guidance)["equipment"])
 	}
 	if !reflect.DeepEqual(input, original) || !reflect.DeepEqual(result.Inputs, original) {
 		t.Fatal("prerequisite check changed input")
@@ -61,7 +61,7 @@ func TestAttunementPrerequisitesCannotBeSuppliedByTheItemBeingAttuned(t *testing
 		Effects: []character.Effect{{Target: "abilityScore", Key: "CON", Mode: "minimum", Value: 19}}}
 	input.Grants = []character.Grant{grant}
 	result = EvaluateCharacter(input, records, profile)
-	if !result.Ready || !truth(object(object(result.Guidance["equipment"])["focus"])["canAttune"]) {
+	if !result.Ready || !truth(object(object(view(result.Guidance)["equipment"])["focus"])["canAttune"]) {
 		t.Fatal("independently qualified item was rejected", result.Issues)
 	}
 	for _, state := range []string{"revoked", "expired", "dependent"} {
@@ -111,8 +111,8 @@ func TestAttunementCapacityAndDuplicateGuidancePreserveAuthoredState(t *testing.
 	records.byKind["magic-item"] = newMemoryRecords(entries).byKind["magic-item"]
 	profile.Constants.Character.UniqueAttunement = true
 	result := EvaluateCharacter(input, records, profile)
-	if text(object(object(result.Guidance["equipment"])["four"])["attuneReason"]) != "capacity" {
-		t.Fatal("capacity rejection needs a reason", result.Guidance["equipment"])
+	if text(object(object(view(result.Guidance)["equipment"])["four"])["attuneReason"]) != "capacity" {
+		t.Fatal("capacity rejection needs a reason", view(result.Guidance)["equipment"])
 	}
 	input.Play.Inventory[3].Attuned = true
 	original := cloneCharacter(input)
@@ -137,8 +137,8 @@ func TestAttunementCapacityAndDuplicateGuidancePreserveAuthoredState(t *testing.
 	input.Play.Inventory[3].Reference = input.Play.Inventory[0].Reference
 	input.Play.Inventory[2].Attuned = false
 	result = EvaluateCharacter(input, records, profile)
-	if text(object(object(result.Guidance["equipment"])["four"])["attuneReason"]) != "duplicate" {
-		t.Fatal("duplicate rejection needs a reason", result.Guidance["equipment"])
+	if text(object(object(view(result.Guidance)["equipment"])["four"])["attuneReason"]) != "duplicate" {
+		t.Fatal("duplicate rejection needs a reason", view(result.Guidance)["equipment"])
 	}
 	input.Play.Inventory[3].Attuned = true
 	if result = EvaluateCharacter(input, records, profile); !hasChoiceIssue(result, "attunement-duplicate:four") {
@@ -152,8 +152,8 @@ func TestCustomAttunementUsesProspectiveGrantAndCapacity(t *testing.T) {
 	input.Grants = []character.Grant{{ID: "mechanics", ItemID: "custom", Name: "Charm", ActorID: "dm", Reason: "Authored attuned mechanics", GrantedAt: input.Play.AsOf, Active: true, EffectiveLevel: 1, Condition: "attuned", Effects: []character.Effect{{Target: "initiative", Mode: "add", Value: 1}}}}
 	original := cloneCharacter(input)
 	result := EvaluateCharacter(input, records, profile)
-	if !truth(object(object(result.Guidance["equipment"])["custom"])["canAttune"]) || !reflect.DeepEqual(input, original) {
-		t.Fatal("prospective custom attunement unavailable or mutated input", result.Guidance["equipment"])
+	if !truth(object(object(view(result.Guidance)["equipment"])["custom"])["canAttune"]) || !reflect.DeepEqual(input, original) {
+		t.Fatal("prospective custom attunement unavailable or mutated input", view(result.Guidance)["equipment"])
 	}
 	input.Play.Inventory[0].Attuned = true
 	if result = EvaluateCharacter(input, records, profile); !result.Ready {
@@ -161,7 +161,7 @@ func TestCustomAttunementUsesProspectiveGrantAndCapacity(t *testing.T) {
 	}
 	input.Grants[0].Active = false
 	result = EvaluateCharacter(input, records, profile)
-	if !hasChoiceIssue(result, "custom-item:custom") || truth(object(object(result.Guidance["equipment"])["custom"])["canAttune"]) {
+	if !hasChoiceIssue(result, "custom-item:custom") || truth(object(object(view(result.Guidance)["equipment"])["custom"])["canAttune"]) {
 		t.Fatal("revoked custom attunement remained authorized", result.Issues)
 	}
 }

@@ -1,5 +1,7 @@
 package rules
 
+import "github.com/pjunak/addon-dnd-engine/character"
+
 // Option features are feature records with a category, such as Eldritch
 // Invocations, maneuvers and Metamagic options. A class, subclass or feature
 // offers them through a choice with fromCategory. Only the chosen options are
@@ -17,7 +19,7 @@ type chosenOption struct {
 // with the source identity and fallback level its choices are read at.
 type optionChoiceSource struct {
 	grants Object
-	source Object
+	source character.Source
 	level  int
 }
 
@@ -27,9 +29,9 @@ func optionChoiceSources(classID string, classLevel int, subclassID string, reco
 	if class == nil {
 		return result
 	}
-	result = append(result, optionChoiceSource{object(class["grants"]), Object{"type": "class", "id": classID}, 1})
+	result = append(result, optionChoiceSource{object(class["grants"]), character.Source{Type: character.SourceClass, ID: classID}, 1})
 	if subclass := recordView(records, "subclass", subclassID); subclass != nil && subclassID != "" {
-		result = append(result, optionChoiceSource{object(subclass["grants"]), Object{"type": "subclass", "id": subclassID},
+		result = append(result, optionChoiceSource{object(subclass["grants"]), character.Source{Type: character.SourceSubclass, ID: subclassID},
 			integer(subclass["subclassLevel"], classSubclassLevel(class))})
 	}
 	for _, feature := range recordCatalog(records, "feature") {
@@ -37,7 +39,7 @@ func optionChoiceSources(classID string, classLevel int, subclassID string, reco
 			text(feature["subclassId"]) != "" && text(feature["subclassId"]) != subclassID {
 			continue
 		}
-		result = append(result, optionChoiceSource{object(feature["grants"]), Object{"type": "feature", "id": text(feature["id"])}, max(1, integer(feature["level"], 1))})
+		result = append(result, optionChoiceSource{object(feature["grants"]), character.Source{Type: character.SourceFeature, ID: text(feature["id"])}, max(1, integer(feature["level"], 1))})
 	}
 	return result
 }
@@ -91,7 +93,7 @@ func chosenOptions(classID string, classLevel int, subclassID string, selections
 // optionPrerequisiteMet reads an option's prerequisite: level is a level in
 // the option's own class and feature names an acquired feature. Descriptive
 // fields such as text and cost do not restrict the choice.
-func optionPrerequisiteMet(option, sheet Object) bool {
+func optionPrerequisiteMet(option Object, sheet *character.Calculation) bool {
 	requirement := object(option["prerequisite"])
 	predicate := Object{}
 	if level := integer(requirement["level"], 0); level > 1 && text(option["classId"]) != "" {

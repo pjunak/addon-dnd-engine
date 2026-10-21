@@ -25,13 +25,13 @@ func TestCharacterConditionalMovementSensesAndExpiry(t *testing.T) {
 	if !base.Ready {
 		t.Fatal(base.Issues)
 	}
-	key := text(objects(base.Sheet["activations"])[0]["key"])
-	active, err := ApplyCharacterPlay(input, Object{"operation": "toggle-feature", "key": key, "enabled": true}, records, profile)
+	key := text(objects(view(base.Sheet)["activations"])[0]["key"])
+	active, err := applyPlay(input, Object{"operation": "toggle-feature", "key": key, "enabled": true}, records, profile)
 	if err != nil || !active.Ready {
 		t.Fatalf("activate: %v %v", err, active.Issues)
 	}
-	if integer(active.Sheet["flySpeed"], 0) != 45 || integer(object(active.Sheet["senses"])["tremorsense"], 0) != 60 {
-		t.Fatalf("conditional results: %v %v", active.Sheet["flySpeed"], active.Sheet["senses"])
+	if integer(view(active.Sheet)["flySpeed"], 0) != 45 || integer(object(view(active.Sheet)["senses"])["tremorsense"], 0) != 60 {
+		t.Fatalf("conditional results: %v %v", view(active.Sheet)["flySpeed"], view(active.Sheet)["senses"])
 	}
 	explanation := active.Explanations["senses.tremorsense"]
 	if len(explanation.Terms) == 0 || explanation.Terms[0].Source == nil || explanation.Terms[0].Status != "applied" {
@@ -39,11 +39,11 @@ func TestCharacterConditionalMovementSensesAndExpiry(t *testing.T) {
 	}
 	expired := cloneCharacter(active.Inputs)
 	expired.Play.AsOf = "2026-09-12T00:00:00Z"
-	if value := integer(EvaluateCharacter(expired, records, profile).Sheet["flySpeed"], 0); value != 35 {
+	if value := integer(view(EvaluateCharacter(expired, records, profile).Sheet)["flySpeed"], 0); value != 35 {
 		t.Fatalf("expired speed persisted: %d", value)
 	}
-	ended, err := ApplyCharacterPlay(active.Inputs, Object{"operation": "toggle-feature", "key": key, "enabled": false}, records, profile)
-	if err != nil || integer(ended.Sheet["flySpeed"], 0) != 0 || integer(object(ended.Sheet["senses"])["tremorsense"], 0) != 0 {
+	ended, err := applyPlay(active.Inputs, Object{"operation": "toggle-feature", "key": key, "enabled": false}, records, profile)
+	if err != nil || integer(view(ended.Sheet)["flySpeed"], 0) != 0 || integer(object(view(ended.Sheet)["senses"])["tremorsense"], 0) != 0 {
 		t.Fatal("ending stance retained conditional effects", err)
 	}
 	if !reflect.DeepEqual(EvaluateCharacter(active.Inputs, records, profile).Sheet, active.Sheet) {
@@ -56,8 +56,8 @@ func TestCharacterResourceAdjustmentsAreBoundAndReversible(t *testing.T) {
 	input.Grants = []character.Grant{{ID: "reserve", Name: "Reserve", ActorID: "dm", Reason: "Reward", GrantedAt: input.Play.AsOf, Active: true, EffectiveLevel: 1, Condition: "always", Effects: []character.Effect{{Target: "resourceMax", Key: "hit-dice-d10", Mode: "add", Value: 2}}}}
 	input.Play.ResourceUses["hit-dice-d10"] = 2
 	result := EvaluateCharacter(input, records, profile)
-	pool := findPlayResource(Object(result.Sheet), "hit-dice-d10")
-	if !result.Ready || integer(pool["remaining"], 0) != 1 {
+	pool := findPlayResource(result.Sheet.Calculation, "hit-dice-d10")
+	if !result.Ready || integer(view(pool)["remaining"], 0) != 1 {
 		t.Fatalf("adjusted capacity: %v %v", result.Issues, pool)
 	}
 	input.Grants[0].Active = false
@@ -87,19 +87,19 @@ func TestCharacterKnownSpellSwapHasRecordedLevelAndCannotRepeat(t *testing.T) {
 	warlock := recordByID(records, "class", "warlock")
 	object(warlock["spellcasting"])["levelReplacements"] = 1
 	records.byKind["class"]["warlock"] = mustJSON(warlock)
-	for _, choice := range objects(EvaluateCharacter(input, records, profile).Plan["classChoices"]) {
+	for _, choice := range objects(view(EvaluateCharacter(input, records, profile).Plan)["classChoices"]) {
 		if text(choice["kind"]) == "asiMode" {
 			input.Build.Choices = append(input.Build.Choices, character.Choice{ID: text(choice["id"]), Value: mustJSON("asi")}, character.Choice{ID: text(object(choice["ability"])["id"]), Value: mustJSON(Object{"CHA": 2})})
 		}
 	}
-	result, err := ApplyCharacterPlay(input, Object{"operation": "swap-spell", "classId": "warlock", "out": "ward", "ref": "find-path"}, records, profile)
+	result, err := applyPlay(input, Object{"operation": "swap-spell", "classId": "warlock", "out": "ward", "ref": "find-path"}, records, profile)
 	if err != nil {
 		t.Fatalf("%v: %+v", err, result.Issues)
 	}
 	if len(result.Inputs.Build.Spells.Swaps) != 1 || result.Inputs.Build.Spells.Swaps[0].Origin != "recorded" {
 		t.Fatalf("swap ledger: %+v", result.Inputs.Build.Spells.Swaps)
 	}
-	if _, err := ApplyCharacterPlay(result.Inputs, Object{"operation": "swap-spell", "classId": "warlock", "out": "find-path", "ref": "ward"}, records, profile); err == nil {
+	if _, err := applyPlay(result.Inputs, Object{"operation": "swap-spell", "classId": "warlock", "out": "find-path", "ref": "ward"}, records, profile); err == nil {
 		t.Fatal("same level replacement allowance reused")
 	}
 }
@@ -113,7 +113,7 @@ func TestSubclassCasterDeclaresLevelReplacements(t *testing.T) {
 		"spellcasting": Object{"type": "third", "ability": "INT", "prepares": "list", "levelReplacements": 1},
 		"progression":  []any{Object{"level": 3, "preparedSpells": 3, "spellSlots": []any{2, 0, 0, 0}}},
 	}}).byKind["subclass"]
-	sheet := Hydrate(Object{"classes": []any{Object{"classId": "fighter", "level": 3, "subclass": "arcane-guard"}}}, records, &profile).Sheet
+	sheet := hydrateView(Object{"classes": []any{Object{"classId": "fighter", "level": 3, "subclass": "arcane-guard"}}}, records, &profile).Sheet
 	caster := objects(object(sheet["spellcasting"])["perClass"])[0]
 	if want := (Object{"on": "classLevel", "count": 1}); !reflect.DeepEqual(caster["preparation"], want) {
 		t.Fatalf("preparation = %v, want %v", caster["preparation"], want)
@@ -172,8 +172,8 @@ func TestCharacterDeterministicBuildAndDMPropagation(t *testing.T) {
 	if !result.Ready {
 		t.Fatalf("grant blockers: %+v", result.Issues)
 	}
-	if integer(object(result.Sheet["derived"])["maxHp"], 0) != 12 {
-		t.Fatalf("Constitution did not propagate: %v", result.Sheet["hp"])
+	if integer(object(view(result.Sheet)["derived"])["maxHp"], 0) != 12 {
+		t.Fatalf("Constitution did not propagate: %v", view(result.Sheet)["hp"])
 	}
 	if len(result.Explanations["abilities.CON.score"].Terms) < 4 {
 		t.Fatal("missing grant explanation")
@@ -186,7 +186,7 @@ func TestCharacterDeterministicBuildAndDMPropagation(t *testing.T) {
 		t.Fatal("evaluation mutated inputs")
 	}
 	input.Grants[0].Active = false
-	if integer(object(EvaluateCharacter(input, records, profile).Sheet["derived"])["maxHp"], 0) != 11 {
+	if integer(object(view(EvaluateCharacter(input, records, profile).Sheet)["derived"])["maxHp"], 0) != 11 {
 		t.Fatal("revocation did not reverse derived effect")
 	}
 }
@@ -195,11 +195,11 @@ func TestCharacterHPBoundsAndRetainedInvalidChoices(t *testing.T) {
 	input, records, profile := characterFixture(t)
 	input.Play.HP = 10
 	input.Play.TemporaryHP = 3
-	result, err := ApplyCharacterPlay(input, Object{"operation": "damage", "amount": float64(5)}, records, profile)
+	result, err := applyPlay(input, Object{"operation": "damage", "amount": float64(5)}, records, profile)
 	if err != nil || result.Inputs.Play.HP != 8 || result.Inputs.Play.TemporaryHP != 0 {
 		t.Fatalf("damage: %+v %v", result.Inputs.Play, err)
 	}
-	if _, err = ApplyCharacterPlay(input, Object{"operation": "set-hp", "amount": float64(99)}, records, profile); err == nil {
+	if _, err = applyPlay(input, Object{"operation": "set-hp", "amount": float64(99)}, records, profile); err == nil {
 		t.Fatal("unbounded HP accepted")
 	}
 	input.Build.Choices = []character.Choice{{ID: "removed-source", Value: json.RawMessage(`"old-pick"`)}}
@@ -211,7 +211,7 @@ func TestCharacterHPBoundsAndRetainedInvalidChoices(t *testing.T) {
 
 func TestCharacterMalformedPrerequisitesFailClosed(t *testing.T) {
 	for _, predicate := range []Object{{"level": "garbage"}, {"abilities": Object{}}, {"abilities": Object{"STR": -1}}, {"feature": false}} {
-		if _, known := prerequisiteMatches(predicate, Object{"totalLevel": 20}); known {
+		if _, known := prerequisiteMatches(predicate, &character.Calculation{TotalLevel: 20}); known {
 			t.Fatalf("accepted malformed predicate: %v", predicate)
 		}
 	}
@@ -220,14 +220,14 @@ func TestCharacterMalformedPrerequisitesFailClosed(t *testing.T) {
 func TestCharacterRecordedHitDieAndRestUseSpentCounters(t *testing.T) {
 	input, records, profile := characterFixture(t)
 	input.Play.HP = 1
-	result, err := ApplyCharacterPlay(input, Object{"operation": "spend-hit-die", "key": "hit-dice-d10", "result": float64(4), "rollId": "recorded-one"}, records, profile)
+	result, err := applyPlay(input, Object{"operation": "spend-hit-die", "key": "hit-dice-d10", "result": float64(4), "rollId": "recorded-one"}, records, profile)
 	if err != nil || result.Inputs.Play.HP != 6 || result.Inputs.Play.ResourceUses["hit-dice-d10"] != 1 || len(result.Inputs.Play.Rolls) != 1 {
 		t.Fatalf("recorded hit die: %+v %v", result.Inputs.Play, err)
 	}
-	if _, err = ApplyCharacterPlay(result.Inputs, Object{"operation": "spend-hit-die", "key": "hit-dice-d10", "result": float64(10), "rollId": "recorded-two"}, records, profile); err == nil {
+	if _, err = applyPlay(result.Inputs, Object{"operation": "spend-hit-die", "key": "hit-dice-d10", "result": float64(10), "rollId": "recorded-two"}, records, profile); err == nil {
 		t.Fatal("spent an exhausted hit die")
 	}
-	rested, err := ApplyCharacterPlay(result.Inputs, Object{"operation": "rest", "rest": "long"}, records, profile)
+	rested, err := applyPlay(result.Inputs, Object{"operation": "rest", "rest": "long"}, records, profile)
 	if err != nil || rested.Inputs.Play.ResourceUses["hit-dice-d10"] != 0 || rested.Inputs.Play.HP != 11 {
 		t.Fatalf("rest: %+v %v", rested.Inputs.Play, err)
 	}
@@ -244,8 +244,8 @@ func TestCharacterItemsShareEffectsWithoutForgingDMGrants(t *testing.T) {
 	ref := &character.Reference{Kind: "magic-item", ID: "synthetic-amulet"}
 	input.Play.Inventory = []character.Item{{ID: "one", Reference: ref, Name: "Amulet", Quantity: 1, Location: "equipped", Attuned: true}, {ID: "two", Reference: ref, Name: "Spare amulet", Quantity: 1, Location: "equipped", Attuned: true}}
 	result := EvaluateCharacter(input, records, profile)
-	if !result.Ready || integer(object(object(result.Sheet["abilities"])["CON"])["score"], 0) != 19 || integer(object(result.Sheet["derived"])["maxHp"], 0) != 14 {
-		t.Fatalf("item projection: %v %v", result.Issues, result.Sheet["abilities"])
+	if !result.Ready || integer(object(object(view(result.Sheet)["abilities"])["CON"])["score"], 0) != 19 || integer(object(view(result.Sheet)["derived"])["maxHp"], 0) != 14 {
+		t.Fatalf("item projection: %v %v", result.Issues, view(result.Sheet)["abilities"])
 	}
 	if len(result.Inputs.Grants) != 0 {
 		t.Fatal("source mechanics became a DM grant")
@@ -262,7 +262,7 @@ func TestCharacterItemsShareEffectsWithoutForgingDMGrants(t *testing.T) {
 	input.Play.Inventory[0].Attuned = false
 	input.Play.Inventory[1].Attuned = false
 	result = EvaluateCharacter(input, records, profile)
-	if integer(object(result.Sheet["derived"])["maxHp"], 0) != 11 {
+	if integer(object(view(result.Sheet)["derived"])["maxHp"], 0) != 11 {
 		t.Fatal("unattunement retained item effects")
 	}
 	input.Play.Inventory[0].Attuned = true
@@ -277,7 +277,7 @@ func TestCharacterItemsShareEffectsWithoutForgingDMGrants(t *testing.T) {
 func TestCharacterUnknownFoundationsDoNotInventStats(t *testing.T) {
 	_, records, profile := characterFixture(t)
 	result := EvaluateCharacter(character.Blank(), records, profile)
-	if result.Ready || result.Sheet["status"] != "needs-choices" || result.Sheet["derived"] != nil {
+	if result.Ready || view(result.Sheet)["status"] != "needs-choices" || view(result.Sheet)["derived"] != nil {
 		t.Fatalf("invented incomplete stats: %+v", result.Sheet)
 	}
 }
@@ -346,7 +346,7 @@ func TestCharacterCopySpellRecordsCostAndDoesNotRecreateScroll(t *testing.T) {
 	input.Play.Currency["gp"] = 57
 	input.Play.Inventory = []character.Item{{ID: "scroll", Name: "Personal label", SpellID: "find-path", Quantity: 1, Location: "carried", Notes: "Do not recreate"}}
 	command := Object{"operation": "copy-spell", "classId": "wizard", "ref": "find-path", "scrollId": "scroll", "acquisitionId": "copy-one"}
-	result, err := ApplyCharacterPlay(input, command, records, profile)
+	result, err := applyPlay(input, command, records, profile)
 	if err != nil || !result.Ready {
 		t.Fatalf("copy: %v %+v", err, result.Issues)
 	}
@@ -357,11 +357,11 @@ func TestCharacterCopySpellRecordsCostAndDoesNotRecreateScroll(t *testing.T) {
 	if !again.Ready || again.Inputs.Play.Inventory[0].Quantity != 0 {
 		t.Fatal("recalculation recreated consumed scroll or lost copied spell capacity")
 	}
-	if _, err := ApplyCharacterPlay(result.Inputs, command, records, profile); err == nil {
+	if _, err := applyPlay(result.Inputs, command, records, profile); err == nil {
 		t.Fatal("duplicate acquisition charged again")
 	}
 	input.Play.Inventory[0].SpellID = "ward"
-	if _, err := ApplyCharacterPlay(input, command, records, profile); err == nil {
+	if _, err := applyPlay(input, command, records, profile); err == nil {
 		t.Fatal("copy used unrelated scroll based on a name")
 	}
 }
@@ -386,18 +386,18 @@ func TestCharacterSpellbookChecksTheLevelOfEachGrantedSlot(t *testing.T) {
 	}
 	records.byKind["spell"]["late"] = mustJSON(Object{"kind": "spell", "id": "late", "name": "Late spell", "level": 3, "classes": []any{"wizard"}})
 	input.Build.Spells.Spellbook["wizard"] = []string{"late", "early-1", "early-2", "early-3", "early-4"}
-	result := character.Result{SpellOptions: map[string]any{}}
+	result := character.Result{}
 	validateCharacterSpellProgression(input, records, profile, &result)
 	if len(result.Issues) != 1 || result.Issues[0].ID != "spell-acquired-level:wizard:late" {
 		t.Fatalf("late spell qualified for early slot: %+v", result.Issues)
 	}
 	input.Build.Spells.Spellbook["wizard"] = []string{"early-1", "early-2", "early-3", "early-4", "late"}
-	result = character.Result{SpellOptions: map[string]any{}}
+	result = character.Result{}
 	validateCharacterSpellProgression(input, records, profile, &result)
 	if len(result.Issues) != 0 {
 		t.Fatalf("valid ordered progression: %+v", result.Issues)
 	}
-	last := objects(result.SpellOptions["acquisitionLevels"])[4]
+	last := objects(view(result.SpellOptions)["acquisitionLevels"])[4]
 	if integer(last["level"], 0) != 5 || integer(last["classLevel"], 0) != 5 {
 		t.Fatalf("missing effective acquisition level: %+v", last)
 	}
@@ -426,7 +426,7 @@ func TestSetAbilityScoresAboveTheCapReachTheSheet(t *testing.T) {
 	input, records, profile := characterFixture(t)
 	score := func(effect character.Effect) float64 {
 		input.Grants = []character.Grant{{ID: "belt", Name: "Giant belt", Reason: "Treasure", ActorID: "dm", GrantedAt: input.Play.AsOf, Active: true, EffectiveLevel: 1, Condition: "always", Effects: []character.Effect{effect}}}
-		abilities := object(EvaluateCharacter(input, records, profile).Sheet["abilities"])
+		abilities := object(view(EvaluateCharacter(input, records, profile).Sheet)["abilities"])
 		return number(object(abilities["STR"])["score"], 0)
 	}
 	if got := score(character.Effect{Target: "abilityScore", Key: "STR", Mode: "set", Value: 23}); got != 23 {

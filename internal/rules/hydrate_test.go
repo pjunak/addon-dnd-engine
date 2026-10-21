@@ -9,27 +9,27 @@ import (
 func TestHydrateCoreCharacterMath(t *testing.T) {
 	t.Parallel()
 	profile := syntheticRuleset(t)
-	result := Hydrate(Object{
+	result := hydrateView(Object{
 		"baseStats": Object{"INT": 16, "CON": 14},
 		"classes":   []any{Object{"classId": "wizard", "level": 5}},
 	}, syntheticRecords(), &profile)
 	if len(result.Warnings) != 0 {
 		t.Fatalf("warnings = %v", result.Warnings)
 	}
-	if text(object(result.Sheet["class"])["id"]) != "wizard" ||
-		integer(object(result.Sheet["derived"])["maxHp"], 0) != 32 ||
-		!truth(object(object(result.Sheet["saves"])["INT"])["proficient"]) {
+	if text(object(view(result.Sheet)["class"])["id"]) != "wizard" ||
+		integer(object(view(result.Sheet)["derived"])["maxHp"], 0) != 32 ||
+		!truth(object(object(view(result.Sheet)["saves"])["INT"])["proficient"]) {
 		t.Fatalf("sheet = %+v", result.Sheet)
 	}
-	spellcasting := object(result.Sheet["spellcasting"])
+	spellcasting := object(view(result.Sheet)["spellcasting"])
 	if slots := integersOf(spellcasting["slots"]); len(slots) != 3 || slots[2] != 2 {
 		t.Fatalf("slots = %v", slots)
 	}
 	// Slot resources name their spell level, so sheets need not parse keys or names.
 	levels := []int{}
-	for _, raw := range values(result.Sheet["resources"]) {
-		if resource := object(raw); text(resource["kind"]) == "slot" {
-			levels = append(levels, integer(resource["level"], 0))
+	for _, raw := range values(view(result.Sheet)["resources"]) {
+		if resource := object(raw); text(view(resource)["kind"]) == "slot" {
+			levels = append(levels, integer(view(resource)["level"], 0))
 		}
 	}
 	if len(levels) != 3 || levels[0] != 1 || levels[2] != 3 {
@@ -44,10 +44,10 @@ func TestHydrateCoreCharacterMath(t *testing.T) {
 func TestHydrateKeepsPactMagicSeparate(t *testing.T) {
 	t.Parallel()
 	profile := syntheticRuleset(t)
-	result := Hydrate(Object{
+	result := hydrateView(Object{
 		"classes": []any{Object{"classId": "warlock", "level": 5}},
 	}, syntheticRecords(), &profile)
-	spellcasting := object(result.Sheet["spellcasting"])
+	spellcasting := object(view(result.Sheet)["spellcasting"])
 	if len(integersOf(spellcasting["slots"])) != 0 {
 		t.Fatalf("slots = %v", spellcasting["slots"])
 	}
@@ -56,15 +56,15 @@ func TestHydrateKeepsPactMagicSeparate(t *testing.T) {
 		t.Fatalf("pact = %+v", pact)
 	}
 	found := false
-	for _, raw := range values(result.Sheet["resources"]) {
+	for _, raw := range values(view(result.Sheet)["resources"]) {
 		resource := object(raw)
-		if text(resource["key"]) == "pact-slot" {
-			found = integer(resource["max"], 0) == 2 && integer(resource["level"], 0) == 3 &&
-				text(object(values(resource["recharge"])[0])["on"]) == "short"
+		if text(view(resource)["key"]) == "pact-slot" {
+			found = integer(view(resource)["max"], 0) == 2 && integer(view(resource)["level"], 0) == 3 &&
+				text(object(values(view(resource)["recharge"])[0])["on"]) == "short"
 		}
 	}
 	if !found {
-		t.Fatalf("resources = %+v", result.Sheet["resources"])
+		t.Fatalf("resources = %+v", view(result.Sheet)["resources"])
 	}
 }
 
@@ -72,17 +72,17 @@ func TestHydrateUsesMulticlassOrderAndProfileRounding(t *testing.T) {
 	t.Parallel()
 	profile := syntheticRuleset(t)
 	profile.Constants.CasterFractions.Half = "down"
-	wizardFirst := Hydrate(Object{"classes": []any{
+	wizardFirst := hydrateView(Object{"classes": []any{
 		Object{"classId": "wizard", "level": 3}, Object{"classId": "fighter", "level": 1},
 	}}, syntheticRecords(), &profile).Sheet
-	fighterFirst := Hydrate(Object{"classes": []any{
+	fighterFirst := hydrateView(Object{"classes": []any{
 		Object{"classId": "fighter", "level": 1}, Object{"classId": "wizard", "level": 3},
 	}}, syntheticRecords(), &profile).Sheet
 	if !truth(object(object(wizardFirst["saves"])["INT"])["proficient"]) ||
 		!truth(object(object(fighterFirst["saves"])["STR"])["proficient"]) {
 		t.Fatal("origin class did not control saving throw proficiency")
 	}
-	multiclass := Hydrate(Object{"classes": []any{
+	multiclass := hydrateView(Object{"classes": []any{
 		Object{"classId": "paladin", "level": 5}, Object{"classId": "sorcerer", "level": 1},
 	}}, syntheticRecords(), &profile).Sheet
 	slots := integersOf(object(multiclass["spellcasting"])["slots"])
@@ -94,7 +94,7 @@ func TestHydrateUsesMulticlassOrderAndProfileRounding(t *testing.T) {
 func TestHydrateInterpretsGenericSpeciesAndWeaponRecords(t *testing.T) {
 	t.Parallel()
 	profile := syntheticRuleset(t)
-	result := Hydrate(Object{
+	result := hydrateView(Object{
 		"baseStats": Object{"STR": 16, "DEX": 14, "CON": 14},
 		"classes":   []any{Object{"classId": "barbarian", "level": 5}}, "species": "dwarf",
 		"inventory": []any{Object{"ref": "longsword", "location": "equipped"}},
@@ -106,23 +106,10 @@ func TestHydrateInterpretsGenericSpeciesAndWeaponRecords(t *testing.T) {
 	}
 }
 
-func TestHydrateWithoutProviderKeepsUniversalMath(t *testing.T) {
-	t.Parallel()
-	result := Hydrate(Object{
-		"baseStats": Object{"STR": 16, "DEX": 14}, "classes": []any{Object{"classId": "fighter", "level": 5}},
-	}, nil, nil)
-	// The proficiency bonus is edition data, so it is absent without a ruleset.
-	_, proficiency := object(result.Sheet["derived"])["proficiencyBonus"]
-	if AbilityModifier(number(object(object(result.Sheet["abilities"])["STR"])["score"], 0)) != 3 || proficiency ||
-		integer(object(result.Sheet["derived"])["initiative"], 0) != 2 || len(result.Warnings) != 1 {
-		t.Fatalf("result = %+v", result)
-	}
-}
-
 func TestHydrateAppliesGenericChoicePackagesAndActiveModifiers(t *testing.T) {
 	t.Parallel()
 	profile := syntheticRuleset(t)
-	result := Hydrate(Object{
+	result := hydrateView(Object{
 		"baseStats": Object{"DEX": 14, "CON": 14},
 		"classes":   []any{Object{"classId": "fighter", "level": 3}},
 		"feats":     []any{Object{"featId": "guardian"}, Object{"featId": "adaptable"}},
@@ -149,7 +136,7 @@ func TestHydrateAppliesGenericChoicePackagesAndActiveModifiers(t *testing.T) {
 func TestHydrateMaterializesSpellGrantsResourcesAndFeatureIdentity(t *testing.T) {
 	t.Parallel()
 	profile := syntheticRuleset(t)
-	result := Hydrate(Object{
+	result := hydrateView(Object{
 		"baseStats": Object{"INT": 16},
 		"classes":   []any{Object{"classId": "wizard", "level": 2}},
 		"feats":     []any{Object{"featId": "magic-initiate"}, Object{"featId": "guardian"}},
@@ -183,7 +170,7 @@ func TestBuilderPlanAndMutationsFollowRulesetPolicy(t *testing.T) {
 		"featureChoices": Object{},
 		"abilityGrants":  []any{},
 	}
-	plan := BuilderPlan(decisions, records, profile)
+	plan := view(BuilderPlan(decisions, records, profile))
 	creation := objects(plan["creationAbilityChoices"])
 	if len(creation) != 1 || text(creation[0]["id"]) != "bgasi" {
 		t.Fatalf("creation choices = %+v", creation)
@@ -294,7 +281,7 @@ func syntheticRecords() memoryRecords {
 func hasResource(resources []any, key string, maximum int) bool {
 	for _, raw := range resources {
 		resource := object(raw)
-		if text(resource["key"]) == key && integer(resource["max"], 0) == maximum {
+		if text(view(resource)["key"]) == key && integer(view(resource)["max"], 0) == maximum {
 			return true
 		}
 	}
@@ -363,13 +350,13 @@ func TestClassTrainingUsesDeclaredToolChoicesAndWeaponSubsets(t *testing.T) {
 	records.byKind["weapon"]["club"] = mustJSON(Object{"kind": "weapon", "id": "club", "name": "Club",
 		"category": "simple", "range": "melee", "damage": "1d4", "properties": []any{"light"}})
 	decisions := Object{"classes": []any{Object{"classId": "monk", "level": 1}}}
-	choice := findChoice(objects(BuilderPlan(decisions, records, profile)["classChoices"]), "tools:monk")
+	choice := findChoice(objects(view(BuilderPlan(decisions, records, profile))["classChoices"]), "tools:monk")
 	if choice == nil || integer(choice["count"], 0) != 1 || !contains(stringsOf(choice["from"]), "smiths-tools") {
 		t.Fatalf("class tool choice = %+v", choice)
 	}
 	decisions["toolProficiencies"] = []any{"lute"}
 	decisions["inventory"] = []any{Object{"ref": "scimitar", "location": "equipped"}, Object{"ref": "club", "location": "equipped"}}
-	sheet := Hydrate(decisions, records, &profile).Sheet
+	sheet := hydrateView(decisions, records, &profile).Sheet
 	if !contains(stringsOf(object(sheet["proficiencies"])["tools"]), "lute") {
 		t.Fatalf("tools = %+v", object(sheet["proficiencies"])["tools"])
 	}
@@ -396,13 +383,13 @@ func TestHydrateReportsSpellPreparation(t *testing.T) {
 		caster("bard", Object{"levelReplacements": 1}),
 		caster("warlock", Object{"preparationChange": Object{"on": "longRest", "count": 0}}),
 	})
-	result := Hydrate(Object{
+	result := hydrateView(Object{
 		"classes": []any{Object{"classId": "cleric", "level": 1}, Object{"classId": "paladin", "level": 1},
 			Object{"classId": "bard", "level": 1}, Object{"classId": "warlock", "level": 1}},
 		"preparedSpells": Object{"cleric": []any{"bless", "bless", "cure-wounds"}},
 	}, records, &profile)
 	casters := map[string]Object{}
-	for _, raw := range values(object(result.Sheet["spellcasting"])["perClass"]) {
+	for _, raw := range values(object(view(result.Sheet)["spellcasting"])["perClass"]) {
 		casters[text(object(raw)["classId"])] = object(raw)
 	}
 	for id, want := range map[string]any{
@@ -428,12 +415,12 @@ func TestHydrateTotalsCurrencyWorth(t *testing.T) {
 	t.Parallel()
 	profile := syntheticRuleset(t)
 	decisions := Object{"currency": Object{"cp": 12.0, "sp": 30.0, "ep": 0.0, "gp": 87.0, "pp": 2.0, "shells": 9.0}}
-	if worth := Hydrate(decisions, syntheticRecords(), &profile).Sheet["currencyWorth"]; worth != nil {
+	if worth := hydrateView(decisions, syntheticRecords(), &profile).Sheet["currencyWorth"]; worth != nil {
 		t.Fatalf("worth without coin values = %v", worth)
 	}
 	profile.Constants.Currency = &CurrencyPolicy{WorthIn: "gp", CoinValues: map[string]int{"cp": 1, "sp": 10, "ep": 50, "gp": 100, "pp": 1000}}
 	// Coins the ruleset does not value are not counted.
-	worth := object(Hydrate(decisions, syntheticRecords(), &profile).Sheet["currencyWorth"])
+	worth := object(hydrateView(decisions, syntheticRecords(), &profile).Sheet["currencyWorth"])
 	if text(worth["coin"]) != "gp" || number(worth["value"], 0) != 110.12 {
 		t.Fatalf("worth = %+v", worth)
 	}

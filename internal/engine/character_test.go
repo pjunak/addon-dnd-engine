@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/pjunak/addon-dnd-engine/character"
-	"github.com/pjunak/addon-dnd-engine/internal/provider"
 	"github.com/pjunak/addon-dnd-engine/internal/rules"
 	"github.com/pjunak/ttrpg-codex/sdk/go/workerrpc"
 	"strings"
@@ -23,11 +22,16 @@ func TestCharacterBoundaryUsesOneIdentifiedEvaluation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	response := value.(map[string]any)
-	if response["identity"].(provider.Identity) != engineIdentity() || data.rulesetCalls != 1 {
+	response := value.(characterResponse)
+	if response.Identity != engineIdentity() || data.rulesetCalls != 1 {
 		t.Fatal("evaluation lost identity or loaded rules twice")
 	}
-	result := response["evaluation"].(character.Result)
+	result := response.Evaluation
+	if body, _ := json.Marshal(response); strings.Contains(string(body), "null") && !strings.Contains(string(body), `"policy":null`) {
+		if !nullsAllowed(body) {
+			t.Fatalf("response has null lists: %s", body)
+		}
+	}
 	if result.Ready || len(result.Issues) == 0 {
 		t.Fatal("incomplete creation was advertised as valid")
 	}
@@ -92,4 +96,12 @@ func TestCharacterBoundaryRejectsUnknownInputs(t *testing.T) {
 		_, err := handler.HandleRPC(context.Background(), rpcRequest("evaluate-character", `{"contractVersion":"rules-character.v2","inputs":{"play":{"hands":`+value+`}}}`))
 		assertRPCError(t, err, workerrpc.KindInvalidRequest)
 	}
+}
+
+// nullsAllowed reports whether every null in a response is a nullable field.
+func nullsAllowed(body []byte) bool {
+	for _, field := range []string{"armorRestrictions", "restrictions", "hitDie", "pact", "versatileDamage", "exclusiveGroup", "resource", "level", "free", "castingAbility", "castAtLevel", "spellLevel", "maxSpellLevel", "default", "selected", "requires", "value", "ability"} {
+		body = []byte(strings.ReplaceAll(string(body), `"`+field+`":null`, ""))
+	}
+	return !strings.Contains(string(body), "null")
 }

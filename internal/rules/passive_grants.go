@@ -1,5 +1,7 @@
 package rules
 
+import "github.com/pjunak/addon-dnd-engine/character"
+
 func grantTotal(sources []grantSource, field string) int {
 	total := 0
 	for _, source := range sources {
@@ -8,8 +10,8 @@ func grantTotal(sources []grantSource, field string) int {
 	return total
 }
 
-func armorGrantBonuses(sources []grantSource, armor Object) ([]any, int) {
-	rows, total := []any{}, 0
+func armorGrantBonuses(sources []grantSource, armor Object) ([]character.ConditionalBonus, int) {
+	rows, total := []character.ConditionalBonus{}, 0
 	for _, source := range sources {
 		for _, bonus := range objects(source.Grants["acBonuses"]) {
 			applied := true
@@ -22,14 +24,27 @@ func armorGrantBonuses(sources []grantSource, armor Object) ([]any, int) {
 					applied = applied && contains([]string{"light", "medium", "heavy"}, kind)
 				}
 			}
-			value, status := integer(bonus["add"], 0), "inactive"
+			value, status := integer(bonus["add"], 0), character.BonusInactive
 			if applied {
 				total += value
-				status = "applied"
+				status = character.BonusApplied
 			}
-			rows = append(rows, Object{"name": firstText(source.Record["name"], source.Source["id"]),
-				"source": source.Source, "value": value, "status": status, "requires": bonus["requires"]})
+			rows = append(rows, character.ConditionalBonus{Name: firstText(source.Record["name"], source.Source.ID),
+				Source: source.Source, Value: value, Status: status, Requires: armorRequirementOf(bonus["requires"])})
 		}
 	}
 	return rows, total
+}
+
+// armorRequirementOf copies a declared armor requirement for explanations,
+// keeping only the fields the rules read.
+func armorRequirementOf(raw any) *character.ArmorRequirement {
+	declared := object(raw)
+	if declared == nil {
+		return nil
+	}
+	return &character.ArmorRequirement{
+		ArmorTypes: stringsOf(declared["armorTypes"]), NoArmor: truth(declared["noArmor"]),
+		NoShield: truth(declared["noShield"]), NotArmorTypes: stringsOf(declared["notArmorTypes"]),
+	}
 }

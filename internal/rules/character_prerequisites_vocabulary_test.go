@@ -1,6 +1,10 @@
 package rules
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/pjunak/addon-dnd-engine/character"
+)
 
 func TestFeatPrerequisitePredicates(t *testing.T) {
 	sheet := Object{
@@ -24,17 +28,17 @@ func TestFeatPrerequisitePredicates(t *testing.T) {
 		{Object{"weaponTraining": "simple"}, true},
 		{Object{"spellcastingFeature": true}, true},
 	} {
-		matched, known := prerequisiteMatches(check.predicate, sheet)
+		matched, known := prerequisiteMatches(check.predicate, decodeAs[*character.Calculation](sheet))
 		if !known || matched != check.want {
 			t.Errorf("%v = %v (known %v), want %v", check.predicate, matched, known, check.want)
 		}
 	}
 	// Spells granted by a feat alone are not a Spellcasting feature.
 	featCaster := Object{"spellcasting": Object{"perClass": []any{}, "granted": []any{Object{"ref": "light", "level": 0, "source": Object{"type": "feat"}}}}}
-	if matched, _ := prerequisiteMatches(Object{"spellcastingFeature": true}, featCaster); matched {
+	if matched, _ := prerequisiteMatches(Object{"spellcastingFeature": true}, decodeAs[*character.Calculation](featCaster)); matched {
 		t.Error("a feat-granted cantrip counted as a Spellcasting feature")
 	}
-	if _, known := prerequisiteMatches(Object{"armorTraining": "plate"}, sheet); known {
+	if _, known := prerequisiteMatches(Object{"armorTraining": "plate"}, decodeAs[*character.Calculation](sheet)); known {
 		t.Error("accepted an unknown armor category")
 	}
 	if !prerequisiteNeedsSheet(Object{"level": 4, "feat": "x"}, 0) || prerequisiteNeedsSheet(Object{"level": 4}, 0) {

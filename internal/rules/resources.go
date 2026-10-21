@@ -4,25 +4,23 @@ import (
 	"fmt"
 	"math"
 	"regexp"
+	"strconv"
 	"strings"
+
+	"github.com/pjunak/addon-dnd-engine/character"
 )
 
 var frequencyPattern = regexp.MustCompile(`(?i)(\d+)\s*/\s*(shortOrLong|short|long)`)
 
 func hydrateResources(
-	decisions Object,
-	sheet Object,
+	sheet *character.Calculation,
 	classes []resolvedClass,
 	sources []grantSource,
 	records Records,
 	ruleset Ruleset,
 	pb int,
 ) {
-	resources := make([]any, 0)
-	abilities := object(sheet["abilities"])
-	abilityMod := func(ability string) int {
-		return integer(object(abilities[ability])["mod"], 0)
-	}
+	resources := make([]character.Resource, 0)
 	resolveMaximum := func(resource Object, level int) int {
 		if progression := objects(resource["progression"]); len(progression) > 0 {
 			maximum := 0
@@ -44,7 +42,7 @@ func hydrateResources(
 			total += pb
 		}
 		if ability := text(resource["abilityMod"]); ability != "" {
-			total += abilityMod(ability) * max(1, integer(resource["multiplier"], 1))
+			total += sheet.Abilities[ability].Mod * max(1, integer(resource["multiplier"], 1))
 			minimum = 1
 		}
 		if resource["fixed"] != nil {
@@ -53,60 +51,34 @@ func hydrateResources(
 		total += integer(resource["add"], 0)
 		return max(integer(resource["min"], minimum), total)
 	}
-	normalizeRecharge := func(value any, level int) []any {
-		if rest := text(value); rest != "" {
-			return []any{Object{"on": rest, "amount": "full"}}
+	pool := func(resource Object, key string, level int, source character.Source) character.Resource {
+		return character.Resource{
+			Key: key, Name: firstText(resource["name"], resource["key"]),
+			Max: resolveMaximum(resource, level), Kind: character.ResourcePool, Recharge: normalizeRecharge(resource["recharge"], level),
+			Source: source,
 		}
-		if values(value) != nil {
-			declarations := objects(value)
-			result := make([]any, 0, len(declarations))
-			for _, declaration := range declarations {
-				if text(declaration["on"]) == "" || integer(declaration["minLevel"], 1) > level {
-					continue
-				}
-				amount := declaration["amount"]
-				if amount == nil {
-					amount = "full"
-				}
-				result = append(result, Object{"on": text(declaration["on"]), "amount": amount})
-			}
-			return result
-		}
-		return []any{Object{"on": "long", "amount": "full"}}
 	}
 
 	for _, current := range classes {
 		subclass := recordByID(records, "subclass", current.Subclass)
-		pools := make([]struct {
+		type declared struct {
 			resource Object
-			source   Object
-		}, 0)
+			source   character.Source
+		}
+		pools := make([]declared, 0)
 		for _, resource := range objects(current.Record["classResources"]) {
-			pools = append(pools, struct {
-				resource Object
-				source   Object
-			}{resource, Object{"type": "class", "id": current.ID, "level": current.Level}})
+			pools = append(pools, declared{resource, character.Source{Type: character.SourceClass, ID: current.ID, Level: current.Level}})
 		}
 		for _, resource := range objects(subclass["classResources"]) {
-			pools = append(pools, struct {
-				resource Object
-				source   Object
-			}{resource, Object{"type": "subclass", "id": current.Subclass, "level": current.Level}})
+			pools = append(pools, declared{resource, character.Source{Type: character.SourceSubclass, ID: current.Subclass, Level: current.Level}})
 		}
-		for _, pool := range pools {
-			resource := pool.resource
-			if text(resource["key"]) == "" || integer(resource["minLevel"], 1) > current.Level {
+		for _, entry := range pools {
+			if text(entry.resource["key"]) == "" || integer(entry.resource["minLevel"], 1) > current.Level {
 				continue
 			}
-			maximum := resolveMaximum(resource, current.Level)
-			if maximum < 1 {
-				continue
+			if row := pool(entry.resource, text(entry.resource["key"]), current.Level, entry.source); row.Max >= 1 {
+				resources = append(resources, row)
 			}
-			resources = append(resources, Object{
-				"key": text(resource["key"]), "name": firstText(resource["name"], resource["key"]),
-				"max": maximum, "kind": "pool", "recharge": normalizeRecharge(resource["recharge"], current.Level),
-				"source": pool.source,
-			})
 		}
 	}
 	for _, source := range sources {
@@ -114,17 +86,13 @@ func hydrateResources(
 			if text(resource["key"]) == "" || integer(resource["minLevel"], 1) > source.Level {
 				continue
 			}
-			maximum := resolveMaximum(resource, source.Level)
-			if maximum < 1 {
+			row := pool(resource, grantResourceKey(source.Source, text(resource["key"])), source.Level, source.Source)
+			if row.Max < 1 {
 				continue
 			}
-			row := Object{
-				"key": grantResourceKey(source.Source, text(resource["key"])), "name": firstText(resource["name"], resource["key"]),
-				"max": maximum, "kind": "pool", "recharge": normalizeRecharge(resource["recharge"], source.Level),
-				"source": source.Source,
-			}
 			if source.Inactive {
-				row["active"] = false
+				inactive := false
+				row.Active = &inactive
 			}
 			resources = append(resources, row)
 		}
@@ -132,7 +100,7 @@ func hydrateResources(
 
 	appendHitDiceAndSpellSlots(&resources, sheet, classes, ruleset)
 	for _, source := range sources {
-		if text(source.Source["type"]) != "feat" {
+		if source.Source.Type != character.SourceFeat {
 			continue
 		}
 		feat := source.Record
@@ -142,64 +110,104 @@ func hydrateResources(
 		}
 		levelRule := object(slot["level"])
 		divisor := max(1, integer(levelRule["divisor"], 1))
-		rawLevel := float64(integer(sheet["totalLevel"], 1)) / float64(divisor)
+		rawLevel := float64(sheet.TotalLevel) / float64(divisor)
 		level := int(math.Ceil(rawLevel))
 		if text(levelRule["round"]) == "down" {
 			level = int(math.Floor(rawLevel))
 		}
 		level = max(integer(levelRule["min"], 1), min(integer(levelRule["max"], 9), level))
-		resources = append(resources, Object{
-			"key":  grantResourceKey(source.Source, "feat-slot-"+text(feat["id"])),
-			"name": fmt.Sprintf("%s (%s)", firstText(feat["name"], feat["id"]), ordinal(level)),
-			"max":  max(1, integer(slot["count"], 1)), "kind": "slot", "level": level,
-			"restriction": nullableText(slot["restriction"]),
-			"recharge":    normalizeRecharge(slot["recharge"], integer(sheet["totalLevel"], 1)),
-			"source":      source.Source,
+		resources = append(resources, character.Resource{
+			Key:  grantResourceKey(source.Source, "feat-slot-"+text(feat["id"])),
+			Name: fmt.Sprintf("%s (%s)", firstText(feat["name"], feat["id"]), ordinal(level)),
+			Max:  max(1, integer(slot["count"], 1)), Kind: character.ResourceSlot, Level: level,
+			Restriction: text(slot["restriction"]),
+			Recharge:    normalizeRecharge(slot["recharge"], sheet.TotalLevel),
+			Source:      source.Source,
 		})
 	}
-	for _, raw := range values(object(sheet["spellcasting"])["granted"]) {
-		grant := object(raw)
-		if text(grant["free"]) == "" {
+	for _, grant := range sheet.Spellcasting.Granted {
+		if grant.Free == nil || *grant.Free == "" {
 			continue
 		}
-		maximum, rests := parseFrequency(text(grant["free"]))
-		recharge := make([]any, 0, len(rests))
-		for _, rest := range rests {
-			recharge = append(recharge, Object{"on": rest, "amount": "full"})
-		}
-		resources = append(resources, Object{
-			"key":  grantFreeResourceKey(grant),
-			"name": firstText(grant["name"], grant["ref"]) + " (free cast)",
-			"max":  maximum, "kind": "charge", "recharge": recharge,
-			"source": firstObject(grant["source"], Object{"type": "spell"}),
+		maximum, rests := parseFrequency(*grant.Free)
+		resources = append(resources, character.Resource{
+			Key:  grantFreeResourceKey(grant),
+			Name: firstText(grant.Name, grant.Ref) + " (free cast)",
+			Max:  maximum, Kind: character.ResourceCharge, Recharge: fullRecharge(rests...),
+			Source: grant.Source,
 		})
 	}
 	// The allowance belongs to the granting choice even while its spell is
 	// cleared or awaiting a replacement. Selection changes cannot refresh it.
-	for _, choice := range objects(object(sheet["spellcasting"])["pendingChoices"]) {
-		if text(choice["free"]) == "" || integer(choice["choose"], 0) != 1 {
+	for _, choice := range sheet.Spellcasting.PendingChoices {
+		if choice.Free == "" || choice.Choose != 1 {
 			continue
 		}
-		key := "charge:" + text(choice["key"])
+		key := "charge:" + choice.Key
 		exists := false
-		for _, resource := range objects(resources) {
-			exists = exists || text(resource["key"]) == key
+		for _, resource := range resources {
+			exists = exists || resource.Key == key
 		}
 		if exists {
 			continue
 		}
-		maximum, rests := parseFrequency(text(choice["free"]))
-		recharge := []any{}
-		for _, rest := range rests {
-			recharge = append(recharge, Object{"on": rest, "amount": "full"})
-		}
-		source := object(choice["source"])
-		resources = append(resources, Object{"key": key, "name": grantSourceLabel(source) + " (free cast)", "max": maximum, "kind": "charge", "recharge": recharge, "source": source})
+		maximum, rests := parseFrequency(choice.Free)
+		resources = append(resources, character.Resource{Key: key, Name: grantSourceLabel(choice.Source) + " (free cast)", Max: maximum, Kind: character.ResourceCharge, Recharge: fullRecharge(rests...), Source: choice.Source})
 	}
-	sheet["resources"] = resources
+	sheet.Resources = resources
 }
 
-func appendHitDiceAndSpellSlots(resources *[]any, sheet Object, classes []resolvedClass, ruleset Ruleset) {
+// normalizeRecharge reads a resource's recharge: a rest name, a list of
+// {on, amount?, minLevel?} or nothing (a long rest). A declaration with an
+// unknown rest never recharges, so it is left out.
+func normalizeRecharge(value any, level int) []character.Recharge {
+	if rest := text(value); rest != "" {
+		return fullRecharge(character.RechargeOn(rest))
+	}
+	if values(value) != nil {
+		result := []character.Recharge{}
+		for _, declaration := range objects(value) {
+			on := character.RechargeOn(text(declaration["on"]))
+			if !on.Valid() || integer(declaration["minLevel"], 1) > level {
+				continue
+			}
+			amount := character.RechargeAmount{Full: true}
+			if declaration["amount"] != nil {
+				amount = rechargeAmountOf(declaration["amount"])
+			}
+			result = append(result, character.Recharge{On: on, Amount: amount})
+		}
+		return result
+	}
+	return fullRecharge(character.RechargeLong)
+}
+
+func fullRecharge(rests ...character.RechargeOn) []character.Recharge {
+	result := []character.Recharge{}
+	for _, rest := range rests {
+		if rest.Valid() {
+			result = append(result, character.Recharge{On: rest, Amount: character.RechargeAmount{Full: true}})
+		}
+	}
+	return result
+}
+
+// rechargeAmountOf reads a declared amount: "full", "halfLevel", a number of
+// uses or {abilityMod}. Anything else restores nothing.
+func rechargeAmountOf(value any) character.RechargeAmount {
+	switch text(value) {
+	case "full":
+		return character.RechargeAmount{Full: true}
+	case "halfLevel":
+		return character.RechargeAmount{HalfLevel: true}
+	}
+	if ability := text(object(value)["abilityMod"]); ability != "" {
+		return character.RechargeAmount{Ability: ability}
+	}
+	return character.RechargeAmount{Uses: max(0, integer(value, 0))}
+}
+
+func appendHitDiceAndSpellSlots(resources *[]character.Resource, sheet *character.Calculation, classes []resolvedClass, ruleset Ruleset) {
 	byDie := make(map[string]int)
 	dice := make([]string, 0)
 	for _, current := range classes {
@@ -210,54 +218,54 @@ func appendHitDiceAndSpellSlots(resources *[]any, sheet Object, classes []resolv
 			byDie[die] += current.Level
 		}
 	}
-	amount := "full"
+	amount := character.RechargeAmount{Full: true}
 	if ruleset.Constants.Rest.LongRestHitDice == "half" {
-		amount = "halfLevel"
+		amount = character.RechargeAmount{HalfLevel: true}
 	}
 	for _, die := range dice {
-		*resources = append(*resources, Object{
-			"key": "hit-dice-" + die, "name": "Hit Dice (" + die + ")", "max": byDie[die],
-			"kind": "hitdice", "die": die,
-			"recharge": []any{Object{"on": "long", "amount": amount}},
-			"source":   Object{"type": "class"},
+		*resources = append(*resources, character.Resource{
+			Key: "hit-dice-" + die, Name: "Hit Dice (" + die + ")", Max: byDie[die],
+			Kind: character.ResourceHitDice, Die: die,
+			Recharge: []character.Recharge{{On: character.RechargeLong, Amount: amount}},
+			Source:   character.Source{Type: character.SourceClass},
 		})
 	}
-	for index, count := range integersOf(object(sheet["spellcasting"])["slots"]) {
+	for index, count := range sheet.Spellcasting.Slots {
 		if count < 1 {
 			continue
 		}
-		*resources = append(*resources, Object{
-			"key": fmt.Sprintf("slot-%d", index+1), "name": "Spell Slots (" + ordinal(index+1) + ")",
-			"max": count, "kind": "slot", "level": index + 1,
-			"recharge": []any{Object{"on": "long", "amount": "full"}},
-			"source":   Object{"type": "spellcasting"},
+		*resources = append(*resources, character.Resource{
+			Key: fmt.Sprintf("slot-%d", index+1), Name: "Spell Slots (" + ordinal(index+1) + ")",
+			Max: count, Kind: character.ResourceSlot, Level: index + 1,
+			Recharge: fullRecharge(character.RechargeLong),
+			Source:   character.Source{Type: character.SourceSpellcasting},
 		})
 	}
-	for _, raw := range values(object(sheet["spellcasting"])["perClass"]) {
-		entry := object(raw)
-		pact := object(entry["pact"])
-		if pact == nil || integer(pact["slots"], 0) < 1 {
+	for _, entry := range sheet.Spellcasting.PerClass {
+		pact := entry.Pact
+		if pact == nil || pact.Slots < 1 {
 			continue
 		}
-		*resources = append(*resources, Object{
-			"key": "pact-slot", "name": "Pact Slots (" + ordinal(integer(pact["level"], 0)) + ")",
-			"max": integer(pact["slots"], 0), "kind": "slot", "level": integer(pact["level"], 0),
-			"recharge": []any{Object{"on": "short", "amount": "full"}},
-			"source":   Object{"type": "pactMagic", "id": text(entry["classId"])},
+		*resources = append(*resources, character.Resource{
+			Key: "pact-slot", Name: "Pact Slots (" + ordinal(pact.Level) + ")",
+			Max: pact.Slots, Kind: character.ResourceSlot, Level: pact.Level,
+			Recharge: fullRecharge(character.RechargeShort),
+			Source:   character.Source{Type: character.SourcePactMagic, ID: entry.ClassID},
 		})
 	}
 }
 
-func parseFrequency(value string) (int, []string) {
+func parseFrequency(value string) (int, []character.RechargeOn) {
 	match := frequencyPattern.FindStringSubmatch(value)
 	if len(match) != 3 {
-		return 1, []string{"long"}
+		return 1, []character.RechargeOn{character.RechargeLong}
 	}
-	rests := []string{strings.ToLower(match[2])}
+	rests := []character.RechargeOn{character.RechargeOn(strings.ToLower(match[2]))}
 	if rests[0] == "shortorlong" {
-		rests = []string{"short", "long"}
+		rests = []character.RechargeOn{character.RechargeShort, character.RechargeLong}
 	}
-	return max(1, integer(match[1], 1)), rests
+	count, _ := strconv.Atoi(match[1])
+	return max(1, count), rests
 }
 
 func ordinal(level int) string {
@@ -266,13 +274,4 @@ func ordinal(level int) string {
 		return values[level-1]
 	}
 	return fmt.Sprintf("%dth", level)
-}
-
-func firstObject(values ...any) Object {
-	for _, value := range values {
-		if current := object(value); current != nil {
-			return current
-		}
-	}
-	return Object{}
 }

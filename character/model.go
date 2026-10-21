@@ -2,9 +2,15 @@
 // It has no storage, UI, service discovery, or engine implementation dependency.
 package character
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"errors"
+)
 
-const ContractVersion = "rules-character.v2"
+const ContractVersion = "rules-character.v3"
+
+// ResponseVersion is the contract version of an evaluation response.
+const ResponseVersion = "rules-character-response.v3"
 
 // MaxRequestBytes bounds an evaluate-character or character-play request.
 // Callers check their payload against it before calling the engine.
@@ -59,7 +65,7 @@ type SpellAcquisition struct {
 }
 type Build struct {
 	Replacements []ClassReplacement `json:"replacements,omitempty"`
-	Method       string             `json:"method"`
+	Method       CreationMethod     `json:"method"`
 	BaseScores   map[string]int     `json:"baseScores"`
 	Rolls        []Roll             `json:"rolls"`
 	Species      string             `json:"species"`
@@ -74,15 +80,15 @@ type Build struct {
 // ClassReplacement records consumption of one source-owned class-level allowance.
 // It survives retroactive Builder corrections; it is not a character snapshot.
 type ClassReplacement struct {
-	Origin     string    `json:"origin,omitempty"`
-	Source     Reference `json:"source"`
-	ClassID    string    `json:"classId"`
-	ClassLevel int       `json:"classLevel"`
-	Kind       string    `json:"kind"`
-	Key        string    `json:"key"`
-	Slot       int       `json:"slot"`
-	Out        string    `json:"out"`
-	In         string    `json:"in"`
+	Origin     string          `json:"origin,omitempty"`
+	Source     Reference       `json:"source"`
+	ClassID    string          `json:"classId"`
+	ClassLevel int             `json:"classLevel"`
+	Kind       ReplacementKind `json:"kind"`
+	Key        string          `json:"key"`
+	Slot       int             `json:"slot"`
+	Out        string          `json:"out"`
+	In         string          `json:"in"`
 }
 type Item struct {
 	ID            string     `json:"id"`
@@ -143,7 +149,7 @@ type Condition struct {
 type Hands struct {
 	Main         string         `json:"main"`
 	Off          string         `json:"off"`
-	Grip         string         `json:"grip"`
+	Grip         Grip           `json:"grip"`
 	SuspendedOff *SuspendedHand `json:"suspendedOff,omitempty"`
 }
 
@@ -163,25 +169,25 @@ type PlayRoll struct {
 	At       string `json:"at"`
 }
 type Effect struct {
-	Target string `json:"target"`
-	Key    string `json:"key,omitempty"`
-	Mode   string `json:"mode"`
-	Value  int    `json:"value"`
+	Target EffectTarget `json:"target"`
+	Key    string       `json:"key,omitempty"`
+	Mode   EffectMode   `json:"mode"`
+	Value  int          `json:"value"`
 }
 type Grant struct {
-	ID             string     `json:"id"`
-	Name           string     `json:"name"`
-	Reason         string     `json:"reason"`
-	ActorID        string     `json:"actorId"`
-	GrantedAt      string     `json:"grantedAt"`
-	Active         bool       `json:"active"`
-	EffectiveLevel int        `json:"effectiveLevel"`
-	ExpiresAt      string     `json:"expiresAt,omitempty"`
-	ItemID         string     `json:"itemId,omitempty"`
-	Condition      string     `json:"condition"`
-	Feat           *Reference `json:"feat,omitempty"`
-	Effects        []Effect   `json:"effects"`
-	Waivers        []string   `json:"waivers"`
+	ID             string         `json:"id"`
+	Name           string         `json:"name"`
+	Reason         string         `json:"reason"`
+	ActorID        string         `json:"actorId"`
+	GrantedAt      string         `json:"grantedAt"`
+	Active         bool           `json:"active"`
+	EffectiveLevel int            `json:"effectiveLevel"`
+	ExpiresAt      string         `json:"expiresAt,omitempty"`
+	ItemID         string         `json:"itemId,omitempty"`
+	Condition      GrantCondition `json:"condition"`
+	Feat           *Reference     `json:"feat,omitempty"`
+	Effects        []Effect       `json:"effects"`
+	Waivers        []string       `json:"waivers"`
 }
 type Inputs struct {
 	Build  Build   `json:"build"`
@@ -189,11 +195,11 @@ type Inputs struct {
 	Grants []Grant `json:"grants"`
 }
 type Issue struct {
-	ID        string     `json:"id"`
-	Target    string     `json:"target"`
-	Message   string     `json:"message"`
-	Severity  string     `json:"severity"`
-	Reference *Reference `json:"reference,omitempty"`
+	ID        string        `json:"id"`
+	Target    string        `json:"target"`
+	Message   string        `json:"message"`
+	Severity  IssueSeverity `json:"severity"`
+	Reference *Reference    `json:"reference,omitempty"`
 }
 type Term struct {
 	Label   string     `json:"label"`
@@ -213,29 +219,51 @@ type Explanation struct {
 	Sources []Reference `json:"sources"`
 }
 type Evidence struct {
-	Reference         Reference      `json:"reference"`
-	Name              string         `json:"name"`
-	Book              string         `json:"book,omitempty"`
-	Hash              string         `json:"hash"`
-	Summary           string         `json:"summary"`
-	Facts             map[string]any `json:"facts"`
-	PackageID         string         `json:"packageId,omitempty"`
-	PackageGeneration string         `json:"packageGeneration,omitempty"`
-	ContentRevision   string         `json:"contentRevision,omitempty"`
+	Reference         Reference   `json:"reference"`
+	Name              string      `json:"name"`
+	Book              string      `json:"book,omitempty"`
+	Hash              string      `json:"hash"`
+	Summary           string      `json:"summary"`
+	Facts             RecordFacts `json:"facts"`
+	PackageID         string      `json:"packageId,omitempty"`
+	PackageGeneration string      `json:"packageGeneration,omitempty"`
+	ContentRevision   string      `json:"contentRevision,omitempty"`
 }
 type Result struct {
 	ContractVersion string                 `json:"contractVersion"`
 	Inputs          Inputs                 `json:"inputs"`
-	Sheet           map[string]any         `json:"sheet"`
-	Guidance        map[string]any         `json:"guidance"`
-	Plan            map[string]any         `json:"plan"`
-	SpellOptions    map[string]any         `json:"spellOptions"`
+	Sheet           Sheet                  `json:"sheet"`
+	Guidance        Guidance               `json:"guidance"`
+	Plan            Plan                   `json:"plan"`
+	SpellOptions    SpellOptions           `json:"spellOptions"`
 	Explanations    map[string]Explanation `json:"explanations"`
 	Evidence        []Evidence             `json:"evidence"`
 	Issues          []Issue                `json:"issues"`
 	Ready           bool                   `json:"ready"`
 }
 
+// RecordFacts are a rules record's fields without its prose: the provider's
+// data the evaluation read, kept for offline reading.
+type RecordFacts json.RawMessage
+
+func (facts RecordFacts) MarshalJSON() ([]byte, error) {
+	if len(facts) == 0 {
+		return []byte("{}"), nil
+	}
+	return facts, nil
+}
+
+func (facts *RecordFacts) UnmarshalJSON(body []byte) error {
+	if len(body) == 0 || body[0] != '{' {
+		return errors.New("record facts must be an object")
+	}
+	*facts = append((*facts)[:0], body...)
+	return nil
+}
+
+func (RecordFacts) JSONSchema() map[string]any { return map[string]any{"type": "object"} }
+func (RecordFacts) TypeScriptType() string     { return "Record<string, unknown>" }
+
 func Blank() Inputs {
-	return Inputs{Build: Build{Method: "point-buy", BaseScores: map[string]int{}, Rolls: []Roll{}, Levels: []Level{}, Subclasses: map[string]string{}, Choices: []Choice{}, Spells: SpellDecisions{Cantrips: map[string][]string{}, Spellbook: map[string][]string{}, GrantChoices: map[string][]string{}, CastingAbilities: map[string]string{}, Swaps: []SpellSwap{}, Acquisitions: []SpellAcquisition{}}}, Play: Play{Rolls: []PlayRoll{}, Inventory: []Item{}, Currency: map[string]float64{}, ResourceUses: map[string]int{}, ActiveFeatures: map[string]bool{}, PreparedSpells: map[string][]string{}}, Grants: []Grant{}}
+	return Inputs{Build: Build{Method: MethodPointBuy, BaseScores: map[string]int{}, Rolls: []Roll{}, Levels: []Level{}, Subclasses: map[string]string{}, Choices: []Choice{}, Spells: SpellDecisions{Cantrips: map[string][]string{}, Spellbook: map[string][]string{}, GrantChoices: map[string][]string{}, CastingAbilities: map[string]string{}, Swaps: []SpellSwap{}, Acquisitions: []SpellAcquisition{}}}, Play: Play{Rolls: []PlayRoll{}, Inventory: []Item{}, Currency: map[string]float64{}, ResourceUses: map[string]int{}, ActiveFeatures: map[string]bool{}, PreparedSpells: map[string][]string{}}, Grants: []Grant{}}
 }

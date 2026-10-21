@@ -2,11 +2,448 @@
   "additionalProperties": false,
   "properties": {
     "change": {
-      "maxProperties": 20,
-      "type": "object"
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "key": {
+              "type": "string"
+            },
+            "operation": {
+              "const": "cast-granted-spell"
+            },
+            "slot": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "operation",
+            "key",
+            "slot"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "classId": {
+              "type": "string"
+            },
+            "operation": {
+              "const": "cast-ritual"
+            },
+            "ref": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "operation",
+            "classId",
+            "ref"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "classId": {
+              "type": "string"
+            },
+            "operation": {
+              "const": "cast-spell"
+            },
+            "ref": {
+              "type": "string"
+            },
+            "slot": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "operation",
+            "classId",
+            "ref",
+            "slot"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "itemId": {
+              "type": "string"
+            },
+            "operation": {
+              "const": "consume-item"
+            }
+          },
+          "required": [
+            "operation",
+            "itemId"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "acquisitionId": {
+              "type": "string"
+            },
+            "classId": {
+              "type": "string"
+            },
+            "operation": {
+              "const": "copy-spell"
+            },
+            "ref": {
+              "type": "string"
+            },
+            "scrollId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "operation",
+            "classId",
+            "ref",
+            "scrollId",
+            "acquisitionId"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "amount": {
+              "type": "integer"
+            },
+            "operation": {
+              "const": "damage"
+            }
+          },
+          "required": [
+            "operation",
+            "amount"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "operation": {
+              "const": "end-concentration"
+            }
+          },
+          "required": [
+            "operation"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "amount": {
+              "type": "integer"
+            },
+            "operation": {
+              "const": "heal"
+            }
+          },
+          "required": [
+            "operation",
+            "amount"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "operation": {
+              "const": "keep-concentration"
+            }
+          },
+          "required": [
+            "operation"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "key": {
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "feat",
+                "spell"
+              ],
+              "type": "string"
+            },
+            "operation": {
+              "const": "replace-class-choice"
+            },
+            "out": {
+              "type": "string"
+            },
+            "ref": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "operation",
+            "kind",
+            "key",
+            "out",
+            "ref"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "operation": {
+              "const": "rest"
+            },
+            "rest": {
+              "enum": [
+                "long",
+                "short"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "operation",
+            "rest"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "ability": {
+              "type": "string"
+            },
+            "key": {
+              "type": "string"
+            },
+            "operation": {
+              "const": "select-casting-ability"
+            }
+          },
+          "required": [
+            "operation",
+            "key",
+            "ability"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "key": {
+              "type": "string"
+            },
+            "operation": {
+              "const": "select-grant-spell"
+            },
+            "ref": {
+              "type": "string"
+            },
+            "selected": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "operation",
+            "key",
+            "ref",
+            "selected"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "classId": {
+              "type": "string"
+            },
+            "operation": {
+              "const": "select-spell"
+            },
+            "ref": {
+              "type": "string"
+            },
+            "selected": {
+              "type": "boolean"
+            },
+            "selection": {
+              "enum": [
+                "cantrips",
+                "preparedSpells",
+                "spellbook"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "operation",
+            "classId",
+            "ref",
+            "selection",
+            "selected"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "grip": {
+              "enum": [
+                "one",
+                "two"
+              ],
+              "type": "string"
+            },
+            "operation": {
+              "const": "set-grip"
+            }
+          },
+          "required": [
+            "operation",
+            "grip"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "hand": {
+              "enum": [
+                "main",
+                "off"
+              ],
+              "type": "string"
+            },
+            "itemId": {
+              "type": "string"
+            },
+            "operation": {
+              "const": "set-hand"
+            }
+          },
+          "required": [
+            "operation",
+            "hand",
+            "itemId"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "amount": {
+              "type": "integer"
+            },
+            "operation": {
+              "const": "set-hp"
+            }
+          },
+          "required": [
+            "operation",
+            "amount"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "amount": {
+              "type": "integer"
+            },
+            "operation": {
+              "const": "set-temporary-hp"
+            }
+          },
+          "required": [
+            "operation",
+            "amount"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "key": {
+              "type": "string"
+            },
+            "operation": {
+              "const": "spend-hit-die"
+            },
+            "result": {
+              "type": "integer"
+            },
+            "rollId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "operation",
+            "key",
+            "result",
+            "rollId"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "classId": {
+              "type": "string"
+            },
+            "operation": {
+              "const": "swap-spell"
+            },
+            "out": {
+              "type": "string"
+            },
+            "ref": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "operation",
+            "classId",
+            "out",
+            "ref"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "key": {
+              "type": "string"
+            },
+            "operation": {
+              "const": "toggle-feature"
+            }
+          },
+          "required": [
+            "operation",
+            "key",
+            "enabled"
+          ],
+          "type": "object"
+        }
+      ]
     },
     "contractVersion": {
-      "const": "rules-character.v2"
+      "const": "rules-character.v3"
     },
     "inputs": {
       "$ref": "character-inputs.schema.json"

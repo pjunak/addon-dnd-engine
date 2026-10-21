@@ -56,13 +56,13 @@ func TestClassChoicePackagesUseTheSameBranchForPlanAndGrants(t *testing.T) {
 	if !result.Ready || !classGrantOffers(result, "training-feat", "guard") || !classGrantOffers(result, "training-feat", "aim") || classGrantOffers(result, "training-feat", "ordinary") {
 		t.Fatal("class-granted feat options disagree with validation", result.Issues)
 	}
-	if integer(object(result.Sheet["senses"])["blindsight"], 0) != 10 || len(objects(result.Sheet["feats"])) != 1 || !reflect.DeepEqual(input, before) || !reflect.DeepEqual(result.Inputs, before) {
-		t.Fatal("choice grant was omitted or authored input changed", result.Sheet["feats"])
+	if integer(object(view(result.Sheet)["senses"])["blindsight"], 0) != 10 || len(objects(view(result.Sheet)["feats"])) != 1 || !reflect.DeepEqual(input, before) || !reflect.DeepEqual(result.Inputs, before) {
+		t.Fatal("choice grant was omitted or authored input changed", view(result.Sheet)["feats"])
 	}
 	branch := cloneCharacter(input)
 	branch.Build.Choices[0].Value = mustJSON("cantrips")
 	result = EvaluateCharacter(branch, records, profile)
-	if truth(result.Guidance["canSave"]) || !hasChoiceIssue(result, "unavailable-choice:training-feat#0") || len(objects(result.Sheet["feats"])) != 0 || integer(object(result.Sheet["senses"])["blindsight"], 0) != 0 {
+	if truth(view(result.Guidance)["canSave"]) || !hasChoiceIssue(result, "unavailable-choice:training-feat#0") || len(objects(view(result.Sheet)["feats"])) != 0 || integer(object(view(result.Sheet)["senses"])["blindsight"], 0) != 0 {
 		t.Fatal("an inactive package still grants its old feat", result.Issues)
 	}
 	branch.Build.Choices = branch.Build.Choices[:1]
@@ -71,18 +71,18 @@ func TestClassChoicePackagesUseTheSameBranchForPlanAndGrants(t *testing.T) {
 	if !result.Ready || !reflect.DeepEqual(result.Inputs.Play, before.Play) {
 		t.Fatal("class cantrip alternative did not become ready", result.Issues)
 	}
-	for _, spell := range objects(object(result.Sheet["spellcasting"])["granted"]) {
+	for _, spell := range objects(object(view(result.Sheet)["spellcasting"])["granted"]) {
 		if text(spell["castingAbility"]) != "CHA" || text(object(spell["source"])["classId"]) != "fighter" || text(object(spell["source"])["id"]) != "martial-training" {
 			t.Fatal("lost casting ability, class membership or grant identity", spell)
 		}
 	}
-	options := objects(result.SpellOptions["pendingChoices"])[0]
+	options := objects(view(result.SpellOptions)["pendingChoices"])[0]
 	if !reflect.DeepEqual(stringsOf(options["eligibleSpellIds"]), []string{"light", "spark"}) {
 		t.Fatal("spell level or source list escaped its restriction", options)
 	}
 	branch.Build.Choices[0].Value = mustJSON("style")
 	result = EvaluateCharacter(branch, records, profile)
-	if !hasChoiceIssue(result, "spell-grant:feature:martial-training:training-spells") || len(objects(object(result.Sheet["spellcasting"])["granted"])) != 0 {
+	if !hasChoiceIssue(result, "spell-grant:feature:martial-training:training-spells") || len(objects(object(view(result.Sheet)["spellcasting"])["granted"])) != 0 {
 		t.Fatal("inactive alternative retained its spells", result.Issues)
 	}
 	branch.Build.Levels = branch.Build.Levels[:1]
@@ -100,12 +100,12 @@ func TestClassFeatGrantsKeepSubclassAcquisitionsDistinct(t *testing.T) {
 		{ID: "training-path", Value: mustJSON("style")}, {ID: "training-feat", Value: mustJSON("guard")}, {ID: "second-feat", Value: mustJSON("aim")},
 	}
 	result := EvaluateCharacter(input, records, profile)
-	if !result.Ready || len(objects(result.Sheet["feats"])) != 2 || classGrantOffers(result, "second-feat", "guard") {
+	if !result.Ready || len(objects(view(result.Sheet)["feats"])) != 2 || classGrantOffers(result, "second-feat", "guard") {
 		t.Fatal("separate acquired feats were lost or offered twice", result.Issues)
 	}
 	input.Build.Choices[2].Value = mustJSON("guard")
 	result = EvaluateCharacter(input, records, profile)
-	if !hasFeatBlock(result, "guard") || truth(result.Guidance["canSave"]) {
+	if !hasFeatBlock(result, "guard") || truth(view(result.Guidance)["canSave"]) {
 		t.Fatal("duplicate nonrepeatable style was accepted", result.Issues)
 	}
 	delete(input.Build.Subclasses, "fighter")
@@ -116,7 +116,7 @@ func TestClassFeatGrantsKeepSubclassAcquisitionsDistinct(t *testing.T) {
 }
 
 func classGrantOffers(result character.Result, choice, id string) bool {
-	for _, option := range objects(object(object(result.Guidance["choices"])[choice])["options"]) {
+	for _, option := range objects(object(object(view(result.Guidance)["choices"])[choice])["options"]) {
 		if text(option["id"]) == id {
 			return true
 		}

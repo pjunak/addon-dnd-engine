@@ -32,24 +32,24 @@ func movementFixture(t *testing.T) (character.Inputs, memoryRecords, Ruleset) {
 func TestSpecialSpeedsFollowTheFinalWalkingSpeed(t *testing.T) {
 	input, records, profile := movementFixture(t)
 	result := EvaluateCharacter(input, records, profile)
-	if integer(result.Sheet["speed"], 0) != 40 || integer(result.Sheet["swimSpeed"], 0) != 40 || integer(result.Sheet["climbSpeed"], 0) != 40 || integer(result.Sheet["flySpeed"], 1) != 0 {
-		t.Fatal("passive speeds equal to Speed were not resolved", result.Sheet["speed"], result.Sheet["swimSpeed"], result.Sheet["climbSpeed"])
+	if integer(view(result.Sheet)["speed"], 0) != 40 || integer(view(result.Sheet)["swimSpeed"], 0) != 40 || integer(view(result.Sheet)["climbSpeed"], 0) != 40 || integer(view(result.Sheet)["flySpeed"], 1) != 0 {
+		t.Fatal("passive speeds equal to Speed were not resolved", view(result.Sheet)["speed"], view(result.Sheet)["swimSpeed"], view(result.Sheet)["climbSpeed"])
 	}
-	if _, exists := result.Sheet["burrowSpeed"]; exists || len(objects(result.Sheet["movement"])) != 3 {
-		t.Fatal("ungranted movement was reported or a source row was lost", result.Sheet["movement"])
+	if _, exists := view(result.Sheet)["burrowSpeed"]; exists || len(objects(view(result.Sheet)["movement"])) != 3 {
+		t.Fatal("ungranted movement was reported or a source row was lost", view(result.Sheet)["movement"])
 	}
 	input.Play.ActiveFeatures = map[string]bool{activationKey(result, "wings"): true}
 	input.Grants = []character.Grant{{ID: "haste", Name: "Haste", ActorID: "dm", Reason: "Blessing", GrantedAt: input.Play.AsOf, Active: true, EffectiveLevel: 1, Condition: "always",
 		Effects: []character.Effect{{Target: "speed", Mode: "add", Value: 10}}}}
 	result = EvaluateCharacter(input, records, profile)
-	if integer(result.Sheet["speed"], 0) != 50 || integer(result.Sheet["flySpeed"], 0) != 50 || integer(result.Sheet["swimSpeed"], 0) != 100 || integer(result.Sheet["climbSpeed"], 0) != 50 {
-		t.Fatal("active movement did not follow the speed after DM effects", result.Sheet["speed"], result.Sheet["flySpeed"], result.Sheet["swimSpeed"])
+	if integer(view(result.Sheet)["speed"], 0) != 50 || integer(view(result.Sheet)["flySpeed"], 0) != 50 || integer(view(result.Sheet)["swimSpeed"], 0) != 100 || integer(view(result.Sheet)["climbSpeed"], 0) != 50 {
+		t.Fatal("active movement did not follow the speed after DM effects", view(result.Sheet)["speed"], view(result.Sheet)["flySpeed"], view(result.Sheet)["swimSpeed"])
 	}
 	records.byKind["feature"] = map[string]json.RawMessage{}
 	input.Play.ActiveFeatures = nil
 	input.Grants = nil
 	result = EvaluateCharacter(input, records, profile)
-	if integer(result.Sheet["climbSpeed"], 0) != 20 || integer(result.Sheet["speed"], 0) != 30 {
-		t.Fatal("the species climb speed was not reported", result.Sheet["climbSpeed"])
+	if integer(view(result.Sheet)["climbSpeed"], 0) != 20 || integer(view(result.Sheet)["speed"], 0) != 30 {
+		t.Fatal("the species climb speed was not reported", view(result.Sheet)["climbSpeed"])
 	}
 }

@@ -1,46 +1,49 @@
 package rules
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 	"unicode"
+
+	"github.com/pjunak/addon-dnd-engine/character"
 )
 
 // BuilderGuidance is a read-only companion to the stable Builder plan. It keeps
 // completion and option policy out of UI consumers without changing decisions.
-func BuilderGuidance(decisions, plan Object, records Records, profile Ruleset) Object {
+func BuilderGuidance(decisions Object, plan character.Plan, records Records, profile Ruleset) character.Guidance {
 	return builderGuidance(decisions, plan, records, profile, nil)
 }
 
-func builderGuidance(decisions, plan Object, records Records, profile Ruleset, choiceOptions map[string][]any) Object {
+func builderGuidance(decisions Object, plan character.Plan, records Records, profile Ruleset, choiceOptions map[string][]character.Option) character.Guidance {
 	normalized := NormalizeBuilderDecisions(decisions, records, profile)
-	hydrated := Hydrate(normalized, records, &profile)
-	choices, classes := Object{}, []any{}
-	sections := []Object{{"id": "foundation", "total": 0, "complete": 0, "issues": []any{}}, {"id": "progression", "total": 0, "complete": 0, "issues": []any{}}, {"id": "spells", "total": 0, "complete": 0, "issues": []any{}}}
-	add := func(group int, done bool, id, label, tab string, level int, args ...any) Object {
-		section := sections[group]
-		section["total"] = integer(section["total"], 0) + 1
+	hydrated := Hydrate(normalized, records, profile)
+	choices, classes := map[string]character.ChoiceGuidance{}, []character.ClassGuidance{}
+	sections := []character.GuidanceSection{{ID: "foundation", Issues: []character.GuidanceIssue{}}, {ID: "progression", Issues: []character.GuidanceIssue{}}, {ID: "spells", Issues: []character.GuidanceIssue{}}}
+	// add counts one decision and lists it as an issue unless done; the
+	// returned issue is valid until the next call.
+	add := func(group int, done bool, id, label, tab string, level int, args ...any) *character.GuidanceIssue {
+		section := &sections[group]
+		section.Total++
 		if done {
-			section["complete"] = integer(section["complete"], 0) + 1
+			section.Complete++
 			return nil
 		}
-		issue := builderGuidanceText(label, args...)
-		issue["id"], issue["tab"], issue["level"] = id, tab, level
-		section["issues"] = append(values(section["issues"]), issue)
-		return issue
+		section.Issues = append(section.Issues, character.GuidanceIssue{ID: id, Text: guidanceText(label, args...), Tab: tab, Level: level})
+		return &section.Issues[len(section.Issues)-1]
 	}
 	// An item's picks are ordinary steps, but they guide play rather than
 	// block it, so equipping an item never stops the sheet.
-	itemPick := func(issue, source Object) {
-		if issue != nil && text(source["type"]) == "item" {
-			issue["severity"] = "warning"
+	itemPick := func(issue *character.GuidanceIssue, source character.Source) {
+		if issue != nil && source.Type == character.SourceItem {
+			issue.Severity = character.SeverityWarning
 		}
 	}
-	base := object(plan["baseStats"])
+	manual := truth(decisions["manualScores"])
 	scoresValid, spent := true, 0
 	for _, ability := range Abilities {
-		score := integer(base[ability], 0)
-		if truth(decisions["manualScores"]) {
+		score := plan.BaseStats[ability]
+		if manual {
 			scoresValid = scoresValid && score >= 1 && score <= profile.Constants.AbilityCapHard
 		} else {
 			cost, exists := profile.Constants.PointBuy.Cost[jsonNumber(score)]
@@ -48,7 +51,7 @@ func builderGuidance(decisions, plan Object, records Records, profile Ruleset, c
 			scoresValid = scoresValid && exists
 		}
 	}
-	add(0, scoresValid && (truth(decisions["manualScores"]) || spent == profile.Constants.PointBuy.Budget), "abilities", "Finish base ability scores", "character", 0)
+	add(0, scoresValid && (manual || spent == profile.Constants.PointBuy.Budget), "abilities", "Finish base ability scores", "character", 0)
 	species := recordByID(records, "species", text(decisions["species"]))
 	add(0, species != nil, "species", "Choose species", "character", 0)
 	add(0, recordByID(records, "background", text(decisions["background"])) != nil, "background", "Choose background", "character", 0)
@@ -59,22 +62,19 @@ func builderGuidance(decisions, plan Object, records Records, profile Ruleset, c
 		}
 		add(0, valid, "lineage", "Choose lineage", "character", 0)
 	}
-	for groupIndex, group := range []any{plan["creationChoices"], plan["creationAbilityChoices"], plan["classChoices"]} {
-		for _, choice := range objects(group) {
-			entry := builderChoiceGuidance(decisions, choice, hydrated.Sheet, records, choiceOptions[text(choice["id"])])
-			choices[text(choice["id"])] = entry
+	for groupIndex, group := range [][]character.PlanChoice{plan.CreationChoices, plan.CreationAbilityChoices, plan.ClassChoices} {
+		for _, choice := range group {
+			entry := builderChoiceGuidance(decisions, choice, hydrated.Sheet, records, choiceOptions[choice.ID])
+			choices[choice.ID] = entry
 			section, tab := 0, "character"
 			if groupIndex == 2 {
-				section, tab = 1, text(choice["classId"])
+				section, tab = 1, choice.ClassID
 			}
-			add(section, truth(entry["done"]), text(choice["id"]), text(entry["labelKey"]), tab, integer(object(choice["source"])["level"], 1), values(entry["labelArgs"])...)
+			add(section, entry.Done, choice.ID, entry.LabelKey, tab, choiceSourceLevel(choice), labelArgs(entry.LabelArgs)...)
 		}
 	}
-	if len(objects(plan["classes"])) == 0 {
-		add(1, false, "add-class", "Choose first class", "add-class", 0)
-	}
-	for _, selected := range objects(plan["classes"]) {
-		id := text(selected["classId"])
+	for _, selected := range plan.Classes {
+		id := selected.ClassID
 		if id == "" {
 			add(1, false, "add-class", "Choose first class", "add-class", 0)
 			continue
@@ -84,212 +84,217 @@ func builderGuidance(decisions, plan Object, records Records, profile Ruleset, c
 		if class == nil {
 			continue
 		}
-		subclasses := []any{}
+		subclasses := []character.Option{}
 		for _, sub := range recordCatalog(records, "subclass") {
 			if text(sub["classId"]) == id {
 				subclasses = append(subclasses, guidanceOption(text(sub["id"]), sub))
 			}
 		}
 		sortGuidanceOptions(subclasses)
-		level, subclassLevel := max(1, integer(selected["level"], 1)), classSubclassLevel(class)
+		level, subclassLevel := max(1, selected.Level), classSubclassLevel(class)
 		if subclassLevel > 0 && level >= subclassLevel && len(subclasses) > 0 {
 			valid := false
-			for _, sub := range objects(subclasses) {
-				valid = valid || text(sub["id"]) == text(selected["subclass"])
+			for _, sub := range subclasses {
+				valid = valid || sub.ID == selected.Subclass
 			}
 			add(1, valid, "subclass:"+id, "Choose {0} subclass", id, subclassLevel, firstText(class["name"], id))
 		}
-		levels := []any{}
+		levels := []character.LevelGuidance{}
 		for at := 1; at <= min(level, 20); at++ {
-			features := []any{}
-			for _, feature := range objects(hydrated.Sheet["features"]) {
-				source := object(feature["source"])
-				if integer(source["level"], 0) == at && (text(source["id"]) == id || text(source["id"]) == text(selected["subclass"])) {
-					record := recordByID(records, "feature", text(feature["id"]))
+			features := []character.Option{}
+			for _, feature := range hydrated.Sheet.Features {
+				if feature.Source.Level == at && (feature.Source.ID == id || feature.Source.ID == selected.Subclass) {
+					record := recordByID(records, "feature", feature.ID)
 					if record == nil {
-						record = Object{"name": firstText(feature["name"], feature["id"])}
+						record = Object{"name": firstText(feature.Name, feature.ID)}
 					}
-					features = append(features, guidanceOption(text(feature["id"]), record))
+					features = append(features, guidanceOption(feature.ID, record))
 				}
 			}
 			sortGuidanceOptions(features)
-			levels = append(levels, Object{"level": at, "features": features})
+			levels = append(levels, character.LevelGuidance{Level: at, Features: features})
 		}
-		classes = append(classes, Object{"classId": id, "name": firstText(class["name"], id), "level": level, "subclassLevel": subclassLevel, "subclasses": subclasses, "levels": levels})
+		classes = append(classes, character.ClassGuidance{ClassID: id, Name: firstText(class["name"], id), Level: level, SubclassLevel: subclassLevel, Subclasses: subclasses, Levels: levels})
 	}
-	casting := object(hydrated.Sheet["spellcasting"])
-	for _, caster := range objects(casting["perClass"]) {
-		id := text(caster["classId"])
+	casting := hydrated.Sheet.Spellcasting
+	for _, caster := range casting.PerClass {
+		id := caster.ClassID
 		name := firstText(recordByID(records, "class", id)["name"], id)
-		if required := integer(caster["cantripsKnown"], 0); required > 0 {
+		if required := caster.CantripsKnown; required > 0 {
 			add(2, len(unique(stringsOf(object(decisions["cantrips"])[id]))) == required, "cantrips:"+id, "Choose {0} cantrips", "spells", 0, name)
 		}
-		if text(caster["prepares"]) == "spellbook" && integer(caster["spellbookKnown"], 0) > 0 {
+		if caster.Prepares == "spellbook" && caster.SpellbookKnown > 0 {
 			spellbook := unique(stringsOf(object(decisions["spellbook"])[id]))
-			done := len(spellbook) >= integer(caster["spellbookKnown"], 0) && len(spellbookSchoolShortfalls(caster, spellbook, records)) == 0
+			done := len(spellbook) >= caster.SpellbookKnown && len(spellbookSchoolShortfalls(caster, spellbook, records)) == 0
 			add(2, done, "spellbook:"+id, "Choose {0} spellbook spells", "spells", 0, name)
 		}
 	}
-	for _, choice := range objects(casting["pendingChoices"]) {
-		source := object(choice["source"])
-		itemPick(add(2, len(unique(stringsOf(choice["picked"]))) >= max(1, integer(choice["choose"], 1)), text(choice["key"]), "Choose spells: {0}", "spells", 0, grantSourceLabel(source)), source)
+	for _, choice := range casting.PendingChoices {
+		itemPick(add(2, len(unique(choice.Picked)) >= max(1, choice.Choose), choice.Key, "Choose spells: {0}", "spells", 0, grantSourceLabel(choice.Source)), choice.Source)
 	}
-	for _, choice := range objects(casting["castingAbilityChoices"]) {
-		source := object(choice["source"])
-		itemPick(add(2, text(choice["selected"]) != "", text(choice["key"]), "Choose casting ability: {0}", "spells", 0, grantSourceLabel(source)), source)
+	for _, choice := range casting.CastingAbilityChoices {
+		itemPick(add(2, choice.Selected != nil, choice.Key, "Choose casting ability: {0}", "spells", 0, grantSourceLabel(choice.Source)), choice.Source)
 	}
-	total, complete, sectionValues := 0, 0, []any{}
+	total, complete := 0, 0
 	for _, section := range sections {
-		total += integer(section["total"], 0)
-		complete += integer(section["complete"], 0)
-		sectionValues = append(sectionValues, section)
+		total += section.Total
+		complete += section.Complete
 	}
-	return Object{"choices": choices, "classes": classes, "sections": sectionValues, "total": total, "complete": complete, "ready": total == complete, "derived": hydrated.Sheet["derived"], "warnings": anyStrings(hydrated.Warnings)}
+	return character.Guidance{Choices: choices, Classes: classes, Sections: sections, Total: total, Complete: complete, Ready: total == complete, Derived: hydrated.Sheet.Derived, Warnings: hydrated.Warnings}
 }
 
-func builderChoiceGuidance(decisions, choice, sheet Object, records Records, options []any) Object {
-	kind, id := text(choice["kind"]), text(choice["id"])
+// choiceSourceLevel is the level a choice's source grants it at, 1 when unknown.
+func choiceSourceLevel(choice character.PlanChoice) int {
+	if choice.Source != nil && choice.Source.Level != 0 {
+		return choice.Source.Level
+	}
+	return 1
+}
+
+func labelArgs(values []string) []any {
+	result := make([]any, len(values))
+	for index, value := range values {
+		result[index] = value
+	}
+	return result
+}
+
+func builderChoiceGuidance(decisions Object, choice character.PlanChoice, sheet *character.Calculation, records Records, options []character.Option) character.ChoiceGuidance {
 	label, args := choiceHeading(choice, records)
-	if acquired := object(choice["acquisition"]); acquired != nil {
+	if acquired := choice.Acquisition; acquired != nil {
 		label = "{0} · {1} · {2}"
-		args = []any{choice["name"], choice["choiceName"], acquired["name"]}
-		if text(choice["choiceName"]) == "" {
+		args = []any{choice.Name, choice.ChoiceName, acquired.Name}
+		if choice.ChoiceName == "" {
 			label = "{0} · {1}"
-			args = []any{choice["name"], acquired["name"]}
+			args = []any{choice.Name, acquired.Name}
 		}
-		if text(acquired["classId"]) != "" {
+		if acquired.ClassID != "" {
 			label = "{0} · {1} level {2}"
 			if len(args) == 3 {
 				label = "{0} · {1} · {2} level {3}"
 			}
-			args = append(args, acquired["level"])
+			args = append(args, acquired.Level)
 		}
 	}
-	if kind == "asiMode" {
+	if choice.Kind == character.ChoiceASIMode {
 		label = "{0} level {1} advancement"
-		args = []any{guidanceLabel(text(choice["classId"])), integer(choice["level"], 1)}
+		args = []any{guidanceLabel(choice.ClassID), max(1, choice.Level)}
 	}
-	if kind == "abilityBudget" {
+	if choice.Kind == character.ChoiceAbilityBudget {
 		label = "Assign origin ability points"
 	}
 	if options == nil {
 		options = builderChoiceOptions(choice, sheet, records)
 	}
-	entry := builderGuidanceText(label, args...)
-	entry["id"], entry["options"], entry["picked"], entry["required"], entry["done"] = id, options, 0, max(1, integer(choice["count"], 1)), false
-	if kind == "abilityBudget" {
-		picked, required, valid := guidanceAbility(decisions, choice)
-		entry["picked"], entry["required"], entry["done"] = picked, required, valid
+	entry := character.ChoiceGuidance{ID: choice.ID, Text: guidanceText(label, args...), Options: options, Required: max(1, choice.Count)}
+	switch choice.Kind {
+	case character.ChoiceAbilityBudget:
+		entry.Picked, entry.Required, entry.Done = guidanceAbility(decisions, choice)
 		return entry
-	}
-	if kind == "asiMode" {
-		mode := text(object(decisions["featureChoices"])[id])
+	case character.ChoiceASIMode:
+		mode := text(object(decisions["featureChoices"])[choice.ID])
 		if mode == "asi" {
-			picked, required, valid := guidanceAbility(decisions, object(choice["ability"]))
-			entry["picked"], entry["required"], entry["done"] = picked, required, valid
+			entry.Picked, entry.Required, entry.Done = guidanceAbility(decisions, *choice.Ability)
 		}
-		feat := cloneObjectDeep(object(choice["feat"]))
-		feat["kind"] = "feat"
-		entry["featOptions"] = builderChoiceOptions(feat, sheet, records)
+		feat := choice.Feat.Choice()
+		entry.FeatOptions = builderChoiceOptions(feat, sheet, records)
 		if mode == "feat" {
-			selected := text(object(decisions["featureChoices"])[text(feat["id"])])
+			selected := text(object(decisions["featureChoices"])[feat.ID])
 			valid := false
-			for _, option := range objects(entry["featOptions"]) {
-				valid = valid || text(option["id"]) == selected
+			for _, option := range entry.FeatOptions {
+				valid = valid || option.ID == selected
 			}
 			if valid {
-				entry["picked"], entry["done"] = 1, true
-				if descriptor := object(feat["ability"]); len(stringsOf(descriptor["eligible"])) > 0 {
-					picked, required, done := guidanceAbility(decisions, descriptor)
-					entry["picked"], entry["required"], entry["done"] = picked, required, done
+				entry.Picked, entry.Done = 1, true
+				if descriptor := choice.Feat.Ability; descriptor != nil && len(descriptor.Eligible) > 0 {
+					entry.Picked, entry.Required, entry.Done = guidanceAbility(decisions, *descriptor)
 				}
 			}
 		}
 		return entry
+	case character.ChoiceSkills, character.ChoiceExpertise, character.ChoiceSkillExpertise, character.ChoiceSkillUpgrade,
+		character.ChoiceTools, character.ChoiceProficiencies, character.ChoiceWeaponMastery, character.ChoiceLanguages,
+		character.ChoiceSavingThrows, character.ChoiceWeapons, character.ChoiceArmor, character.ChoiceResistances,
+		character.ChoiceImmunities, character.ChoiceFeat, character.ChoiceEnumerated, character.ChoiceSize:
 	}
 	valid := map[string]bool{}
-	for _, option := range objects(options) {
-		valid[text(option["id"])] = true
+	for _, option := range options {
+		valid[option.ID] = true
 	}
-	picked := 0
 	for _, value := range choiceValues(decisions, choice) {
 		if valid[value] {
-			picked++
+			entry.Picked++
 		}
 	}
-	entry["picked"], entry["done"] = picked, picked >= integer(entry["required"], 1)
+	entry.Done = entry.Picked >= entry.Required
 	return entry
 }
 
-func guidanceAbility(decisions, descriptor Object) (int, int, bool) {
-	budget, total, valid := max(1, integer(descriptor["budget"], 1)), 0, true
+func guidanceAbility(decisions Object, descriptor character.PlanChoice) (int, int, bool) {
+	budget, total, valid := max(1, descriptor.Budget), 0, true
+	perAbilityMax := budget
+	if descriptor.PerAbilityMax != 0 {
+		perAbilityMax = descriptor.PerAbilityMax
+	}
 	for _, grant := range objects(decisions["abilityGrants"]) {
-		if text(grant["id"]) == text(descriptor["id"]) {
+		if text(grant["id"]) == descriptor.ID {
 			for ability, amount := range object(grant["assign"]) {
 				value := integer(amount, 0)
 				total += max(0, value)
-				valid = valid && value >= 0 && value <= integer(descriptor["perAbilityMax"], budget) && (descriptor["eligible"] == nil || contains(stringsOf(descriptor["eligible"]), ability))
+				valid = valid && value >= 0 && value <= perAbilityMax && (descriptor.Eligible == nil || contains(descriptor.Eligible, ability))
 			}
 		}
 	}
 	return total, budget, valid && total == budget
 }
 
-func builderChoiceOptions(choice, sheet Object, records Records) []any {
-	kind, pool := text(choice["kind"]), stringsOf(choice["from"])
+func builderChoiceOptions(choice character.PlanChoice, sheet *character.Calculation, records Records) []character.Option {
+	pool := choice.From
 	if pool == nil {
-		switch kind {
-		case "skills", "expertise", "skillExpertise", "skillUpgrade":
-			for skill := range SkillAbility {
-				pool = append(pool, skill)
-			}
-		case "weaponMastery":
-			for _, weapon := range recordCatalog(records, "weapon") {
-				pool = append(pool, text(weapon["id"]))
-			}
-		case "feat":
-			for _, feat := range recordCatalog(records, "feat") {
-				pool = append(pool, text(feat["id"]))
-			}
+		if spec := choiceKindSpecs[choice.Kind]; spec.pool != nil {
+			pool = spec.pool(records)
 		}
 	}
-	result := []any{}
+	result := []character.Option{}
 	for _, id := range unique(pool) {
 		var record Object
-		switch kind {
-		case "feat":
+		switch choice.Kind {
+		case character.ChoiceFeat:
 			record = recordByID(records, "feat", id)
-			if record == nil || text(choice["category"]) != "" && text(choice["category"]) != text(record["category"]) || len(stringsOf(choice["categories"])) > 0 && !contains(stringsOf(choice["categories"]), text(record["category"])) {
+			if record == nil || choice.Category != "" && choice.Category != text(record["category"]) || len(choice.Categories) > 0 && !contains(choice.Categories, text(record["category"])) {
 				continue
 			}
-		case "weaponMastery":
+		case character.ChoiceWeaponMastery:
 			record = recordByID(records, "weapon", id)
 			if record == nil {
 				continue
 			}
-		case "tools":
+		case character.ChoiceTools:
 			record = recordByID(records, "tool", id)
-		case "expertise":
-			if !truth(object(object(sheet["skills"])[canonicalSkill(id)])["proficient"]) {
+		case character.ChoiceExpertise:
+			if sheet == nil || !sheet.Skills[canonicalSkill(id)].Proficient {
 				continue
 			}
-		case "proficiencies":
+		case character.ChoiceProficiencies:
 			if strings.HasPrefix(id, "tool:") {
 				record = recordByID(records, "tool", strings.TrimPrefix(id, "tool:"))
 			}
-		case "enumerated":
-			if kind := text(choice["optionKind"]); kind != "" {
+		case character.ChoiceEnumerated:
+			if kind := choice.OptionKind; kind != "" {
 				record = recordByID(records, kind, id)
 				break
 			}
 			record = recordByID(records, "feature", id)
-			if text(choice["fromCategory"]) != "" && (record == nil || !optionPrerequisiteMet(record, sheet)) {
+			if choice.FromCategory != "" && (record == nil || !optionPrerequisiteMet(record, sheet)) {
 				continue
 			}
+		case character.ChoiceSkills, character.ChoiceSkillExpertise, character.ChoiceSkillUpgrade, character.ChoiceLanguages,
+			character.ChoiceSavingThrows, character.ChoiceWeapons, character.ChoiceArmor, character.ChoiceResistances,
+			character.ChoiceImmunities, character.ChoiceASIMode, character.ChoiceAbilityBudget, character.ChoiceSize:
 		}
 		option := guidanceOption(id, record)
-		if kind == "size" {
-			option["labelKey"] = id
+		if choice.Kind == character.ChoiceSize {
+			option.LabelKey = id
 		}
 		result = append(result, option)
 	}
@@ -297,52 +302,37 @@ func builderChoiceOptions(choice, sheet Object, records Records) []any {
 	return result
 }
 
-func guidanceOption(id string, record Object) Object {
-	result := Object{"id": id, "label": firstText(record["name"], guidanceLabel(id))}
+func guidanceOption(id string, record Object) character.Option {
+	result := character.Option{ID: id, Label: firstText(record["name"], guidanceLabel(id))}
 	if description := text(record["text"]); description != "" {
 		runes := []rune(description)
-		result["description"] = string(runes[:min(1200, len(runes))])
+		result.Description = string(runes[:min(1200, len(runes))])
 	}
 	return result
 }
 
-// Headings for choices whose data has no prompt: what is chosen, then where it
-// comes from, so internal IDs such as "species:elf:elf-keen-senses" never
-// reach the page. Templates are labelKeys that clients translate.
-var choiceKindHeadings = map[string]string{
-	"skills":         "Skills · {0}",
-	"expertise":      "Expertise · {0}",
-	"skillExpertise": "Expertise · {0}",
-	"skillUpgrade":   "Skill or expertise · {0}",
-	"tools":          "Tools · {0}",
-	"proficiencies":  "Proficiencies · {0}",
-	"weaponMastery":  "Weapon Mastery · {0}",
-	"languages":      "Languages · {0}",
-	"savingThrows":   "Saving throws · {0}",
-	"weapons":        "Weapon training · {0}",
-	"armor":          "Armor training · {0}",
-	"resistances":    "Damage resistance · {0}",
-	"immunities":     "Condition immunity · {0}",
-	"feat":           "Feat · {0}",
-}
-
-func choiceHeading(choice Object, records Records) (string, []any) {
-	id := text(choice["id"])
-	if prompt := text(choice["prompt"]); prompt != "" {
-		return prompt, []any{}
+// choiceHeading names a choice whose data has no prompt: what is chosen,
+// then where it comes from, so internal IDs such as
+// "species:elf:elf-keen-senses" never reach the page.
+func choiceHeading(choice character.PlanChoice, records Records) (string, []any) {
+	id := choice.ID
+	if choice.Prompt != "" {
+		return choice.Prompt, []any{}
 	}
-	source := object(choice["source"])
-	sourceID := text(source["id"])
+	source := character.Source{}
+	if choice.Source != nil {
+		source = *choice.Source
+	}
 	ref := grantSourceReference(source)
-	sourceName := firstText(recordByID(records, ref.Kind, ref.ID)["name"], guidanceLabel(sourceID))
+	sourceName := firstText(recordByID(records, ref.Kind, ref.ID)["name"], guidanceLabel(source.ID))
 	if sourceName == "" {
 		return guidanceLabel(id), []any{}
 	}
-	if template := choiceKindHeadings[text(choice["kind"])]; template != "" {
+	if template := choiceKindSpecs[choice.Kind].heading; template != "" {
 		// A class feature named after its choice ("Weapon Mastery") would repeat
 		// the kind; the class names the choice better.
 		if noun := strings.TrimSuffix(template, " · {0}"); strings.EqualFold(noun, sourceName) {
-			if class := text(recordByID(records, "class", text(choice["classId"]))["name"]); class != "" {
+			if class := text(recordByID(records, "class", choice.ClassID)["name"]); class != "" {
 				return template, []any{class}
 			}
 			return noun, []any{}
@@ -352,22 +342,34 @@ func choiceHeading(choice Object, records Records) (string, []any) {
 	// Other choices are named after their own trait, without the owner prefix
 	// the data repeats ("elf-lineage-spell" of Elf reads "Lineage Spell · Elf").
 	own := id[strings.LastIndex(id, ":")+1:]
-	own = strings.TrimPrefix(own, sourceID+"-")
+	own = strings.TrimPrefix(own, source.ID+"-")
 	if name := guidanceLabel(own); name != "" && !strings.EqualFold(name, sourceName) {
 		return "{0} · {1}", []any{name, sourceName}
 	}
 	return guidanceLabel(id), []any{}
 }
 
-func sortGuidanceOptions(options []any) {
+func sortGuidanceOptions(options []character.Option) {
 	sort.Slice(options, func(i, j int) bool {
-		a, b := object(options[i]), object(options[j])
-		if text(a["label"]) == text(b["label"]) {
-			return text(a["id"]) < text(b["id"])
+		if options[i].Label == options[j].Label {
+			return options[i].ID < options[j].ID
 		}
-		return text(a["label"]) < text(b["label"])
+		return options[i].Label < options[j].Label
 	})
 }
+
+// guidanceText is Engine wording with an English label and a template key, so
+// consumers translate it without translating record names.
+func guidanceText(template string, args ...any) character.Text {
+	replacements, values := []string{}, make([]string, 0, len(args))
+	for index, arg := range args {
+		value := fmt.Sprint(arg)
+		replacements = append(replacements, fmt.Sprintf("{%d}", index), value)
+		values = append(values, value)
+	}
+	return character.Text{Label: strings.NewReplacer(replacements...).Replace(template), LabelKey: template, LabelArgs: values}
+}
+
 func guidanceLabel(value string) string {
 	var result strings.Builder
 	for index, char := range value {

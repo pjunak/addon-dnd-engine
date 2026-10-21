@@ -40,7 +40,6 @@ func advertisedMethods() map[string]string {
 		"context",
 		"get-record",
 		"query-records",
-		"derive",
 		"evaluate-character",
 		"character-play",
 	}

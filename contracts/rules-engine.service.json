@@ -1,7 +1,7 @@
 {
   "$schema": "https://junak.eu/ttrpg-codex/contracts/addons/v3/service-document.schema.json",
   "contract": "dnd5e.rules-engine",
-  "version": "5.0.0",
+  "version": "6.0.0",
   "allowsExclusive": false,
   "methods": {
     "context": {
@@ -34,18 +34,6 @@
       "errors": [
         "INVALID_REQUEST",
         "UNAVAILABLE",
-        "STALE_BINDING"
-      ]
-    },
-    "derive": {
-      "requestSchema": "contracts/derive.request.schema.json",
-      "responseSchema": "contracts/derive.response.schema.json",
-      "maxDeadlineMs": 6000,
-      "idempotency": "none",
-      "errors": [
-        "INVALID_REQUEST",
-        "UNAVAILABLE",
-        "VALIDATION_FAILED",
         "STALE_BINDING"
       ]
     },

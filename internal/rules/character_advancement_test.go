@@ -40,15 +40,15 @@ func TestUnrestrictedAdvancementsUseAcquiredCharacterLevel(t *testing.T) {
 			t.Fatal("qualified category missing", id)
 		}
 	}
-	if offeredFeat(result, "asi:fighter:4", "reviewed") || hasFeatBlock(result, "late") || !truth(result.Guidance["canSave"]) {
+	if offeredFeat(result, "asi:fighter:4", "reviewed") || hasFeatBlock(result, "late") || !truth(view(result.Guidance)["canSave"]) {
 		t.Fatal("unrestricted categories bypassed prerequisites", result.Issues)
 	}
-	if integer(object(object(result.Sheet["abilities"])["STR"])["cap"], 0) != 30 || !reflect.DeepEqual(result.Inputs, before) || !reflect.DeepEqual(input, before) {
+	if integer(object(object(view(result.Sheet)["abilities"])["STR"])["cap"], 0) != 30 || !reflect.DeepEqual(result.Inputs, before) || !reflect.DeepEqual(input, before) {
 		t.Fatal("explicit feat cap or authored inputs changed")
 	}
 	input.Build.Levels = append(fighterLevels, before.Build.Levels[3:18]...)
 	result = EvaluateCharacter(input, records, profile)
-	if offeredFeat(result, "asi:fighter:4", "late") || !hasFeatBlock(result, "late") || truth(result.Guidance["canSave"]) {
+	if offeredFeat(result, "asi:fighter:4", "late") || !hasFeatBlock(result, "late") || truth(view(result.Guidance)["canSave"]) {
 		t.Fatal("later levels retroactively qualified an earlier feat", result.Issues)
 	}
 }
@@ -68,7 +68,7 @@ func TestFeatOptionFilteringUsesClassAndSpellcasterPredicates(t *testing.T) {
 			records.byKind["feat"]["qualified"] = mustJSON(Object{"kind": "feat", "id": "qualified", "category": "general", "prerequisites": predicate})
 			input.Build.Choices = []character.Choice{{ID: "asi:fighter:4", Value: mustJSON("feat")}, {ID: "asi:fighter:4:feat", Value: mustJSON("qualified")}}
 			result := EvaluateCharacter(input, records, profile)
-			if hasFeatBlock(result, "qualified") || !offeredFeat(result, "asi:fighter:4", "qualified") || !truth(result.Guidance["canSave"]) {
+			if hasFeatBlock(result, "qualified") || !offeredFeat(result, "asi:fighter:4", "qualified") || !truth(view(result.Guidance)["canSave"]) {
 				t.Fatal("guidance disagrees with valid acquired-state prerequisite", result.Issues)
 			}
 			if kind == "class" {
@@ -80,7 +80,7 @@ func TestFeatOptionFilteringUsesClassAndSpellcasterPredicates(t *testing.T) {
 			}
 			records.byKind["feat"]["qualified"] = mustJSON(Object{"kind": "feat", "id": "qualified", "category": "general", "prerequisites": predicate})
 			result = EvaluateCharacter(input, records, profile)
-			if !hasFeatBlock(result, "qualified") || offeredFeat(result, "asi:fighter:4", "qualified") || truth(result.Guidance["canSave"]) {
+			if !hasFeatBlock(result, "qualified") || offeredFeat(result, "asi:fighter:4", "qualified") || truth(view(result.Guidance)["canSave"]) {
 				t.Fatal("an unmet acquisition prerequisite was offered", result.Issues)
 			}
 		})
@@ -107,11 +107,11 @@ func TestSubclassFeaturePrerequisitesUseCanonicalAcquiredIdentity(t *testing.T) 
 	records.byKind["feat"]["qualified"] = mustJSON(Object{"id": "qualified", "category": "general", "prerequisites": Object{"feature": "mystic-casting"}})
 	input.Build.Choices = []character.Choice{{ID: "asi:fighter:4", Value: mustJSON("feat")}, {ID: "asi:fighter:4:feat", Value: mustJSON("qualified")}}
 	result := EvaluateCharacter(input, records, profile)
-	if hasFeatBlock(result, "qualified") || !offeredFeat(result, "asi:fighter:4", "qualified") || !truth(result.Guidance["canSave"]) {
+	if hasFeatBlock(result, "qualified") || !offeredFeat(result, "asi:fighter:4", "qualified") || !truth(view(result.Guidance)["canSave"]) {
 		t.Fatal("canonical subclass prerequisite did not resolve", result.Issues)
 	}
 	for _, level := range []int{2, 4} {
-		sheet := Hydrate(Object{"classes": []any{Object{"classId": "fighter", "subclass": "mystic", "level": level}}}, records, &profile).Sheet
+		sheet := hydrateView(Object{"classes": []any{Object{"classId": "fighter", "subclass": "mystic", "level": level}}}, records, &profile).Sheet
 		counts := map[string]int{}
 		for _, feature := range objects(sheet["features"]) {
 			counts[text(feature["id"])]++
@@ -140,21 +140,21 @@ func TestWithdrawnFeatAbilityIsAnUnavailableChoice(t *testing.T) {
 		{ID: "asi:fighter:4:featability", Value: mustJSON(Object{"INT": 1})},
 	}
 	before := EvaluateCharacter(input, records, profile)
-	if !truth(before.Guidance["canSave"]) {
+	if !truth(view(before.Guidance)["canSave"]) {
 		t.Fatal(before.Issues)
 	}
 	input.Build.Choices[1].Value = mustJSON("plain")
 	authored := cloneCharacter(input)
 	result := EvaluateCharacter(input, records, profile)
 	if !hasChoiceIssue(result, "unavailable-choice:asi:fighter:4:featability#0") ||
-		hasChoiceIssue(result, "ability-assignment:asi:fighter:4:featability#0") || truth(result.Guidance["canSave"]) {
+		hasChoiceIssue(result, "ability-assignment:asi:fighter:4:featability#0") || truth(view(result.Guidance)["canSave"]) {
 		t.Fatal("withdrawn source was not marked for saved-choice repair", result.Issues)
 	}
 	if !reflect.DeepEqual(input, authored) || !reflect.DeepEqual(result.Inputs, authored) {
 		t.Fatal("validation silently changed authored inputs")
 	}
 	input.Build.Choices = input.Build.Choices[:2]
-	if result := EvaluateCharacter(input, records, profile); !truth(result.Guidance["canSave"]) {
+	if result := EvaluateCharacter(input, records, profile); !truth(view(result.Guidance)["canSave"]) {
 		t.Fatal("explicit withdrawal did not repair the build", result.Issues)
 	}
 }
@@ -165,13 +165,13 @@ func TestAcquiredFeatProjectionPreservesRepeatCountsAndWithdrawal(t *testing.T) 
 	before := cloneCharacter(input)
 	result := EvaluateCharacter(input, records, profile)
 	want := []any{Object{"id": "training", "name": "Training", "count": 3}}
-	if !reflect.DeepEqual(result.Sheet["feats"], want) || !reflect.DeepEqual(result.Inputs, before) {
-		t.Fatal("acquired feat output lost counts or included catalog candidates", result.Sheet["feats"])
+	if !reflect.DeepEqual(view(result.Sheet)["feats"], want) || !reflect.DeepEqual(result.Inputs, before) {
+		t.Fatal("acquired feat output lost counts or included catalog candidates", view(result.Sheet)["feats"])
 	}
 	input.Build.Background = "other"
 	result = EvaluateCharacter(input, records, profile)
 	want = []any{Object{"id": "training", "name": "Training", "count": 2}}
-	if !reflect.DeepEqual(result.Sheet["feats"], want) {
-		t.Fatal("origin withdrawal did not update acquired count", result.Sheet["feats"])
+	if !reflect.DeepEqual(view(result.Sheet)["feats"], want) {
+		t.Fatal("origin withdrawal did not update acquired count", view(result.Sheet)["feats"])
 	}
 }

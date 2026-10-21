@@ -42,7 +42,7 @@ func TestGrantedSpellsChooseAbilityAndUseFreeCast(t *testing.T) {
 		state = next
 	}
 	apply(Object{"operation": "select-grant-spell", "key": "feat:gift:gift-cantrip", "ref": "spark", "selected": false})
-	hydrated := Hydrate(state, records, &profile).Sheet
+	hydrated := hydrateView(state, records, &profile).Sheet
 	choice := objects(object(hydrated["spellcasting"])["pendingChoices"])[0]
 	if len(stringsOf(choice["picked"])) != 0 {
 		t.Fatal("Explicitly cleared default was selected again")
@@ -67,7 +67,7 @@ func TestGrantedSpellsChooseAbilityAndUseFreeCast(t *testing.T) {
 	if object(state["resourceUses"])["charge:feat:gift:gift-spell"] != nil {
 		t.Fatal("Long rest did not restore grant")
 	}
-	options := SpellOptions(state, Hydrate(state, records, &profile).Sheet, records, profile)
+	options := view(SpellOptions(state, Hydrate(state, records, profile).Sheet, records, profile))
 	for _, entry := range objects(options["pendingChoices"]) {
 		if text(entry["key"]) == "feat:gift:gift-spell" && (contains(stringsOf(entry["eligibleSpellIds"]), "find-path") || !contains(stringsOf(entry["eligibleSpellIds"]), "ward")) {
 			t.Fatalf("Eligibility = %+v", entry)
@@ -85,7 +85,7 @@ func TestCopyingSpellsAndRitualsAreAtomicAndPreserveInventory(t *testing.T) {
 	records, profile := spellPlayRecords(), syntheticRuleset(t)
 	cost := ScrollCopyCost(1, profile)
 	state := Object{"classes": []any{Object{"classId": "wizard", "level": 5}}, "currency": Object{"gp": cost + 7, "sp": 11}, "inventory": []any{Object{"id": "scroll", "name": "Scroll of Find Path", "spellRef": "find-path", "qty": 2, "notes": "retain"}, Object{"id": "other", "name": "Scroll of Ward", "qty": 1}}}
-	change := Object{"operation": "copy-spell", "classId": "wizard", "ref": "find-path", "scrollId": "scroll"}
+	change := Object{"operation": "copy-spell", "classId": "wizard", "ref": "find-path", "scrollId": "scroll", "acquisitionId": "copy"}
 	next, err := applyPlayFixture(state, change, records, profile)
 	if err != nil {
 		t.Fatal(err)
@@ -137,7 +137,7 @@ func TestLevelUpSpellSwapAndRestrictedSlots(t *testing.T) {
 		t.Fatal("Accepted ineligible swap")
 	}
 	state["feats"] = []any{Object{"featId": "marked"}, Object{"featId": "special-slot"}}
-	sheet := Hydrate(NormalizeBuilderDecisions(state, records, profile), records, &profile).Sheet
+	sheet := Hydrate(NormalizeBuilderDecisions(state, records, profile), records, profile).Sheet
 	if !contains(spellSlotKeys(state, sheet, records, "ward", 1), "feat-slot-special-slot") || contains(spellSlotKeys(state, sheet, records, "find-path", 1), "feat-slot-special-slot") {
 		t.Fatal("Restricted slot did not follow feat spell list")
 	}

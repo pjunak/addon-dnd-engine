@@ -332,25 +332,6 @@ func ScrollCopyCost(level float64, ruleset Ruleset) float64 {
 	return ruleset.Constants.ScrollCopyGPPerLevel * level
 }
 
-func PointBuyCost(score int, ruleset Ruleset) int {
-	policy := ruleset.Constants.PointBuy
-	if score < policy.Min {
-		score = policy.Min
-	}
-	if score > policy.Max {
-		score = policy.Max
-	}
-	return policy.Cost[strconv.Itoa(score)]
-}
-
-func PointsSpent(scores map[string]int, ruleset Ruleset) int {
-	total := 0
-	for _, ability := range Abilities {
-		total += PointBuyCost(scores[ability], ruleset)
-	}
-	return total
-}
-
 func MulticlassSlots(casterLevel int, ruleset Ruleset) []int {
 	if casterLevel < 0 {
 		casterLevel = 0
@@ -398,20 +379,6 @@ func FeatASIFrom(grant map[string]any) []string {
 		result = append(result, value)
 	}
 	return result
-}
-
-func FeatAbilityCap(feat map[string]any, ruleset Ruleset) *int {
-	if explicit, ok := nestedNumber(feat, "grants", "abilityScoreIncrease", "cap"); ok {
-		cap := min(ruleset.Constants.AbilityCapHard, int(explicit))
-		return &cap
-	}
-	category, _ := feat["category"].(string)
-	value, exists := ruleset.Builder.AbilityScoreAdvancement.CategoryAbilityCaps[category]
-	if !exists {
-		return nil
-	}
-	cap := min(ruleset.Constants.AbilityCapHard, value)
-	return &cap
 }
 
 func validatePointBuy(policy PointBuyPolicy) error {
@@ -527,20 +494,4 @@ func validCategory(value string) bool {
 		return false
 	}
 	return true
-}
-
-func nestedNumber(value map[string]any, path ...string) (float64, bool) {
-	var current any = value
-	for _, key := range path {
-		object, ok := current.(map[string]any)
-		if !ok {
-			return 0, false
-		}
-		current, ok = object[key]
-		if !ok {
-			return 0, false
-		}
-	}
-	number, ok := current.(float64)
-	return number, ok
 }

@@ -26,7 +26,7 @@ func hasFeatBlock(result character.Result, id string) bool {
 	return false
 }
 func offeredFeat(result character.Result, choice, id string) bool {
-	for _, option := range objects(object(object(result.Guidance["choices"])[choice])["featOptions"]) {
+	for _, option := range objects(object(object(view(result.Guidance)["choices"])[choice])["featOptions"]) {
 		if text(option["id"]) == id {
 			return true
 		}
@@ -41,7 +41,7 @@ func TestSelectedFeatCannotMeetItsOwnPrerequisite(t *testing.T) {
 		"grants":        Object{"abilityScoreIncrease": Object{"from": []any{"INT"}, "amount": 1}}})
 	input.Build.Choices = []character.Choice{{ID: "asi:fighter:4", Value: mustJSON("feat")}, {ID: "asi:fighter:4:feat", Value: mustJSON("scholar")}}
 	result := EvaluateCharacter(input, records, profile)
-	if !hasFeatBlock(result, "scholar") || truth(result.Guidance["canSave"]) || offeredFeat(result, "asi:fighter:4", "scholar") {
+	if !hasFeatBlock(result, "scholar") || truth(view(result.Guidance)["canSave"]) || offeredFeat(result, "asi:fighter:4", "scholar") {
 		t.Fatal("feat qualified itself", result.Issues)
 	}
 	// A genuine earlier advancement can qualify a later choice.

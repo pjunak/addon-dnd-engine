@@ -11,7 +11,6 @@ func TestAdvertisedMethodsMatchPublicService(t *testing.T) {
 		"context",
 		"get-record",
 		"query-records",
-		"derive",
 		"evaluate-character",
 		"character-play",
 	}

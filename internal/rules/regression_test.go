@@ -97,11 +97,7 @@ func runRegressionVector(t *testing.T, vector regressionVector, records vectorRe
 	var result any
 	switch vector.Operation {
 	case "hydrate":
-		if vector.Edition == "" {
-			result = HydrateWithoutRulesData(vector.Input, "missing")
-		} else {
-			result = Hydrate(NormalizeBuilderDecisions(vector.Input, records, profile), records, &profile)
-		}
+		result = Hydrate(NormalizeBuilderDecisions(vector.Input, records, profile), records, profile)
 	case "builder-plan":
 		result = BuilderPlan(vector.Input, records, profile)
 	case "apply":

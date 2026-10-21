@@ -20,27 +20,27 @@ func characterEditorGuidance(input character.Inputs, decisions Object, records R
 	}
 	sort.Strings(unknown)
 	for _, ability := range unknown {
-		saveIssues = append(saveIssues, character.Issue{ID: "unknown-ability:" + ability, Target: "abilities", Message: "Choose a supported base ability.", Severity: "blocker"})
+		saveIssues = append(saveIssues, character.Issue{ID: "unknown-ability:" + ability, Target: "abilities", Message: "Choose a supported base ability.", Severity: character.SeverityBlocker})
 	}
 	for _, origin := range []struct{ kind, id string }{{"species", input.Build.Species}, {"background", input.Build.Background}} {
 		if origin.id != "" && recordByID(records, origin.kind, origin.id) == nil {
-			saveIssues = append(saveIssues, character.Issue{ID: "unavailable-" + origin.kind, Target: origin.kind, Message: "Choose an available " + origin.kind + ".", Severity: "blocker"})
+			saveIssues = append(saveIssues, character.Issue{ID: "unavailable-" + origin.kind, Target: origin.kind, Message: "Choose an available " + origin.kind + ".", Severity: character.SeverityBlocker})
 		}
 	}
 	for _, issue := range result.Issues {
-		if issue.Severity == "blocker" && !incompleteCharacterChoice(issue, input, profile, result) {
+		if issue.Severity == character.SeverityBlocker && !incompleteCharacterChoice(issue, input, profile, result) {
 			saveIssues = append(saveIssues, issue)
 		}
 	}
-	result.Guidance["canSave"] = len(saveIssues) == 0
-	result.Guidance["saveIssues"] = saveIssues
-	result.Guidance["equipment"] = characterEquipmentOptions(input, records, profile, result)
-	slots := Object{}
-	for id, raw := range object(result.Guidance["equipment"]) {
-		slots[id] = Object{"slot": object(raw)["slot"], "bodyPlacements": object(raw)["bodyPlacements"]}
+	result.Guidance.CanSave = len(saveIssues) == 0
+	result.Guidance.SaveIssues = saveIssues
+	result.Guidance.Equipment = characterEquipmentOptions(input, records, profile, result)
+	slots := map[string]character.EquipmentFacts{}
+	for id, entry := range result.Guidance.Equipment {
+		slots[id] = character.EquipmentFacts{Slot: entry.Slot, BodyPlacements: entry.BodyPlacements}
 	}
-	result.Sheet["equipment"] = slots
-	options := []any{}
+	result.Sheet.Equipment = slots
+	options := []character.Option{}
 	if len(input.Build.Levels) < profile.Constants.Character.MaximumLevel {
 		for _, class := range recordCatalog(records, "class") {
 			candidate := cloneCharacter(input)
@@ -49,7 +49,7 @@ func characterEditorGuidance(input character.Inputs, decisions Object, records R
 			validateSelectedProgression(candidate, records, profile, &check, progressionChecks{classes: true})
 			allowed := true
 			for _, issue := range check.Issues {
-				if strings.HasPrefix(issue.ID, "multiclass:") && issue.Severity == "blocker" {
+				if strings.HasPrefix(issue.ID, "multiclass:") && issue.Severity == character.SeverityBlocker {
 					allowed = false
 				}
 			}
@@ -59,32 +59,36 @@ func characterEditorGuidance(input character.Inputs, decisions Object, records R
 		}
 	}
 	sortGuidanceOptions(options)
-	result.Guidance["classOptions"] = options
-	for _, class := range objects(result.Guidance["classes"]) {
-		class["hitDieMax"] = hitDieSize(text(recordByID(records, "class", text(class["classId"]))["hitDie"]))
+	result.Guidance.ClassOptions = options
+	for index := range result.Guidance.Classes {
+		class := &result.Guidance.Classes[index]
+		class.HitDieMax = hitDieSize(text(recordByID(records, "class", class.ClassID)["hitDie"]))
 	}
 	// Check prerequisites at acquisition, including ordered multiclass levels.
 	simpleLevels := len(input.Build.Levels) > 0 && len(input.Build.Levels) <= profile.Constants.Character.MaximumLevel
 	for _, selected := range objects(decisions["classes"]) {
 		simpleLevels = simpleLevels && recordByID(records, "class", text(selected["classId"])) != nil
 	}
-	acquisitions := selectedFeatAcquisitions(decisions, records, values(result.Plan["classChoices"]))
-	for _, group := range []string{"creationChoices", "classChoices"} {
-		for _, descriptor := range objects(result.Plan[group]) {
-			entry := object(object(result.Guidance["choices"])[text(descriptor["id"])])
-			choice := descriptor
-			key := "options"
-			if text(descriptor["kind"]) == "asiMode" {
-				choice = object(descriptor["feat"])
-				key = "featOptions"
-			} else if text(descriptor["kind"]) != "feat" {
+	acquisitions := selectedFeatAcquisitions(decisions, records, result.Plan.ClassChoices)
+	for _, group := range [][]character.PlanChoice{result.Plan.CreationChoices, result.Plan.ClassChoices} {
+		for _, descriptor := range group {
+			entry, exists := result.Guidance.Choices[descriptor.ID]
+			if !exists {
 				continue
 			}
-			filtered := []any{}
-			for _, option := range objects(entry[key]) {
+			choice := descriptor
+			listed := &entry.Options
+			featOptions := false
+			if descriptor.Kind == character.ChoiceASIMode {
+				choice, listed, featOptions = descriptor.Feat.Choice(), &entry.FeatOptions, true
+			} else if descriptor.Kind != character.ChoiceFeat {
+				continue
+			}
+			filtered := []character.Option{}
+			for _, option := range *listed {
 				var levels map[int]bool
 				if simpleLevels {
-					feat := recordByID(records, "feat", text(option["id"]))
+					feat := recordByID(records, "feat", option.ID)
 					ends, repeatable, known := featOptionLevels(input, descriptor, choice, feat, acquisitions)
 					if known && !repeatable {
 						continue
@@ -104,20 +108,20 @@ func characterEditorGuidance(input character.Inputs, decisions Object, records R
 				candidate := cloneCharacter(input)
 				choices := []character.Choice{}
 				for _, existing := range candidate.Build.Choices {
-					if existing.ID != text(choice["id"]) && existing.ID != text(descriptor["id"]) {
+					if existing.ID != choice.ID && existing.ID != descriptor.ID {
 						choices = append(choices, existing)
 					}
 				}
-				if key == "featOptions" {
-					choices = append(choices, character.Choice{ID: text(descriptor["id"]), Value: json.RawMessage(`"feat"`)})
+				if featOptions {
+					choices = append(choices, character.Choice{ID: descriptor.ID, Value: json.RawMessage(`"feat"`)})
 				}
-				value, _ := json.Marshal(text(option["id"]))
-				candidate.Build.Choices = append(choices, character.Choice{ID: text(choice["id"]), Value: value})
+				value, _ := json.Marshal(option.ID)
+				candidate.Build.Choices = append(choices, character.Choice{ID: choice.ID, Value: value})
 				check := character.Result{Issues: []character.Issue{}}
-				validateSelectedProgression(candidate, records, profile, &check, progressionChecks{feats: true, featID: text(option["id"]), levels: levels})
+				validateSelectedProgression(candidate, records, profile, &check, progressionChecks{feats: true, featID: option.ID, levels: levels})
 				allowed := true
 				for _, issue := range check.Issues {
-					if issue.ID == "feat:"+text(option["id"]) && issue.Severity == "blocker" {
+					if issue.ID == "feat:"+option.ID && issue.Severity == character.SeverityBlocker {
 						allowed = false
 					}
 				}
@@ -125,7 +129,8 @@ func characterEditorGuidance(input character.Inputs, decisions Object, records R
 					filtered = append(filtered, option)
 				}
 			}
-			entry[key] = filtered
+			*listed = filtered
+			result.Guidance.Choices[descriptor.ID] = entry
 		}
 	}
 	characterBuilderRepairs(input, result)
@@ -177,35 +182,40 @@ func incompleteCharacterChoice(issue character.Issue, input character.Inputs, pr
 			if json.Unmarshal(choice.Value, &assignment) != nil {
 				return false
 			}
-			descriptor := findAbilityDescriptor(Object(result.Plan), choice.ID)
+			descriptor := findAbilityDescriptor(result.Plan, choice.ID)
 			if descriptor == nil {
 				return false
 			}
 			total := 0
 			for ability, value := range assignment {
-				if value < 0 || value > integer(descriptor["perAbilityMax"], 0) || !contains(Abilities[:], ability) || descriptor["eligible"] != nil && !contains(stringsOf(descriptor["eligible"]), ability) {
+				if value < 0 || value > descriptor.PerAbilityMax || !contains(Abilities[:], ability) || descriptor.Eligible != nil && !contains(descriptor.Eligible, ability) {
 					return false
 				}
 				total += value
 			}
-			return total <= integer(descriptor["budget"], 0)
+			return total <= descriptor.Budget
 		}
 	}
 	if strings.HasPrefix(id, "cantrip-count:") {
 		classID := strings.TrimPrefix(id, "cantrip-count:")
-		for _, caster := range objects(object(result.Sheet["spellcasting"])["perClass"]) {
-			if text(caster["classId"]) == classID {
-				return len(input.Build.Spells.Cantrips[classID]) <= integer(caster["cantripsKnown"], 0)
+		if sheet := result.Sheet.Calculation; sheet != nil {
+			if caster := playCaster(sheet, classID); caster != nil {
+				return len(input.Build.Spells.Cantrips[classID]) <= caster.CantripsKnown
 			}
 		}
 	}
 	return strings.HasPrefix(id, "spellbook-count:")
 }
-func findAbilityDescriptor(plan Object, id string) Object {
-	for _, group := range []string{"creationAbilityChoices", "classChoices", "creationChoices"} {
-		for _, choice := range objects(plan[group]) {
-			for _, candidate := range []Object{choice, object(choice["ability"]), object(object(choice["feat"])["ability"])} {
-				if text(candidate["id"]) == id {
+func findAbilityDescriptor(plan character.Plan, id string) *character.PlanChoice {
+	for _, group := range [][]character.PlanChoice{plan.CreationAbilityChoices, plan.ClassChoices, plan.CreationChoices} {
+		for index := range group {
+			choice := &group[index]
+			candidates := []*character.PlanChoice{choice, choice.Ability}
+			if choice.Feat != nil {
+				candidates = append(candidates, choice.Feat.Ability)
+			}
+			for _, candidate := range candidates {
+				if candidate != nil && candidate.ID == id {
 					return candidate
 				}
 			}

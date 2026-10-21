@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+
+	"github.com/pjunak/addon-dnd-engine/character"
 )
 
 // attackRule is one attack modifier from a passive grant (grants.attackModifiers)
@@ -11,7 +13,7 @@ import (
 type attackRule struct {
 	rule   Object
 	name   string
-	source Object
+	source character.Source
 }
 
 // resolveAttackColumns replaces damageBonusColumn and damageDieColumn with the
@@ -33,25 +35,36 @@ func resolveAttackColumns(rule Object, source grantSource, classes []resolvedCla
 	return resolved
 }
 
-func collectAttackRules(sources []grantSource, classes []resolvedClass, modifiers []Object) []attackRule {
+func collectAttackRules(sources []grantSource, classes []resolvedClass, modifiers []activeModifier) []attackRule {
 	rules := make([]attackRule, 0)
 	for _, source := range sources {
 		for _, rule := range objects(source.Grants["attackModifiers"]) {
 			rules = append(rules, attackRule{resolveAttackColumns(rule, source, classes),
-				firstText(source.Record["name"], source.Source["id"]), source.Source})
+				firstText(source.Record["name"], source.Source.ID), source.Source})
 		}
 	}
 	for _, modifier := range modifiers {
-		if text(modifier["target"]) == "attack" {
-			rules = append(rules, attackRule{modifier, text(modifier["sourceName"]), object(modifier["source"])})
+		if modifier.target() == "attack" {
+			rules = append(rules, attackRule{modifier.fields, modifier.name, modifier.source})
 		}
 	}
 	return rules
 }
 
+// attackSubject is what an attack is made with: a weapon record, the
+// ruleset's unarmed strike, or an attack a feature declares (featureID, with
+// the feature's grant source).
+type attackSubject struct {
+	record    Object
+	unarmed   bool
+	featureID string
+	source    *character.Source
+}
+
 // attackFilterMatches tests one match entry; every listed condition must hold.
 // An unknown condition never matches, so it cannot widen a rule.
-func attackFilterMatches(filter, weapon Object, unarmed bool, ability string) bool {
+func attackFilterMatches(filter Object, subject attackSubject, ability string) bool {
+	weapon, unarmed := subject.record, subject.unarmed
 	for key, value := range filter {
 		switch key {
 		case "unarmed":
@@ -80,7 +93,7 @@ func attackFilterMatches(filter, weapon Object, unarmed bool, ability string) bo
 			}
 		case "attack":
 			// A feature attack by its declared id, such as an Armorer's weapon.
-			if text(weapon["featureAttack"]) == "" || text(weapon["featureAttack"]) != text(value) {
+			if subject.featureID == "" || subject.featureID != text(value) {
 				return false
 			}
 		default:
@@ -90,7 +103,7 @@ func attackFilterMatches(filter, weapon Object, unarmed bool, ability string) bo
 	return true
 }
 
-func attackRuleApplies(rule, weapon Object, unarmed bool, ability string, armor armorState) bool {
+func attackRuleApplies(rule Object, subject attackSubject, ability string, armor armorState) bool {
 	if truth(rule["inactive"]) || !armorRequirementMet(rule["requires"], armor) {
 		return false
 	}
@@ -99,7 +112,7 @@ func attackRuleApplies(rule, weapon Object, unarmed bool, ability string, armor 
 		return false
 	}
 	for _, filter := range filters {
-		if attackFilterMatches(filter, weapon, unarmed, ability) {
+		if attackFilterMatches(filter, subject, ability) {
 			return true
 		}
 	}
@@ -159,22 +172,28 @@ type attackContext struct {
 
 // weaponDistance reads a record's {normal, long} range in the ruleset's
 // distance unit; anything else is no range.
-func weaponDistance(value any) (Object, bool) {
+func weaponDistance(value any) *character.WeaponRange {
 	distance := object(value)
 	normal, long := integer(distance["normal"], 0), integer(distance["long"], 0)
 	if normal < 1 || long < normal {
-		return nil, false
+		return nil
 	}
-	return Object{"normal": normal, "long": long}, true
+	return &character.WeaponRange{Normal: normal, Long: long}
 }
 
-// attackRow computes one attack. weapon is the weapon record, or the ruleset's
-// unarmed strike description when unarmed is true.
-func attackRow(weapon Object, unarmed bool, context attackContext) Object {
+// attackRow computes one attack.
+func attackRow(subject attackSubject, context attackContext) character.Attack {
+	weapon, unarmed := subject.record, subject.unarmed
+	feature := subject.featureID != ""
+	// A feature attack's id names the declaration, not a weapon record.
+	id := text(weapon["id"])
+	if feature {
+		id = ""
+	}
 	properties := stringsOf(weapon["properties"])
-	proficient := unarmed || text(weapon["featureAttack"]) != "" && weapon["proficient"] != false
-	if !unarmed && text(weapon["featureAttack"]) == "" {
-		_, explicit := context.proficiency.ids[text(weapon["id"])]
+	proficient := unarmed || feature && weapon["proficient"] != false
+	if !unarmed && !feature {
+		_, explicit := context.proficiency.ids[id]
 		prof := context.proficiency
 		proficient = explicit || text(weapon["category"]) == "simple" && prof.simple ||
 			text(weapon["category"]) == "martial" && (prof.martial ||
@@ -182,7 +201,7 @@ func attackRow(weapon Object, unarmed bool, context attackContext) Object {
 				prof.martialFinesseLight && (contains(properties, "finesse") || contains(properties, "light")))
 		// A Pact Weapon is proficient while its activation is on.
 		for _, option := range context.weaponAbilities {
-			proficient = proficient || truth(option["proficient"]) && attackRuleApplies(option, weapon, unarmed, "", context.armor)
+			proficient = proficient || truth(option["proficient"]) && attackRuleApplies(option, subject, "", context.armor)
 		}
 	}
 	abilityName := "STR"
@@ -203,25 +222,25 @@ func attackRow(weapon Object, unarmed bool, context attackContext) Object {
 		choose(ability)
 	}
 	for _, option := range context.weaponAbilities {
-		if proficient && attackRuleApplies(option, weapon, unarmed, "", context.armor) {
+		if proficient && attackRuleApplies(option, subject, "", context.armor) {
 			choose(text(option["ability"]))
 		}
 	}
 	// Ability options (Martial Arts) are chosen before bonuses that depend on
 	// the ability used (Rage).
 	for _, current := range context.rules {
-		if ability := text(current.rule["ability"]); ability != "" && attackRuleApplies(current.rule, weapon, unarmed, "", context.armor) {
+		if ability := text(current.rule["ability"]); ability != "" && attackRuleApplies(current.rule, subject, "", context.armor) {
 			choose(ability)
 		}
 	}
 	die, versatile := text(weapon["damage"]), text(weapon["versatileDamage"])
 	attackBonus, damageBonus := 0, 0
-	applied := make([]any, 0)
+	applied := make([]character.AttackApplied, 0)
 	for _, current := range context.rules {
-		if !attackRuleApplies(current.rule, weapon, unarmed, abilityName, context.armor) {
+		if !attackRuleApplies(current.rule, subject, abilityName, context.armor) {
 			continue
 		}
-		row := Object{"name": current.name, "source": current.source}
+		row := character.AttackApplied{Name: current.name, Source: current.source}
 		value := integer(current.rule["attackBonus"], 0)
 		// An ability-based bonus, such as Sacred Weapon's Charisma modifier,
 		// with an optional minimum.
@@ -230,22 +249,20 @@ func attackRow(weapon Object, unarmed bool, context attackContext) Object {
 		}
 		if value != 0 {
 			attackBonus += value
-			row["attackBonus"] = value
+			row.AttackBonus = value
 		}
 		if value := integer(current.rule["damageBonus"], 0); value != 0 {
 			damageBonus += value
-			row["damageBonus"] = value
+			row.DamageBonus = value
 		}
 		if candidate := text(current.rule["damageDie"]); candidate != "" {
 			die = largerDie(die, candidate)
 			if versatile != "" {
 				versatile = largerDie(versatile, candidate)
 			}
-			row["damageDie"] = candidate
+			row.DamageDie = candidate
 		}
-		if text(current.rule["ability"]) != "" {
-			row["ability"] = current.rule["ability"]
-		}
+		row.Ability = text(current.rule["ability"])
 		applied = append(applied, row)
 	}
 	ability := context.mods[abilityName]
@@ -253,45 +270,41 @@ func attackRow(weapon Object, unarmed bool, context attackContext) Object {
 	if proficient {
 		attack += context.pb
 	}
-	damage := withModifier(die, ability+damageBonus)
-	var versatileDamage any
+	var versatileDamage *string
 	if versatile != "" {
-		versatileDamage = withModifier(versatile, ability+damageBonus)
+		damage := withModifier(versatile, ability+damageBonus)
+		versatileDamage = &damage
 	}
-	_, mastered := context.mastery[text(weapon["id"])]
-	row := Object{
-		"ref": text(weapon["id"]), "name": text(weapon["name"]), "attackBonus": attack,
-		"ability": abilityName, "damage": damage, "versatileDamage": versatileDamage,
-		"damageType": text(weapon["damageType"]), "properties": anyStrings(properties),
-		"mastery": text(weapon["mastery"]), "masteryActive": mastered, "proficient": proficient,
+	_, mastered := context.mastery[id]
+	row := character.Attack{
+		Ref: id, Name: text(weapon["name"]), AttackBonus: attack,
+		Ability: abilityName, Damage: withModifier(die, ability+damageBonus), VersatileDamage: versatileDamage,
+		DamageType: text(weapon["damageType"]), Properties: properties,
+		Mastery: text(weapon["mastery"]), MasteryActive: mastered, Proficient: proficient,
+		Unarmed: unarmed, Modifiers: applied,
 	}
 	if unarmed {
-		row["unarmed"] = true
-		delete(row, "ref")
+		row.Ref = ""
 	}
-	if id := text(weapon["featureAttack"]); id != "" {
-		row["featureAttack"], row["source"] = id, weapon["source"]
-		delete(row, "ref")
+	if feature {
+		row.FeatureAttack, row.Source = subject.featureID, subject.source
 	}
 	if context.criticalRange > 1 && context.criticalRange < 20 {
-		row["criticalRange"] = context.criticalRange
+		row.CriticalRange = context.criticalRange
 	}
 	if reach := context.reach; reach != nil && (unarmed || text(weapon["range"]) == "melee") {
-		row["reach"] = reach.Base
+		row.Reach = reach.Base
 		if contains(properties, "reach") {
-			row["reach"] = reach.Base + reach.ReachBonus
+			row.Reach = reach.Base + reach.ReachBonus
 		}
 	}
 	// Ranged weapons have a normal/long range; thrown melee weapons keep their
 	// reach and add the thrown range.
-	if distance, ok := weaponDistance(weapon["rangeNormalLong"]); ok && text(weapon["range"]) == "ranged" {
-		row["range"] = distance
-	} else if distance, ok := weaponDistance(weapon["thrownRange"]); ok && contains(properties, "thrown") {
-		distance["thrown"] = true
-		row["range"] = distance
-	}
-	if len(applied) > 0 {
-		row["modifiers"] = applied
+	if distance := weaponDistance(weapon["rangeNormalLong"]); distance != nil && text(weapon["range"]) == "ranged" {
+		row.Range = distance
+	} else if distance := weaponDistance(weapon["thrownRange"]); distance != nil && contains(properties, "thrown") {
+		distance.Thrown = true
+		row.Range = distance
 	}
 	return row
 }

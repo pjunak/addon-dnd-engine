@@ -49,7 +49,7 @@ func BenchmarkMulticlassCharacterCatalog(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
 		result := EvaluateCharacter(input, records, profile)
-		if !truth(result.Guidance["canSave"]) || len(objects(result.Guidance["classOptions"])) != 3 {
+		if !truth(view(result.Guidance)["canSave"]) || len(objects(view(result.Guidance)["classOptions"])) != 3 {
 			b.Fatal("benchmark did not retain a legal unfinished multiclass build", result.Issues)
 		}
 	}

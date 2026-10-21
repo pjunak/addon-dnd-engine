@@ -56,12 +56,12 @@ func TestSpellbookCapacityCountsGrantedAndCopiedSpells(t *testing.T) {
 	input := character.Blank()
 	input.Build.Spells.Spellbook = map[string][]string{"wizard": {"ward", "copied", "other"}}
 	input.Build.Spells.Acquisitions = []character.SpellAcquisition{{ID: "copy", ClassID: "wizard", SpellID: "copied", Level: 1}}
-	sheet := Object{"spellcasting": Object{"perClass": []any{
-		Object{"classId": "wizard", "prepares": "spellbook", "spellbookKnown": 6},
-		Object{"classId": "cleric", "prepares": "list"},
+	sheet := &character.Calculation{Spellcasting: character.Spellcasting{PerClass: []character.Caster{
+		{ClassID: "wizard", Prepares: "spellbook", SpellbookKnown: 6},
+		{ClassID: "cleric", Prepares: "list"},
 	}}}
 	annotateSpellbookCapacity(input, sheet)
-	casters := objects(object(sheet["spellcasting"])["perClass"])
+	casters := objects(object(view(sheet)["spellcasting"])["perClass"])
 	if integer(casters[0]["spellbookCapacity"], 0) != 7 {
 		t.Fatal("capacity ignores copied spells", casters[0])
 	}
@@ -90,7 +90,7 @@ func TestHydratedHitPointsApplyTheMinimumGainPerLevel(t *testing.T) {
 	records := syntheticRecords()
 	// A d6 wizard with Constitution 3 (-4): level 1 gains 6-4=2, level 2 gains
 	// the average 4-4=0, raised to the profile's minimum of 1.
-	sheet := Hydrate(Object{
+	sheet := hydrateView(Object{
 		"baseStats": Object{"STR": 10, "DEX": 10, "CON": 3, "INT": 15, "WIS": 10, "CHA": 10},
 		"classes":   []any{Object{"classId": "wizard", "level": 2}},
 	}, records, &profile).Sheet

@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+
+	"github.com/pjunak/addon-dnd-engine/character"
 )
 
 // Spending hit dice is covered through ApplyCharacterPlay, which records rolls.
@@ -39,12 +41,12 @@ func TestPlayRestPreservesAuthoredState(t *testing.T) {
 
 func TestPlayRestSharesHalfLevelRecoveryAndRecognizesEitherRest(t *testing.T) {
 	decisions := Object{"resourceUses": Object{"d6": 0, "d10": 0, "pool": 0}}
-	sheet := Object{"totalLevel": 5, "resources": []any{
+	sheet := decodeAs[*character.Calculation](Object{"totalLevel": 5, "resources": []any{
 		Object{"key": "d6", "kind": "hitdice", "max": 3, "recharge": []any{Object{"on": "long", "amount": "halfLevel"}}},
 		Object{"key": "d10", "kind": "hitdice", "max": 2, "recharge": []any{Object{"on": "long", "amount": "halfLevel"}}},
 		Object{"key": "pool", "max": 2, "recharge": []any{Object{"on": "shortOrLong", "amount": "full"}}},
-	}}
-	applyRest(decisions, sheet, "long")
+	}})
+	applyRest(decisions, sheet, character.RestLong)
 	uses := object(decisions["resourceUses"])
 	if integer(uses["d6"], 3)+integer(uses["d10"], 2) != 2 || uses["pool"] != nil {
 		t.Fatalf("uses = %+v", uses)
@@ -115,14 +117,15 @@ func TestPlayChangeRejectsMalformedRequests(t *testing.T) {
 		{"operation": "rest", "rest": "week"}, {"operation": "rest", "rest": "short", "key": "unexpected"},
 		{"operation": "toggle-feature", "key": "ward", "enabled": "true"}, {"operation": "cast-spell", "classId": "wizard", "ref": "ward"},
 	} {
-		if err := validatePlayChange(change); err == nil {
+		body, _ := json.Marshal(change)
+		if _, err := character.DecodePlayCommand(body); err == nil {
 			t.Fatalf("Accepted %+v", change)
 		}
 	}
 }
 
 func TestBuilderPublishesSelectedFeatAbilityBudget(t *testing.T) {
-	plan := BuilderPlan(Object{"classes": []any{Object{"classId": "fighter", "level": 19}}, "featureChoices": Object{"asi:fighter:19": "feat", "asi:fighter:19:feat": "boon-of-fortitude"}}, syntheticRecords(), syntheticRuleset(t))
+	plan := view(BuilderPlan(Object{"classes": []any{Object{"classId": "fighter", "level": 19}}, "featureChoices": Object{"asi:fighter:19": "feat", "asi:fighter:19:feat": "boon-of-fortitude"}}, syntheticRecords(), syntheticRuleset(t)))
 	for _, choice := range objects(plan["classChoices"]) {
 		if text(choice["id"]) != "asi:fighter:19" {
 			continue
@@ -140,13 +143,13 @@ func TestPlayFeatureChangesRefreshModifiersAndPactRest(t *testing.T) {
 	profile := syntheticRuleset(t)
 	records := syntheticRecords()
 	decisions := Object{"classes": []any{Object{"classId": "warlock", "level": 5}}, "feats": []any{Object{"featId": "guardian"}}, "resourceUses": Object{"pact-slot": 0}, "hp": 2}
-	before := Hydrate(NormalizeBuilderDecisions(decisions, records, profile), records, &profile).Sheet
+	before := hydrateView(NormalizeBuilderDecisions(decisions, records, profile), records, &profile).Sheet
 	activation := objects(before["activations"])[0]
 	next, err := applyPlayFixture(decisions, Object{"operation": "toggle-feature", "key": activation["key"], "enabled": true}, records, profile)
 	if err != nil {
 		t.Fatal(err)
 	}
-	after := Hydrate(next, records, &profile).Sheet
+	after := hydrateView(next, records, &profile).Sheet
 	if integer(object(after["derived"])["armorClass"], 0) != integer(object(before["derived"])["armorClass"], 0)+1 {
 		t.Fatal("Activation did not affect armor class")
 	}
@@ -166,13 +169,51 @@ func TestPlayFeatureChangesRefreshModifiersAndPactRest(t *testing.T) {
 // Compose low-level play regressions independently of the typed character
 // boundary; public command validation is covered by character tests.
 func applyPlayFixture(decisions, change Object, records Records, profile Ruleset) (Object, error) {
-	if err := validatePlayChange(change); err != nil {
+	body, _ := json.Marshal(change)
+	command, err := character.DecodePlayCommand(body)
+	if err != nil {
 		return nil, err
 	}
 	next := NormalizeBuilderDecisions(decisions, records, profile)
-	sheet := Hydrate(next, records, &profile).Sheet
-	if integer(object(sheet["derived"])["maxHp"], 0) <= 0 && integer(decisions["maxHp"], 0) > 0 {
+	sheet := Hydrate(next, records, profile).Sheet
+	if sheet.Derived.MaxHP <= 0 && integer(decisions["maxHp"], 0) > 0 {
 		return nil, fmt.Errorf("Choose a valid class in Builder before calculating play changes. Saved values have been kept.")
 	}
-	return applyPlayWithSheet(decisions, change, records, profile, sheet)
+	//exhaustive:ignore
+	switch command.Operation {
+	case character.PlayRest:
+		applyRest(next, sheet, command.Rest)
+	case character.PlayToggleFeature:
+		err = toggleFeature(next, sheet, command)
+	case character.PlaySelectSpell:
+		err = selectPlaySpell(next, sheet, command.ClassID, command.Ref, command.Selection, command.Selected, records)
+	case character.PlayCastSpell:
+		err = castPlaySpell(next, sheet, command, records)
+	case character.PlaySelectGrantSpell:
+		err = selectGrantSpell(next, sheet, command, records)
+	case character.PlaySelectCastingAbility:
+		err = selectCastingAbility(next, sheet, command)
+	case character.PlayCastGrantedSpell:
+		err = castGrantedSpell(next, sheet, command, records)
+	case character.PlayCopySpell:
+		err = copyPlaySpell(next, sheet, command, records, profile)
+	case character.PlaySwapSpell:
+		err = swapPlaySpell(next, sheet, command, records)
+	case character.PlayCastRitual:
+		if !canCastRitual(next, playCaster(sheet, command.ClassID), recordByID(records, "spell", command.Ref)) {
+			err = fmt.Errorf("This class cannot cast this spell as a ritual.")
+		}
+	default:
+		err = fmt.Errorf("unsupported fixture operation %s", command.Operation)
+	}
+	if err != nil {
+		return nil, err
+	}
+	// Resolved feats are computation output, never authored feats.
+	if authored, exists := decisions["feats"]; exists {
+		next["feats"] = cloneValue(authored)
+	} else {
+		delete(next, "feats")
+	}
+	return next, nil
 }

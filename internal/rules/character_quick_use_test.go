@@ -23,15 +23,15 @@ func TestQuickUsePreservesInstanceIdentityAndSpentState(t *testing.T) {
 	before := cloneCharacter(input)
 	caller := input
 	result := EvaluateCharacter(input, records, profile)
-	if !result.Ready || !reflect.DeepEqual(result.Inputs, input) || object(result.Guidance["authoredPlay"])["quickUse"] != true {
+	if !result.Ready || !reflect.DeepEqual(result.Inputs, input) || object(view(result.Guidance)["authoredPlay"])["quickUse"] != true {
 		t.Fatal("pins were not accepted as authored state", result.Issues)
 	}
-	pins := objects(result.Sheet["quickUse"])
+	pins := objects(view(result.Sheet)["quickUse"])
 	if text(pins[0]["itemId"]) != "duplicate-copy" || text(pins[0]["reason"]) != "stored" || text(pins[2]["reason"]) != "empty" || !truth(pins[1]["available"]) {
 		t.Fatal("lost order or unavailable pins", pins)
 	}
 	for _, quantity := range []int{1, 0} {
-		used, err := ApplyCharacterPlay(input, Object{"operation": "consume-item", "itemId": "one"}, records, profile)
+		used, err := applyPlay(input, Object{"operation": "consume-item", "itemId": "one"}, records, profile)
 		if err != nil || !used.Ready {
 			t.Fatal(err, used.Issues)
 		}
@@ -46,12 +46,12 @@ func TestQuickUsePreservesInstanceIdentityAndSpentState(t *testing.T) {
 		t.Fatal("play mutated the previous evaluation")
 	}
 	for _, change := range []Object{{"operation": "rest", "rest": "short"}, {"operation": "rest", "rest": "long"}, {"operation": "damage", "amount": float64(1)}} {
-		next, err := ApplyCharacterPlay(input, change, records, profile)
+		next, err := applyPlay(input, change, records, profile)
 		if err != nil || !reflect.DeepEqual(next.Inputs.Play.Inventory, input.Play.Inventory) || !reflect.DeepEqual(next.Inputs.Play.QuickUse, input.Play.QuickUse) {
 			t.Fatal("play recreated spent items or pins", err)
 		}
 	}
-	if truth(object(object(EvaluateCharacter(input, records, profile).Guidance["quickUse"])["one"])["canUse"]) {
+	if truth(object(object(view(EvaluateCharacter(input, records, profile).Guidance)["quickUse"])["one"])["canUse"]) {
 		t.Fatal("depleted item remains usable")
 	}
 	result.Inputs.Play.QuickUse[0] = "changed"
@@ -67,7 +67,7 @@ func TestQuickUseRejectsInvalidReferencesAndCommandsWithoutMutation(t *testing.T
 		candidate := cloneCharacter(input)
 		candidate.Play.QuickUse = pins
 		result := EvaluateCharacter(candidate, records, profile)
-		if result.Ready || truth(result.Guidance["canSave"]) || !reflect.DeepEqual(result.Inputs.Play.QuickUse, pins) {
+		if result.Ready || truth(view(result.Guidance)["canSave"]) || !reflect.DeepEqual(result.Inputs.Play.QuickUse, pins) {
 			t.Fatal("invalid pins were normalized or accepted", pins, result.Issues)
 		}
 	}
@@ -78,7 +78,7 @@ func TestQuickUseRejectsInvalidReferencesAndCommandsWithoutMutation(t *testing.T
 		{"operation": "consume-item", "itemId": "duplicate-copy"}, {"operation": "consume-item", "itemId": "empty"},
 		{"operation": "consume-item", "itemId": "one", "amount": float64(2)}, {"operation": "consume-item", "itemId": float64(1)},
 	} {
-		result, err := ApplyCharacterPlay(input, change, records, profile)
+		result, err := applyPlay(input, change, records, profile)
 		after, _ := json.Marshal(input)
 		if err == nil || string(after) != string(before) || !reflect.DeepEqual(result.Inputs, input) {
 			t.Fatal("invalid command mutated input", change, err)
@@ -99,7 +99,7 @@ func TestQuickUseSupportsIncompleteAndOlderCharacters(t *testing.T) {
 	input.Play.Inventory = quickUseItems()
 	input.Play.QuickUse = []string{"one", "empty"}
 	result = EvaluateCharacter(input, records, profile)
-	if result.Ready || !truth(result.Guidance["canSave"]) || len(objects(result.Sheet["quickUse"])) != 2 || truth(object(object(result.Guidance["quickUse"])["one"])["canUse"]) {
+	if result.Ready || !truth(view(result.Guidance)["canSave"]) || len(objects(view(result.Sheet)["quickUse"])) != 2 || truth(object(object(view(result.Guidance)["quickUse"])["one"])["canUse"]) {
 		t.Fatal("incomplete character cannot retain pins or exposes play actions", result.Issues)
 	}
 }
@@ -110,13 +110,13 @@ func TestUsingLastEquippedItemReleasesOnlyItsAllocation(t *testing.T) {
 	input.Play.QuickUse = []string{"last"}
 	input.Grants = []character.Grant{{ID: "token", Name: "Token", ActorID: "dm", Reason: "Reward", Active: true, EffectiveLevel: 1, Condition: "equipped", ItemID: "last", Effects: []character.Effect{{Target: "speed", Mode: "add", Value: 5}}}}
 	before := EvaluateCharacter(input, records, profile)
-	result, err := ApplyCharacterPlay(input, Object{"operation": "consume-item", "itemId": "last"}, records, profile)
+	result, err := applyPlay(input, Object{"operation": "consume-item", "itemId": "last"}, records, profile)
 	if err != nil || !result.Ready {
 		t.Fatal(err, result.Issues)
 	}
 	expected := cloneCharacter(input)
 	expected.Play.Inventory[0].Quantity, expected.Play.Inventory[0].Location, expected.Play.Inventory[0].Attuned = 0, "carried", false
-	if !reflect.DeepEqual(result.Inputs, expected) || integer(object(before.Sheet["derived"])["speed"], 0)-integer(object(result.Sheet["derived"])["speed"], 0) != 5 {
+	if !reflect.DeepEqual(result.Inputs, expected) || integer(object(view(before.Sheet)["derived"])["speed"], 0)-integer(object(view(result.Sheet)["derived"])["speed"], 0) != 5 {
 		t.Fatal("last-use cleanup lost identity or retained equipped effects")
 	}
 }

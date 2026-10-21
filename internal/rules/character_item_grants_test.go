@@ -76,7 +76,7 @@ func evaluateReady(t *testing.T, input character.Inputs, records Records, profil
 
 func playReady(t *testing.T, input character.Inputs, change Object, records Records, profile Ruleset) character.Result {
 	t.Helper()
-	result, err := ApplyCharacterPlay(input, change, records, profile)
+	result, err := applyPlay(input, change, records, profile)
 	if err != nil || !result.Ready {
 		t.Fatal(change, err, result.Issues)
 	}
@@ -89,7 +89,7 @@ func withCastingAbility(t *testing.T, input character.Inputs, records Records, p
 }
 
 func conditionRow(result character.Result, id string) Object {
-	for _, row := range objects(result.Sheet["conditions"]) {
+	for _, row := range objects(view(result.Sheet)["conditions"]) {
 		if text(row["id"]) == id && truth(row["granted"]) {
 			return row
 		}
@@ -190,8 +190,8 @@ func TestItemGrantsAcceptOnlyTheAllowlist(t *testing.T) {
 		"grants": Object{"resistances": []any{"fire"}}})
 	input.Play.Inventory = []character.Item{itemCard("bad", "Bad", "bad"), itemCard("story", "Story", "story")}
 	result := EvaluateCharacter(input, records, profile)
-	if !hasChoiceIssue(result, "item-effects:bad") || !hasChoiceIssue(result, "item-effects:story") || contains(stringsOf(result.Sheet["resistances"]), "fire") {
-		t.Fatal("unsupported or narrative grants were applied or accepted", result.Issues, result.Sheet["resistances"])
+	if !hasChoiceIssue(result, "item-effects:bad") || !hasChoiceIssue(result, "item-effects:story") || contains(stringsOf(view(result.Sheet)["resistances"]), "fire") {
+		t.Fatal("unsupported or narrative grants were applied or accepted", result.Issues, view(result.Sheet)["resistances"])
 	}
 }
 
@@ -199,9 +199,9 @@ func TestItemGrantsUseItemOwnedKeysAndSources(t *testing.T) {
 	input, records, profile := itemGrantFixture(t)
 	result := withCastingAbility(t, input, records, profile)
 	source := Object{"type": "item", "id": "guidance", "name": "Guidance", "ref": Object{"kind": "magic-item", "id": "card-guidance"}}
-	resource := findPlayResource(Object(result.Sheet), "item:guidance:uses")
-	if resource == nil || !reflect.DeepEqual(resource["source"], source) || integer(resource["max"], 0) != 1 || resource["active"] != nil ||
-		!reflect.DeepEqual(resource["recharge"], []any{Object{"on": "long", "amount": "full"}}) {
+	resource := findPlayResource(result.Sheet.Calculation, "item:guidance:uses")
+	if resource == nil || !reflect.DeepEqual(view(resource)["source"], source) || integer(view(resource)["max"], 0) != 1 || view(resource)["active"] != nil ||
+		!reflect.DeepEqual(view(resource)["recharge"], []any{Object{"on": "long", "amount": "full"}}) {
 		t.Fatal("item use is not keyed and sourced by its instance", resource)
 	}
 	blessing := grantedOption(result, "blessing")
@@ -212,20 +212,20 @@ func TestItemGrantsUseItemOwnedKeysAndSources(t *testing.T) {
 		t.Fatal("casting ability key", result.Inputs.Build.Spells.CastingAbilities)
 	}
 	var toggle Object
-	for _, activation := range objects(result.Sheet["activations"]) {
+	for _, activation := range objects(view(result.Sheet)["activations"]) {
 		if text(activation["key"]) == "item:sky:open-sky" {
 			toggle = activation
 		}
 	}
 	if toggle == nil || text(toggle["condition"]) != "under the open sky" || text(object(toggle["source"])["type"]) != "item" {
-		t.Fatal("item toggle key", result.Sheet["activations"])
+		t.Fatal("item toggle key", view(result.Sheet)["activations"])
 	}
-	advantage := objects(result.Sheet["advantages"])
+	advantage := objects(view(result.Sheet)["advantages"])
 	if len(advantage) != 1 || text(advantage[0]["name"]) != "Guidance" || !reflect.DeepEqual(advantage[0]["source"], source) || text(advantage[0]["when"]) != "against fear" {
 		t.Fatal("item advantage", advantage)
 	}
-	if !contains(stringsOf(result.Sheet["resistances"]), "radiant") {
-		t.Fatal("item resistance", result.Sheet["resistances"])
+	if !contains(stringsOf(view(result.Sheet)["resistances"]), "radiant") {
+		t.Fatal("item resistance", view(result.Sheet)["resistances"])
 	}
 	active := []any{
 		Object{"itemId": "guidance", "name": "Guidance", "ref": Object{"kind": "magic-item", "id": "card-guidance"}},
@@ -233,8 +233,8 @@ func TestItemGrantsUseItemOwnedKeysAndSources(t *testing.T) {
 		Object{"itemId": "sky", "name": "Sky", "ref": Object{"kind": "magic-item", "id": "card-sky"}},
 		Object{"itemId": "glow", "name": "Glow", "ref": Object{"kind": "magic-item", "id": "card-glow"}},
 	}
-	if !reflect.DeepEqual(result.Sheet["activeItems"], active) {
-		t.Fatal("active items", result.Sheet["activeItems"])
+	if !reflect.DeepEqual(view(result.Sheet)["activeItems"], active) {
+		t.Fatal("active items", view(result.Sheet)["activeItems"])
 	}
 	if again := EvaluateCharacter(result.Inputs, records, profile); !reflect.DeepEqual(again, EvaluateCharacter(result.Inputs, records, profile)) {
 		t.Fatal("item grants are not deterministic")
@@ -245,23 +245,23 @@ func TestItemGrantsApplyTheFirstEquippedCopyOnly(t *testing.T) {
 	input, records, profile := itemGrantFixture(t)
 	input.Play.Inventory = []character.Item{itemCard("spare", "Spare", "card-guidance"), itemCard("guidance", "Guidance", "card-guidance")}
 	result := evaluateReady(t, input, records, profile)
-	first, spare := findPlayResource(Object(result.Sheet), "item:guidance:uses"), findPlayResource(Object(result.Sheet), "item:spare:uses")
-	if first == nil || first["active"] != nil || spare == nil || spare["active"] != false {
-		t.Fatal("copy selection", result.Sheet["resources"])
+	first, spare := findPlayResource(result.Sheet.Calculation, "item:guidance:uses"), findPlayResource(result.Sheet.Calculation, "item:spare:uses")
+	if first == nil || view(first)["active"] != nil || spare == nil || view(spare)["active"] != false {
+		t.Fatal("copy selection", view(result.Sheet)["resources"])
 	}
-	if len(objects(result.Sheet["advantages"])) != 1 || len(objects(object(result.Sheet["spellcasting"])["granted"])) != 1 {
-		t.Fatal("a second copy stacked", result.Sheet["advantages"])
+	if len(objects(view(result.Sheet)["advantages"])) != 1 || len(objects(object(view(result.Sheet)["spellcasting"])["granted"])) != 1 {
+		t.Fatal("a second copy stacked", view(result.Sheet)["advantages"])
 	}
 	if row := conditionRow(result, "marked"); integer(row["level"], 0) != 1 || len(objects(row["sources"])) != 1 {
 		t.Fatal("a second copy counted", row)
 	}
-	if items := objects(result.Sheet["activeItems"]); len(items) != 1 || text(items[0]["itemId"]) != "guidance" {
+	if items := objects(view(result.Sheet)["activeItems"]); len(items) != 1 || text(items[0]["itemId"]) != "guidance" {
 		t.Fatal("active copy", items)
 	}
 	input.Play.Inventory[1].Location = "carried"
 	result = evaluateReady(t, input, records, profile)
-	if spare := findPlayResource(Object(result.Sheet), "item:spare:uses"); spare == nil || spare["active"] != nil {
-		t.Fatal("the remaining copy did not apply", result.Sheet["resources"])
+	if spare := findPlayResource(result.Sheet.Calculation, "item:spare:uses"); spare == nil || view(spare)["active"] != nil {
+		t.Fatal("the remaining copy did not apply", view(result.Sheet)["resources"])
 	}
 }
 
@@ -272,14 +272,14 @@ func TestItemSpellUsesRecoverOnRestsWhileUnequipped(t *testing.T) {
 	if cast.Inputs.Play.ResourceUses["item:guidance:uses"] != 1 || cast.Inputs.Play.ResourceUses["slot-1"] != 0 {
 		t.Fatal("cast did not spend the item's use", cast.Inputs.Play.ResourceUses)
 	}
-	if _, err := ApplyCharacterPlay(cast.Inputs, Object{"operation": "cast-granted-spell", "key": "item:guidance:blessing", "slot": "item:guidance:uses"}, records, profile); err == nil {
+	if _, err := applyPlay(cast.Inputs, Object{"operation": "cast-granted-spell", "key": "item:guidance:blessing", "slot": "item:guidance:uses"}, records, profile); err == nil {
 		t.Fatal("cast without a remaining use")
 	}
 	stowed := cloneCharacter(cast.Inputs)
 	stowed.Play.Inventory[0].Location = "carried"
 	result = evaluateReady(t, stowed, records, profile)
-	resource := findPlayResource(Object(result.Sheet), "item:guidance:uses")
-	if resource == nil || resource["active"] != false || integer(resource["remaining"], -1) != 0 || grantedOption(result, "blessing") != nil {
+	resource := findPlayResource(result.Sheet.Calculation, "item:guidance:uses")
+	if resource == nil || view(resource)["active"] != false || integer(view(resource)["remaining"], -1) != 0 || grantedOption(result, "blessing") != nil {
 		t.Fatal("an unequipped item lost its spent use or kept its spell", resource)
 	}
 	rested := playReady(t, stowed, Object{"operation": "rest", "rest": "long"}, records, profile)
@@ -295,13 +295,13 @@ func TestItemSpellUsesRecoverOnRestsWhileUnequipped(t *testing.T) {
 func TestItemSpellsNeverUseSpellSlots(t *testing.T) {
 	input, records, profile := itemGrantFixture(t)
 	pending := evaluateReady(t, input, records, profile)
-	if findPlayResource(Object(pending.Sheet), "slot-1") == nil {
+	if findPlayResource(pending.Sheet.Calculation, "slot-1") == nil {
 		t.Fatal("fixture has no spell slots")
 	}
 	if slots := stringsOf(grantedOption(pending, "blessing")["slots"]); len(slots) != 0 {
 		t.Fatal("an item spell is castable before its casting ability is picked", slots)
 	}
-	if _, err := ApplyCharacterPlay(input, Object{"operation": "cast-granted-spell", "key": "item:guidance:blessing", "slot": "item:guidance:uses"}, records, profile); err == nil {
+	if _, err := applyPlay(input, Object{"operation": "cast-granted-spell", "key": "item:guidance:blessing", "slot": "item:guidance:uses"}, records, profile); err == nil {
 		t.Fatal("cast before the casting ability pick")
 	}
 	result := withCastingAbility(t, input, records, profile)
@@ -309,7 +309,7 @@ func TestItemSpellsNeverUseSpellSlots(t *testing.T) {
 		t.Fatal("item spell cast options", slots)
 	}
 	for _, slot := range []string{"slot-1", ""} {
-		if _, err := ApplyCharacterPlay(result.Inputs, Object{"operation": "cast-granted-spell", "key": "item:guidance:blessing", "slot": slot}, records, profile); err == nil {
+		if _, err := applyPlay(result.Inputs, Object{"operation": "cast-granted-spell", "key": "item:guidance:blessing", "slot": slot}, records, profile); err == nil {
 			t.Fatalf("cast an item spell with %q", slot)
 		}
 	}
@@ -338,7 +338,7 @@ func TestItemCantripsCastFreelyAndPicksOnlyWarn(t *testing.T) {
 		}
 	}
 	var labels []string
-	for _, section := range objects(result.Guidance["sections"]) {
+	for _, section := range objects(view(result.Guidance)["sections"]) {
 		for _, issue := range objects(section["issues"]) {
 			if text(issue["severity"]) == "warning" {
 				labels = append(labels, text(issue["label"]))
@@ -349,7 +349,7 @@ func TestItemCantripsCastFreelyAndPicksOnlyWarn(t *testing.T) {
 		t.Fatal("item pick labels", labels)
 	}
 	var choice Object
-	for _, candidate := range objects(result.SpellOptions["pendingChoices"]) {
+	for _, candidate := range objects(view(result.SpellOptions)["pendingChoices"]) {
 		if text(candidate["key"]) == "item:power:cantrip" {
 			choice = candidate
 		}
@@ -365,7 +365,7 @@ func TestItemCantripsCastFreelyAndPicksOnlyWarn(t *testing.T) {
 	if !reflect.DeepEqual(cast.Inputs.Play.ResourceUses, picked.Inputs.Play.ResourceUses) {
 		t.Fatal("a cantrip spent a resource", cast.Inputs.Play.ResourceUses)
 	}
-	if _, err := ApplyCharacterPlay(picked.Inputs, Object{"operation": "cast-granted-spell", "key": "item:power:spark", "slot": "slot-1"}, records, profile); err == nil {
+	if _, err := applyPlay(picked.Inputs, Object{"operation": "cast-granted-spell", "key": "item:power:spark", "slot": "slot-1"}, records, profile); err == nil {
 		t.Fatal("an item cantrip spent a spell slot")
 	}
 }
@@ -380,11 +380,11 @@ func TestSenseBonusExtendsOrGrantsASense(t *testing.T) {
 			input, records, profile := itemGrantFixture(t)
 			input.Build.Species = test.species
 			off := evaluateReady(t, input, records, profile)
-			if _, exists := object(off.Sheet["senses"])["darkvision"]; exists != test.hasSense || integer(object(off.Sheet["senses"])["darkvision"], 0) != test.off {
-				t.Fatal("darkvision before the toggle", off.Sheet["senses"])
+			if _, exists := object(view(off.Sheet)["senses"])["darkvision"]; exists != test.hasSense || integer(object(view(off.Sheet)["senses"])["darkvision"], 0) != test.off {
+				t.Fatal("darkvision before the toggle", view(off.Sheet)["senses"])
 			}
 			on := playReady(t, input, Object{"operation": "toggle-feature", "key": "item:sky:open-sky", "enabled": true}, records, profile)
-			if got := integer(object(on.Sheet["senses"])["darkvision"], 0); got != test.on {
+			if got := integer(object(view(on.Sheet)["senses"])["darkvision"], 0); got != test.on {
 				t.Fatalf("darkvision = %d, want %d", got, test.on)
 			}
 			terms := on.Explanations["senses.darkvision"].Terms
@@ -399,10 +399,10 @@ func TestSenseBonusExtendsOrGrantsASense(t *testing.T) {
 			}
 		})
 	}
-	sheet := Object{"senses": Object{}, "derived": Object{}, "proficiencies": Object{}}
-	applyGenericGrants(Object{}, sheet, nil, []Object{{"target": "senseBonus", "key": "blindsight", "add": 10}, {"target": "senseBonus", "key": "blindsight", "add": 5}})
-	if integer(object(sheet["senses"])["blindsight"], 0) != 15 {
-		t.Fatal("feature senseBonus", sheet["senses"])
+	sheet := &character.Calculation{Senses: map[string]int{}, Abilities: map[string]character.AbilityScore{}}
+	applyGenericGrants(Object{}, sheet, nil, nil, []activeModifier{{fields: Object{"target": "senseBonus", "key": "blindsight", "add": 10}}, {fields: Object{"target": "senseBonus", "key": "blindsight", "add": 5}}})
+	if sheet.Senses["blindsight"] != 15 {
+		t.Fatal("feature senseBonus", sheet.Senses)
 	}
 }
 
@@ -413,15 +413,15 @@ func TestUnequippedItemsKeepTheirStateWithoutBlockers(t *testing.T) {
 	input.Play.ResourceUses = map[string]int{"item:guidance:uses": 1}
 	input.Play.ActiveFeatures = map[string]bool{"item:sky:open-sky": true}
 	equipped := evaluateReady(t, input, records, profile)
-	if integer(object(equipped.Sheet["senses"])["darkvision"], 0) != 150 || grantedOption(equipped, "spark") == nil {
-		t.Fatal("saved item state did not apply", equipped.Sheet["senses"])
+	if integer(object(view(equipped.Sheet)["senses"])["darkvision"], 0) != 150 || grantedOption(equipped, "spark") == nil {
+		t.Fatal("saved item state did not apply", view(equipped.Sheet)["senses"])
 	}
 	for index := range input.Play.Inventory {
 		input.Play.Inventory[index].Location = "carried"
 	}
 	stowed := evaluateReady(t, input, records, profile)
-	if !reflect.DeepEqual(stowed.Inputs, input) || integer(object(stowed.Sheet["senses"])["darkvision"], 0) != 120 || grantedOption(stowed, "spark") != nil || len(objects(stowed.Sheet["activeItems"])) != 0 || conditionRow(stowed, "marked") != nil {
-		t.Fatal("unequipped item state changed or still applies", stowed.Sheet["senses"])
+	if !reflect.DeepEqual(stowed.Inputs, input) || integer(object(view(stowed.Sheet)["senses"])["darkvision"], 0) != 120 || grantedOption(stowed, "spark") != nil || len(objects(view(stowed.Sheet)["activeItems"])) != 0 || conditionRow(stowed, "marked") != nil {
+		t.Fatal("unequipped item state changed or still applies", view(stowed.Sheet)["senses"])
 	}
 	for _, issue := range stowed.Issues {
 		if issue.Severity == "blocker" {
@@ -443,19 +443,19 @@ func TestStowingAHandItemSuspendsItsGrants(t *testing.T) {
 	input.Play.ActiveFeatures = map[string]bool{"item:off-copy:ward": true}
 	input.Play.ResourceUses = map[string]int{"item:off-copy:parry": 1}
 	start := evaluateReady(t, input, records, profile)
-	if resistances := stringsOf(start.Sheet["resistances"]); !contains(resistances, "force") || !contains(resistances, "thunder") {
+	if resistances := stringsOf(view(start.Sheet)["resistances"]); !contains(resistances, "force") || !contains(resistances, "thunder") {
 		t.Fatal("held item grants", resistances)
 	}
 	two := playReady(t, input, Object{"operation": "set-grip", "grip": "two"}, records, profile)
-	if resistances := stringsOf(two.Sheet["resistances"]); contains(resistances, "force") || contains(resistances, "thunder") || findPlayResource(Object(two.Sheet), "item:off-copy:parry")["active"] != false {
+	if resistances := stringsOf(view(two.Sheet)["resistances"]); contains(resistances, "force") || contains(resistances, "thunder") || view(findPlayResource(two.Sheet.Calculation, "item:off-copy:parry"))["active"] != false {
 		t.Fatal("a suspended item still grants", resistances)
 	}
 	if !reflect.DeepEqual(two.Inputs.Play.ActiveFeatures, input.Play.ActiveFeatures) || two.Inputs.Play.ResourceUses["item:off-copy:parry"] != 1 {
 		t.Fatal("suspension dropped the item's state", two.Inputs.Play)
 	}
 	one := playReady(t, two.Inputs, Object{"operation": "set-grip", "grip": "one"}, records, profile)
-	if !contains(stringsOf(one.Sheet["resistances"]), "thunder") {
-		t.Fatal("restored item lost its toggle", one.Sheet["resistances"])
+	if !contains(stringsOf(view(one.Sheet)["resistances"]), "thunder") {
+		t.Fatal("restored item lost its toggle", view(one.Sheet)["resistances"])
 	}
 }
 
@@ -487,7 +487,7 @@ func TestConsumingAnItemsLastUnitClearsItsState(t *testing.T) {
 	if play.Inventory[0].Quantity != 0 || play.Inventory[0].Location != "carried" {
 		t.Fatal("consumed item", play.Inventory[0])
 	}
-	if items := objects(result.Sheet["activeItems"]); len(items) != 1 || text(items[0]["itemId"]) != "card:two" {
+	if items := objects(view(result.Sheet)["activeItems"]); len(items) != 1 || text(items[0]["itemId"]) != "card:two" {
 		t.Fatal("the remaining copy did not apply", items)
 	}
 }
@@ -538,7 +538,7 @@ func TestItemConditionsCountActiveItems(t *testing.T) {
 	if integer(row["level"], 0) != 4 || text(row["name"]) != "Marked" || text(row["summary"]) != "Fate watches the bearer." || text(row["status"]) != "active" || len(sources) != 4 || text(sources[2]["id"]) != "sky" {
 		t.Fatal("granted condition", row)
 	}
-	if rows := objects(result.Sheet["conditions"]); len(rows) != 2 || truth(rows[0]["granted"]) || !reflect.DeepEqual(result.Inputs.Play.Conditions, input.Play.Conditions) {
+	if rows := objects(view(result.Sheet)["conditions"]); len(rows) != 2 || truth(rows[0]["granted"]) || !reflect.DeepEqual(result.Inputs.Play.Conditions, input.Play.Conditions) {
 		t.Fatal("granted condition replaced authored tracking", rows)
 	}
 	input.Play.Conditions = nil
@@ -560,7 +560,7 @@ func TestItemTogglesDoNotTriggerFeatureExtensions(t *testing.T) {
 	records.byKind["feature"] = map[string]json.RawMessage{"singer-echo": mustJSON(Object{"kind": "feature", "id": "singer-echo", "name": "Echo", "classId": "singer", "level": 1,
 		"activations": []any{Object{"id": "echo", "extends": "open-sky", "modifiers": []any{Object{"target": "resistance", "value": "thunder"}}}}})}
 	on := playReady(t, input, Object{"operation": "toggle-feature", "key": "item:sky:open-sky", "enabled": true}, records, profile)
-	if integer(object(on.Sheet["senses"])["darkvision"], 0) != 150 || contains(stringsOf(on.Sheet["resistances"]), "thunder") {
-		t.Fatal("an item toggle triggered a feature extension", on.Sheet["resistances"])
+	if integer(object(view(on.Sheet)["senses"])["darkvision"], 0) != 150 || contains(stringsOf(view(on.Sheet)["resistances"]), "thunder") {
+		t.Fatal("an item toggle triggered a feature extension", view(on.Sheet)["resistances"])
 	}
 }

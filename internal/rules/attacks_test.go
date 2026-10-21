@@ -55,7 +55,7 @@ func TestAttackModifiersApplyMartialArtsRageAndArchery(t *testing.T) {
 		}
 		return items
 	}
-	monk := Hydrate(Object{
+	monk := hydrateView(Object{
 		"baseStats": Object{"STR": 10, "DEX": 16},
 		"classes":   []any{Object{"classId": "monk", "level": 5}},
 		"inventory": equipped("club"),
@@ -67,7 +67,7 @@ func TestAttackModifiersApplyMartialArtsRageAndArchery(t *testing.T) {
 	if club := attackNamed(monk, "Club"); club["damage"] != "1d8 +3" || club["ability"] != "DEX" {
 		t.Fatalf("monk club = %+v", club)
 	}
-	armored := Hydrate(Object{
+	armored := hydrateView(Object{
 		"baseStats": Object{"STR": 10, "DEX": 16},
 		"classes":   []any{Object{"classId": "monk", "level": 5}},
 		"inventory": equipped("leather"),
@@ -77,7 +77,7 @@ func TestAttackModifiersApplyMartialArtsRageAndArchery(t *testing.T) {
 	}
 
 	rage := func(active bool) Object {
-		return Hydrate(Object{
+		return hydrateView(Object{
 			"baseStats":      Object{"STR": 16, "DEX": 14},
 			"classes":        []any{Object{"classId": "brute", "level": 9}},
 			"inventory":      equipped("rapier", "shortbow"),
@@ -116,7 +116,7 @@ func TestPactWeaponActivationGrantsProficiencyAndCharisma(t *testing.T) {
 			"match": []any{Object{"range": "melee", "unarmed": false}},
 		}}}}})
 	sheet := func(active bool) Object {
-		return Hydrate(Object{
+		return hydrateView(Object{
 			"baseStats":      Object{"STR": 12, "DEX": 10, "CHA": 18},
 			"classes":        []any{Object{"classId": "hexer", "level": 1}},
 			"inventory":      []any{Object{"ref": "rapier", "location": "equipped"}, Object{"ref": "shortbow", "location": "equipped"}},
@@ -160,7 +160,7 @@ func TestAttackRowsGiveReachAndRange(t *testing.T) {
 			Object{"ref": "javelin", "location": "equipped"}, Object{"ref": "dart", "location": "equipped"}, Object{"ref": "longbow", "location": "equipped"}},
 	}
 	// Without the ruleset's melee reach, rows still carry the record's ranges.
-	plain := Hydrate(decisions, records, &profile).Sheet
+	plain := hydrateView(decisions, records, &profile).Sheet
 	if club := attackNamed(plain, "Club"); club["reach"] != nil || club["range"] != nil {
 		t.Fatalf("club without reach rules = %+v", club)
 	}
@@ -169,7 +169,7 @@ func TestAttackRowsGiveReachAndRange(t *testing.T) {
 	}
 
 	profile.Constants.MeleeReach = &MeleeReach{Base: 5, ReachBonus: 5}
-	sheet := Hydrate(decisions, records, &profile).Sheet
+	sheet := hydrateView(decisions, records, &profile).Sheet
 	for name, want := range map[string]Object{
 		"Unarmed Strike": {"reach": 5},
 		"Club":           {"reach": 5},

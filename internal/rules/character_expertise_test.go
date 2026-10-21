@@ -23,7 +23,7 @@ func expertiseFixture(t *testing.T) (character.Inputs, memoryRecords, Ruleset) {
 }
 func expertiseOptions(result character.Result, id string) []string {
 	options := []string{}
-	for _, option := range objects(object(object(result.Guidance["choices"])[id])["options"]) {
+	for _, option := range objects(object(object(view(result.Guidance)["choices"])[id])["options"]) {
 		options = append(options, text(option["id"]))
 	}
 	return options
@@ -46,7 +46,7 @@ func TestCharacterExpertiseUsesAcquisitionSkillsAndKeepsItsOwnSelections(t *test
 	}
 	before, sources := cloneCharacter(input), mustJSON(records.byKind)
 	result := EvaluateCharacter(input, records, profile)
-	if !result.Ready || !truth(result.Guidance["canSave"]) {
+	if !result.Ready || !truth(view(result.Guidance)["canSave"]) {
 		t.Fatal(result.Issues)
 	}
 	if contains(expertiseOptions(result, "early-study"), "nature") || !contains(expertiseOptions(result, "late-study"), "nature") {
@@ -55,7 +55,7 @@ func TestCharacterExpertiseUsesAcquisitionSkillsAndKeepsItsOwnSelections(t *test
 	if contains(expertiseOptions(result, "late-study"), "arcana") || contains(expertiseOptions(result, "late-study"), "animalHandling") {
 		t.Fatal("Later Expertise offered already selected skills")
 	}
-	skill := object(object(result.Sheet["skills"])["arcana"])
+	skill := object(object(view(result.Sheet)["skills"])["arcana"])
 	if !truth(skill["expertise"]) || integer(skill["total"], 0) != 5 {
 		t.Fatal("Expertise calculation", skill)
 	}
@@ -77,10 +77,10 @@ func TestCharacterExpertiseUsesAcquisitionSkillsAndKeepsItsOwnSelections(t *test
 	// Input array order cannot make the later acquisition win a duplicate.
 	input.Build.Choices = append([]character.Choice{{ID: "late-study", Value: mustJSON("arcana")}}, input.Build.Choices[:2]...)
 	result = EvaluateCharacter(input, records, profile)
-	if !hasChoiceIssue(result, "invalid-option:late-study#0") || hasChoiceIssue(result, "invalid-option:early-study#0") || truth(result.Guidance["canSave"]) {
+	if !hasChoiceIssue(result, "invalid-option:late-study#0") || hasChoiceIssue(result, "invalid-option:early-study#0") || truth(view(result.Guidance)["canSave"]) {
 		t.Fatal("Duplicate Expertise did not preserve the earlier choice", result.Issues)
 	}
-	if truth(object(object(result.Guidance["choices"])["late-study"])["done"]) {
+	if truth(object(object(view(result.Guidance)["choices"])["late-study"])["done"]) {
 		t.Fatal("Invalid expertise marked complete")
 	}
 	input.Build.Choices[0].Value = mustJSON("history")
@@ -98,7 +98,7 @@ func TestCharacterExpertiseHonorsClassLevelRestrictedPoolsAndCombinedGrants(t *t
 	records.byKind["class"]["fighter"] = mustJSON(class)
 	input.Build.Levels = append(input.Build.Levels, character.Level{ID: "two", ClassID: "scout"}, character.Level{ID: "three", ClassID: "scout"})
 	result := EvaluateCharacter(input, records, profile)
-	if object(result.Guidance["choices"])["late-study"] != nil {
+	if object(view(result.Guidance)["choices"])["late-study"] != nil {
 		t.Fatal("Total level granted a later class feature")
 	}
 	early := recordByID(records, "feature", "early-study")
@@ -108,10 +108,10 @@ func TestCharacterExpertiseHonorsClassLevelRestrictedPoolsAndCombinedGrants(t *t
 		"expertise": []any{"history"}, "choices": []any{Object{"id": "training", "type": "skillExpertise", "count": 1}}}})
 	input.Build.Choices = []character.Choice{{ID: "species:dwarf:training", Value: mustJSON("stealth")}}
 	result = EvaluateCharacter(input, records, profile)
-	if !truth(result.Guidance["canSave"]) {
+	if !truth(view(result.Guidance)["canSave"]) {
 		t.Fatal("Combined proficiency and Expertise required an earlier proficiency", result.Issues)
 	}
-	if !truth(object(object(result.Sheet["skills"])["stealth"])["expertise"]) {
+	if !truth(object(object(view(result.Sheet)["skills"])["stealth"])["expertise"]) {
 		t.Fatal("Combined grant lost Expertise")
 	}
 	if len(expertiseOptions(result, "early-study")) != 0 {

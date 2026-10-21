@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/pjunak/addon-dnd-engine/character"
 	"github.com/pjunak/addon-dnd-engine/internal/provider"
 	"github.com/pjunak/addon-dnd-engine/internal/rules"
 	"github.com/pjunak/ttrpg-codex/sdk/go/workerrpc"
@@ -53,83 +54,34 @@ func TestHandlerExposesContextAndRecords(t *testing.T) {
 	}
 }
 
-func TestUniversalDeriveDoesNotRequireRulesData(t *testing.T) {
-	t.Parallel()
-	data := engineProvider{rulesetError: errors.New("provider must not be called")}
-	handler, _ := New(&data)
-
-	value, err := handler.HandleRPC(context.Background(), rpcRequest("derive", `{
-		"contractVersion":"rules-engine-derive.v1","operation":"ability-modifier","input":{"score":16}
-	}`))
-	if err != nil {
-		t.Fatal(err)
-	}
-	derived := value.(deriveResponse)
-	if derived.Value != 3 || derived.Identity != nil || data.rulesetCalls != 0 {
-		t.Fatalf("derived = %+v, ruleset calls = %d", derived, data.rulesetCalls)
-	}
-}
-
-func TestRulesetDeriveCarriesProviderIdentity(t *testing.T) {
-	t.Parallel()
-	data := engineProvider{ruleset: engineRuleset(t)}
-	handler, _ := New(&data)
-
-	value, err := handler.HandleRPC(context.Background(), rpcRequest("derive", `{
-		"contractVersion":"rules-engine-derive.v1","operation":"point-buy-cost","input":{"score":15}
-	}`))
-	if err != nil {
-		t.Fatal(err)
-	}
-	derived := value.(deriveResponse)
-	if derived.Value != 9 || derived.Identity == nil ||
-		derived.Identity.ContentRevision != "fixture-1" || data.rulesetCalls != 1 {
-		t.Fatalf("derived = %+v, ruleset calls = %d", derived, data.rulesetCalls)
-	}
-}
-
-func TestFormulaDerivesReadTheRuleset(t *testing.T) {
-	t.Parallel()
-	data := engineProvider{ruleset: engineRuleset(t)}
-	handler, _ := New(&data)
-	for _, check := range []struct {
-		operation, input string
-		want             int
-	}{
-		{"proficiency-bonus", `{"totalLevel":17}`, 6},
-		{"hit-die-average", `{"hitDie":"d10"}`, 6},
-		{"save-dc", `{"abilityScore":16,"totalLevel":5}`, 14},
-	} {
-		value, err := handler.HandleRPC(context.Background(), rpcRequest("derive", `{
-			"contractVersion":"rules-engine-derive.v1","operation":"`+check.operation+`","input":`+check.input+`}`))
-		if err != nil {
-			t.Fatal(check.operation, err)
-		}
-		if derived := value.(deriveResponse); derived.Value != check.want || derived.Identity == nil {
-			t.Fatalf("%s = %+v", check.operation, derived)
-		}
-	}
-	for _, input := range []string{`{"hitDie":"broken"}`, `{"hitDie":"10"}`, `{"hitDie":"d0"}`} {
-		_, err := handler.HandleRPC(context.Background(), rpcRequest("derive", `{
-			"contractVersion":"rules-engine-derive.v1","operation":"hit-die-average","input":`+input+`}`))
-		assertRPCError(t, err, workerrpc.KindInvalidRequest)
-	}
-}
-
 func TestHandlerRejectsMissingInputsAndUnknownMethods(t *testing.T) {
 	t.Parallel()
 	data := engineProvider{ruleset: engineRuleset(t)}
 	handler, _ := New(&data)
 
-	_, err := handler.HandleRPC(context.Background(), rpcRequest("derive", `{
-		"contractVersion":"rules-engine-derive.v1","operation":"ability-modifier","input":{}
-	}`))
+	_, err := handler.HandleRPC(context.Background(), rpcRequest("evaluate-character", `{"contractVersion":"rules-character.v2","inputs":{}}`))
 	assertRPCError(t, err, workerrpc.KindInvalidRequest)
+	_, err = handler.HandleRPC(context.Background(), rpcRequest("character-play", `{"contractVersion":"rules-character.v3","inputs":`+blankInputs(t)+`,"change":{"operation":"rest","rest":"week"}}`))
+	var failure *workerrpc.RPCError
+	if !errors.As(err, &failure) || failure.Message != "Choose a short or long rest." {
+		t.Fatalf("malformed play command = %v", err)
+	}
+	_, err = handler.HandleRPC(context.Background(), rpcRequest("derive", `{}`))
+	assertRPCError(t, err, workerrpc.KindNotFound)
 	_, err = handler.HandleRPC(context.Background(), rpcRequest("unknown", `{}`))
 	assertRPCError(t, err, workerrpc.KindNotFound)
 	if data.rulesetCalls != 0 {
 		t.Fatalf("invalid local requests called rules data %d times", data.rulesetCalls)
 	}
+}
+
+func blankInputs(t *testing.T) string {
+	t.Helper()
+	body, err := json.Marshal(character.Blank())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(body)
 }
 
 type engineRecords []rules.Object

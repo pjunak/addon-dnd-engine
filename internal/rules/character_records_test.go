@@ -50,10 +50,10 @@ func TestHighLevelGuidanceUsesOneFeatureCatalog(t *testing.T) {
 	if counted.featureReads != 1 {
 		t.Fatalf("feature scans=%d", counted.featureReads)
 	}
-	if result.Ready || !truth(result.Guidance["canSave"]) {
+	if result.Ready || !truth(view(result.Guidance)["canSave"]) {
 		t.Fatalf("incomplete build changed legality: %+v", result.Issues)
 	}
-	options := objects(object(object(result.Guidance["choices"])["asi:fighter:4"])["featOptions"])
+	options := objects(object(object(view(result.Guidance)["choices"])["asi:fighter:4"])["featOptions"])
 	if len(options) != 60 {
 		t.Fatalf("eligible options=%d, want 60", len(options))
 	}
@@ -76,9 +76,9 @@ func TestCharacterEvaluationCacheIsDetachedAndRefreshesSources(t *testing.T) {
 		if evidence.PackageID != "synthetic" || evidence.PackageGeneration != "generation-one" || evidence.ContentRevision != "revision-one" {
 			t.Fatal("lost source provenance", evidence)
 		}
-		evidence.Facts["name"] = "caller mutation"
+		evidence.Facts[2] = 'X'
 	}
-	object(first.Sheet["derived"])["maxHp"] = 999
+	first.Sheet.Derived.MaxHP = 999
 	first.Inputs.Build.BaseScores["STR"] = 1
 	if string(mustJSON(EvaluateCharacter(input, counted, profile))) != string(original) {
 		t.Fatal("caller mutations escaped into the next evaluation")
@@ -88,11 +88,11 @@ func TestCharacterEvaluationCacheIsDetachedAndRefreshesSources(t *testing.T) {
 	class["hitDie"] = "d6"
 	records.byKind["class"]["fighter"] = mustJSON(class)
 	changed := EvaluateCharacter(input, counted, profile)
-	if integer(object(changed.Sheet["derived"])["maxHp"], 0) != 7 {
-		t.Fatal("source change was hidden by cached records", changed.Sheet["derived"])
+	if integer(object(view(changed.Sheet)["derived"])["maxHp"], 0) != 7 {
+		t.Fatal("source change was hidden by cached records", view(changed.Sheet)["derived"])
 	}
 	input.Build.Species = "Dwarf"
-	if truth(EvaluateCharacter(input, counted, profile).Guidance["canSave"]) {
+	if truth(view(EvaluateCharacter(input, counted, profile).Guidance)["canSave"]) {
 		t.Fatal("display name used as a durable source identity")
 	}
 }
@@ -131,7 +131,7 @@ func TestLearnedSpellsRetainEvidenceWithoutMultiplyingStatSources(t *testing.T) 
 	for _, entry := range result.Evidence {
 		if entry.Reference.Kind == "spell" {
 			retained[entry.Reference.ID] = true
-			if entry.Summary != "Retained spell summary" || integer(entry.Facts["level"], 0) != 1 || len(entry.Hash) != 64 || entry.PackageGeneration != "generation-one" {
+			if entry.Summary != "Retained spell summary" || integer(factsOf(entry)["level"], 0) != 1 || len(entry.Hash) != 64 || entry.PackageGeneration != "generation-one" {
 				t.Fatal("spell facts or frozen provenance lost", entry)
 			}
 		}
@@ -149,7 +149,7 @@ func TestCharacterRecordCopiesKeepNestedStatePrivate(t *testing.T) {
 	cached := newCharacterRecordSnapshot(source)
 	// Shared records are read-only; a rule that changes one copies it first.
 	first := copyRecordObject(recordByID(cached, "feat", "nested"))
-	values(objects(object(first["grants"])["choices"])[0]["from"])[0] = "changed"
+	values(objects(object(view(first)["grants"])["choices"])[0]["from"])[0] = "changed"
 	second := recordByID(cached, "feat", "nested")
 	if stringsOf(objects(object(second["grants"])["choices"])[0]["from"])[0] != "one" {
 		t.Fatal("nested cached source mutated")

@@ -34,7 +34,7 @@ func TestBuilderResultsDoNotExposeBorrowedRecordsOrCallerDecisions(t *testing.T)
 		name string
 		run  func(Records) Object
 	}{
-		{"plan", func(source Records) Object { return BuilderPlan(decisions, source, profile) }},
+		{"plan", func(source Records) Object { return view(BuilderPlan(decisions, source, profile)) }},
 		{"normalize", func(source Records) Object { return NormalizeBuilderDecisions(decisions, source, profile) }},
 		{"choose", func(source Records) Object {
 			return ApplyBuilderChoice(decisions, Object{"choiceId": "asi:explorer:4:feat", "value": "training-01"}, source, profile)
@@ -56,7 +56,7 @@ func TestBuilderResultsDoNotExposeBorrowedRecordsOrCallerDecisions(t *testing.T)
 			}
 		})
 	}
-	plan := BuilderPlan(decisions, cached, profile)
+	plan := view(BuilderPlan(decisions, cached, profile))
 	for _, id := range []string{"path", "branch", "subclass-choice", "feature-choice"} {
 		if findChoice(objects(plan["classChoices"]), id) == nil {
 			t.Fatal("fixture did not exercise", id)

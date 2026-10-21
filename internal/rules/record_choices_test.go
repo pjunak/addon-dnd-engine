@@ -39,7 +39,7 @@ func recordChoiceFixture(t *testing.T) (character.Inputs, memoryRecords, Ruleset
 
 func choiceOptionIDs(result character.Result, id string) []string {
 	ids := []string{}
-	for _, option := range objects(object(object(result.Guidance["choices"])[id])["options"]) {
+	for _, option := range objects(object(object(view(result.Guidance)["choices"])[id])["options"]) {
 		ids = append(ids, text(option["id"]))
 	}
 	return ids
@@ -72,7 +72,7 @@ func TestSelectionsShowChosenOptionsWithoutFeatures(t *testing.T) {
 		t.Fatal(result.Issues)
 	}
 	shown := map[string]Object{}
-	for _, row := range objects(result.Sheet["selections"]) {
+	for _, row := range objects(view(result.Sheet)["selections"]) {
 		shown[text(row["id"])] = objects(row["values"])[0]
 	}
 	if text(shown["forms"]["kind"]) != "monster" || text(shown["forms"]["label"]) != "Wolf" || text(shown["order"]["label"]) != "Warden" || shown["order"]["kind"] != nil {
@@ -98,7 +98,7 @@ func TestSubclassFeaturesOverrideAClassChoicesLimits(t *testing.T) {
 	}
 	input.Build.Subclasses = map[string]string{"fighter": "moon"}
 	result = EvaluateCharacter(input, records, profile)
-	if forms := choiceOptionIDs(result, "forms"); !reflect.DeepEqual(forms, []string{"bear", "wolf"}) || integer(object(object(result.Guidance["choices"])["forms"])["required"], 0) != 2 {
+	if forms := choiceOptionIDs(result, "forms"); !reflect.DeepEqual(forms, []string{"bear", "wolf"}) || integer(object(object(view(result.Guidance)["choices"])["forms"])["required"], 0) != 2 {
 		t.Fatal("the subclass override did not replace the level steps", forms)
 	}
 }

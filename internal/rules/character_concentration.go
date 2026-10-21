@@ -16,53 +16,30 @@ func characterConcentration(input character.Inputs, records Records, profile Rul
 	}
 	spell := recordByID(records, "spell", saved.Ref)
 	if spell == nil {
-		addCharacterIssue(result, "concentration-spell", "concentration", "The spell being concentrated on is unavailable in the selected rules data.", "warning", nil)
+		addCharacterIssue(result, "concentration-spell", "concentration", "The spell being concentrated on is unavailable in the selected rules data.", character.SeverityWarning, nil)
 	}
-	name := text(spell["name"])
-	if name == "" {
-		name = saved.Ref
-	}
-	row := Object{"ref": saved.Ref, "name": name}
+	row := character.SheetConcentration{Ref: saved.Ref, Name: firstText(spell["name"], saved.Ref), SaveDC: max(0, saved.SaveDC)}
 	terms := []character.Term{}
 	if policy := profile.Constants.Concentration; policy != nil {
-		save := object(object(result.Sheet["saves"])[policy.SaveAbility])
-		bonus := integer(result.Sheet["concentrationSaveBonus"], 0)
-		row["saveAbility"] = policy.SaveAbility
-		row["saveBonus"] = integer(save["total"], 0) + bonus
-		terms = append(terms, character.Term{Label: policy.SaveAbility + " saving throw", Value: integer(save["total"], 0)})
+		save, bonus := 0, 0
+		if sheet := result.Sheet.Calculation; sheet != nil {
+			save, bonus = sheet.Saves[policy.SaveAbility].Total, sheet.ConcentrationSaveBonus
+		}
+		total := save + bonus
+		row.SaveAbility, row.SaveBonus = policy.SaveAbility, &total
+		terms = append(terms, character.Term{Label: policy.SaveAbility + " saving throw", Value: save})
 		if bonus != 0 {
 			terms = append(terms, character.Term{Label: "Concentration bonus", Value: bonus})
 		}
 	}
-	if saved.SaveDC > 0 {
-		row["saveDC"] = saved.SaveDC
-	}
-	for _, condition := range objects(result.Sheet["conditions"]) {
-		if truth(condition["endsConcentration"]) {
-			row["endedBy"] = text(condition["name"])
+	for _, condition := range result.Sheet.Conditions {
+		if condition.EndsConcentration {
+			row.EndedBy = condition.Name
 			break
 		}
 	}
-	result.Sheet["concentration"] = row
+	result.Sheet.Concentration = &row
 	result.Explanations["concentration"] = character.Explanation{Label: "Concentration", Formula: "Authored play state. Casting a Concentration spell replaces it; damage records the save DC; keeping or ending it is an explicit command.", Value: row, Terms: terms, Sources: []character.Reference{}}
-}
-
-// castConcentration is the spell a successful cast command starts
-// concentrating on, or "" when the spell does not need Concentration.
-func castConcentration(change Object, sheet Object, records Records) string {
-	ref := text(change["ref"])
-	if text(change["operation"]) == "cast-granted-spell" {
-		ref = ""
-		for _, grant := range objects(object(sheet["spellcasting"])["granted"]) {
-			if spellGrantKey(grant) == text(change["key"]) {
-				ref = text(grant["ref"])
-			}
-		}
-	}
-	if !contains([]string{"cast-spell", "cast-granted-spell", "cast-ritual"}, text(change["operation"])) || !truth(recordByID(records, "spell", ref)["concentration"]) {
-		return ""
-	}
-	return ref
 }
 
 // concentrationAfterDamage records the save DC for damage taken while
@@ -76,18 +53,11 @@ func concentrationAfterDamage(input *character.Inputs, damage int, profile Rules
 
 // applyConcentrationCommand keeps or ends concentration. Both work on a
 // character with blocking issues, so an invalid saved value can be ended.
-func applyConcentrationCommand(input character.Inputs, change Object, records Records, profile Ruleset) (character.Result, error) {
-	if len(change) != 1 {
-		return EvaluateCharacter(input, records, profile), fmt.Errorf("The play change has invalid fields.")
-	}
+func applyConcentrationCommand(input character.Inputs, records Records, profile Ruleset, change func(*character.Inputs)) (character.Result, error) {
 	input = cloneCharacter(input)
 	if input.Play.Concentration == nil {
 		return EvaluateCharacter(input, records, profile), fmt.Errorf("The character is not concentrating on a spell.")
 	}
-	if text(change["operation"]) == "end-concentration" {
-		input.Play.Concentration = nil
-	} else {
-		input.Play.Concentration.SaveDC = 0
-	}
+	change(&input)
 	return EvaluateCharacter(input, records, profile), nil
 }

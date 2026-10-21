@@ -3,10 +3,12 @@ package rules
 import (
 	"sort"
 	"strings"
+
+	"github.com/pjunak/addon-dnd-engine/character"
 )
 
-func hydrateFeatures(sheet Object, classes []resolvedClass, records Records, selections Object) {
-	features := make([]any, 0)
+func hydrateFeatures(sheet *character.Calculation, classes []resolvedClass, records Records, selections Object) {
+	features := make([]character.SheetFeature, 0)
 	allRecords := recordCatalog(records, "feature")
 	// Generic slots such as Ability Score Improvement are one shared record that
 	// many class tables name, so a label without a class record falls back to it.
@@ -48,7 +50,7 @@ func hydrateFeatures(sheet Object, classes []resolvedClass, records Records, sel
 			if level > current.Level {
 				continue
 			}
-			source := Object{"type": "class", "id": current.ID, "level": level}
+			source := character.Source{Type: character.SourceClass, ID: current.ID, Level: level}
 			available := recordsAt[level]
 			taken := make(map[string]struct{})
 			for _, label := range stringsOf(rowsAt[level]["features"]) {
@@ -67,9 +69,8 @@ func hydrateFeatures(sheet Object, classes []resolvedClass, records Records, sel
 					if match != nil {
 						taken[text(match["id"])] = struct{}{}
 					}
-					features = append(features, Object{
-						"id": text(subclass["id"]), "name": text(subclass["name"]),
-						"kind": "subclass", "source": source,
+					features = append(features, character.SheetFeature{
+						ID: text(subclass["id"]), Name: text(subclass["name"]), Kind: "subclass", Source: source,
 					})
 					continue
 				}
@@ -78,44 +79,38 @@ func hydrateFeatures(sheet Object, classes []resolvedClass, records Records, sel
 				}
 				if match != nil {
 					taken[text(match["id"])] = struct{}{}
-					features = append(features, Object{
-						"id": text(match["id"]), "name": text(match["name"]), "source": source,
-					})
+					features = append(features, character.SheetFeature{ID: text(match["id"]), Name: text(match["name"]), Source: source})
 				} else if generic := shared[normalizedName(label)]; generic != nil {
-					features = append(features, Object{
-						"id": text(generic["id"]), "name": text(generic["name"]), "source": source,
-					})
+					features = append(features, character.SheetFeature{ID: text(generic["id"]), Name: text(generic["name"]), Source: source})
 				} else if _, drifted := ownedNames[normalizedName(label)]; !drifted {
-					features = append(features, Object{"id": label, "source": source})
+					features = append(features, character.SheetFeature{ID: label, Source: source})
 				}
 			}
 			for _, feature := range available {
 				if _, used := taken[text(feature["id"])]; used {
 					continue
 				}
-				features = append(features, Object{
-					"id": text(feature["id"]), "name": text(feature["name"]), "source": source,
-				})
+				features = append(features, character.SheetFeature{ID: text(feature["id"]), Name: text(feature["name"]), Source: source})
 			}
 		}
 		features = append(features, subclassFeatures(current, records, allRecords)...)
 		features = append(features, optionFeatureRows(current, records, selections)...)
 	}
-	sheet["features"] = features
+	sheet.Features = features
 }
 
 // Chosen options are acquired features of the class (or subclass) that
 // offers them, listed at the level their record names.
-func optionFeatureRows(current resolvedClass, records Records, selections Object) []any {
-	rows := []any{}
+func optionFeatureRows(current resolvedClass, records Records, selections Object) []character.SheetFeature {
+	rows := []character.SheetFeature{}
 	for _, option := range chosenOptions(current.ID, current.Level, current.Subclass, selections, records) {
-		source := Object{"type": "class", "id": current.ID, "level": min(current.Level, max(1, integer(option.feature["level"], 1)))}
+		source := character.Source{Type: character.SourceClass, ID: current.ID, Level: min(current.Level, max(1, integer(option.feature["level"], 1)))}
 		if subclassID := text(option.feature["subclassId"]); subclassID != "" {
-			source["type"], source["id"] = "subclass", subclassID
+			source.Type, source.ID = character.SourceSubclass, subclassID
 		}
-		row := Object{"id": text(option.feature["id"]), "name": text(option.feature["name"]), "source": source, "category": text(option.feature["category"])}
+		row := character.SheetFeature{ID: text(option.feature["id"]), Name: text(option.feature["name"]), Source: source, Category: text(option.feature["category"])}
 		if option.count > 1 {
-			row["count"] = option.count
+			row.Count = option.count
 		}
 		rows = append(rows, row)
 	}
@@ -131,7 +126,7 @@ func isSubclassSlotLabel(current resolvedClass, label string, level int) bool {
 
 // Inline subclass tables use local IDs. Resolve them within their owning
 // subclass before exposing feature identities to prerequisites and evidence.
-func subclassFeatures(current resolvedClass, records Records, allRecords []Object) []any {
+func subclassFeatures(current resolvedClass, records Records, allRecords []Object) []character.SheetFeature {
 	subclass := recordByID(records, "subclass", current.Subclass)
 	if subclass == nil {
 		return nil
@@ -143,7 +138,7 @@ func subclassFeatures(current resolvedClass, records Records, allRecords []Objec
 			owned = append(owned, feature)
 		}
 	}
-	result := []any{}
+	result := []character.SheetFeature{}
 	seen := map[string]bool{}
 	appendFeature := func(feature Object) {
 		id, level := text(feature["id"]), integer(feature["level"], 0)
@@ -151,9 +146,9 @@ func subclassFeatures(current resolvedClass, records Records, allRecords []Objec
 			return
 		}
 		seen[id] = true
-		result = append(result, Object{
-			"id": id, "name": text(feature["name"]),
-			"source": Object{"type": "subclass", "id": current.Subclass, "level": level},
+		result = append(result, character.SheetFeature{
+			ID: id, Name: text(feature["name"]),
+			Source: character.Source{Type: character.SourceSubclass, ID: current.Subclass, Level: level},
 		})
 	}
 	for _, inline := range objects(subclass["features"]) {
@@ -173,12 +168,12 @@ func subclassFeatures(current resolvedClass, records Records, allRecords []Objec
 	return result
 }
 
-func acquiredFeatRows(feats, acquisitions []Object) []any {
+func acquiredFeatRows(feats, acquisitions []Object) []character.SheetFeat {
 	counts := map[string]int{}
 	for _, acquisition := range acquisitions {
 		counts[text(acquisition["id"])]++
 	}
-	result := []any{}
+	result := []character.SheetFeat{}
 	seen := map[string]bool{}
 	for _, feat := range feats {
 		id := text(feat["id"])
@@ -186,7 +181,7 @@ func acquiredFeatRows(feats, acquisitions []Object) []any {
 			continue
 		}
 		seen[id] = true
-		result = append(result, Object{"id": id, "name": firstText(feat["name"], id), "count": max(1, counts[id])})
+		result = append(result, character.SheetFeat{ID: id, Name: firstText(feat["name"], id), Count: max(1, counts[id])})
 	}
 	return result
 }

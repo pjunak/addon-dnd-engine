@@ -27,7 +27,7 @@ func validateCharacterSubclasses(input character.Inputs, records Records, result
 		subclass := recordView(records, "subclass", subclassID)
 		level := classSubclassLevel(class)
 		if class == nil || subclass == nil || text(subclass["classId"]) != classID || level < 1 || levels[classID] < level {
-			addCharacterIssue(result, "subclass-level:"+classID, "levels", "This subclass is not available at the recorded class level.", "blocker", &character.Reference{Kind: "subclass", ID: subclassID})
+			addCharacterIssue(result, "subclass-level:"+classID, "levels", "This subclass is not available at the recorded class level.", character.SeverityBlocker, &character.Reference{Kind: "subclass", ID: subclassID})
 		}
 	}
 }
@@ -35,7 +35,7 @@ func validateCharacterSubclasses(input character.Inputs, records Records, result
 // annotateSpellbookCapacity publishes how many spells each spellbook may hold:
 // the spells its class levels grant plus copied spells recorded as paid
 // acquisitions. Consumers and validation use this one figure.
-func annotateSpellbookCapacity(input character.Inputs, sheet Object) {
+func annotateSpellbookCapacity(input character.Inputs, sheet *character.Calculation) {
 	copied := map[string]map[string]bool{}
 	for _, acquisition := range input.Build.Spells.Acquisitions {
 		if copied[acquisition.ClassID] == nil {
@@ -43,17 +43,17 @@ func annotateSpellbookCapacity(input character.Inputs, sheet Object) {
 		}
 		copied[acquisition.ClassID][acquisition.SpellID] = true
 	}
-	for _, caster := range objects(object(sheet["spellcasting"])["perClass"]) {
-		classID := text(caster["classId"])
-		if text(caster["prepares"]) != "spellbook" {
+	for index := range sheet.Spellcasting.PerClass {
+		caster := &sheet.Spellcasting.PerClass[index]
+		if caster.Prepares != "spellbook" {
 			continue
 		}
-		capacity := integer(caster["spellbookKnown"], 0)
-		for _, id := range input.Build.Spells.Spellbook[classID] {
-			if copied[classID][id] {
+		capacity := caster.SpellbookKnown
+		for _, id := range input.Build.Spells.Spellbook[caster.ClassID] {
+			if copied[caster.ClassID][id] {
 				capacity++
 			}
 		}
-		caster["spellbookCapacity"] = capacity
+		caster.SpellbookCapacity = capacity
 	}
 }

@@ -44,38 +44,44 @@ func featRepetitionAllowed(record Object, count int) bool {
 // Resolve acquisition order from level prefixes, including nested grants and
 // multiclass advancements. Same-level owners use stable IDs, never input order.
 // A later invalid pick must not reserve a value or invalidate its earlier owner.
-func characterConditionalFeatOptions(input character.Inputs, plan Object, records Records, profile Ruleset) map[string][]any {
+func characterConditionalFeatOptions(input character.Inputs, plan character.Plan, records Records, profile Ruleset) map[string][]character.Option {
 	pending := map[string]bool{}
-	for _, choice := range objects(plan["creationChoices"]) {
-		if truth(choice["distinctAcrossAcquisitions"]) {
-			pending[text(choice["id"])] = true
+	for _, choice := range plan.CreationChoices {
+		if choice.DistinctAcrossAcquisitions {
+			pending[choice.ID] = true
 		}
 	}
-	result, claimed := map[string][]any{}, map[string]map[string]bool{}
+	result, claimed := map[string][]character.Option{}, map[string]map[string]bool{}
 	for index := 0; index < max(1, len(input.Build.Levels)) && len(pending) > 0; index++ {
 		prefix := cloneCharacter(input)
 		prefix.Build.Levels = prefix.Build.Levels[:min(index+1, len(prefix.Build.Levels))]
 		detached := character.Result{}
 		decisions := characterDecisions(prefix, records, profile, &detached)
-		choices := objects(BuilderPlan(decisions, records, profile)["creationChoices"])
-		sort.Slice(choices, func(i, j int) bool {
-			return text(object(choices[i]["acquisition"])["id"]) < text(object(choices[j]["acquisition"])["id"])
-		})
+		choices := BuilderPlan(decisions, records, profile).CreationChoices
+		acquisition := func(choice character.PlanChoice) string {
+			if choice.Acquisition == nil {
+				return ""
+			}
+			return choice.Acquisition.ID
+		}
+		sort.Slice(choices, func(i, j int) bool { return acquisition(choices[i]) < acquisition(choices[j]) })
 		for _, choice := range choices {
-			id := text(choice["id"])
+			id := choice.ID
 			if !pending[id] {
 				continue
 			}
-			featID := text(object(choice["source"])["id"])
+			featID := ""
+			if choice.Source != nil {
+				featID = choice.Source.ID
+			}
 			if claimed[featID] == nil {
 				claimed[featID] = map[string]bool{}
 			}
-			options, eligible := []any{}, map[string]bool{}
-			for _, option := range objects(builderChoiceOptions(choice, nil, records)) {
-				value := text(option["id"])
-				if !claimed[featID][value] {
+			options, eligible := []character.Option{}, map[string]bool{}
+			for _, option := range builderChoiceOptions(choice, nil, records) {
+				if !claimed[featID][option.ID] {
 					options = append(options, option)
-					eligible[value] = true
+					eligible[option.ID] = true
 				}
 			}
 			result[id] = options

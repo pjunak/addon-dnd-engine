@@ -17,14 +17,14 @@ func TestInspirationIsDetachedAuthoredState(t *testing.T) {
 			}
 			before, _ := json.Marshal(input)
 			result := EvaluateCharacter(input, records, profile)
-			if !result.Ready || result.Sheet["inspiration"] != (name == "available") || object(result.Guidance["authoredPlay"])["inspiration"] != true || result.Explanations["inspiration"].Value != result.Sheet["inspiration"] {
+			if !result.Ready || view(result.Sheet)["inspiration"] != (name == "available") || object(view(result.Guidance)["authoredPlay"])["inspiration"] != true || result.Explanations["inspiration"].Value != view(result.Sheet)["inspiration"] {
 				t.Fatalf("missing authored state or guidance: %+v", result)
 			}
 			if !reflect.DeepEqual(result.Inputs, input) {
 				t.Fatal("evaluation changed authored input")
 			}
 			for _, change := range []Object{{"operation": "damage", "amount": float64(1)}, {"operation": "rest", "rest": "short"}, {"operation": "rest", "rest": "long"}} {
-				played, err := ApplyCharacterPlay(input, change, records, profile)
+				played, err := applyPlay(input, change, records, profile)
 				if err != nil || !reflect.DeepEqual(played.Inputs.Play.Inspiration, input.Play.Inspiration) {
 					t.Fatalf("play changed inspiration: %v %v", change, err)
 				}
@@ -43,7 +43,7 @@ func TestInspirationIsDetachedAuthoredState(t *testing.T) {
 	input.Play.Inspiration = &available
 	_, records, profile := characterFixture(t)
 	result := EvaluateCharacter(input, records, profile)
-	if result.Ready || result.Sheet["status"] != "needs-choices" || result.Sheet["inspiration"] != true || object(result.Guidance["authoredPlay"])["inspiration"] != true {
+	if result.Ready || view(result.Sheet)["status"] != "needs-choices" || view(result.Sheet)["inspiration"] != true || object(view(result.Guidance)["authoredPlay"])["inspiration"] != true {
 		t.Fatal("incomplete characters lost authored Inspiration")
 	}
 }

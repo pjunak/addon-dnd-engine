@@ -1,8 +1,10 @@
 package rules
 
-import "strings"
+import (
+	"strings"
 
-var advantageRolls = []string{"save", "check", "attack", "initiative", "concentration", "deathSave"}
+	"github.com/pjunak/addon-dnd-engine/character"
+)
 
 // hydrateAdvantages lists the rolls passive grants.advantages and active
 // "advantage" modifiers give Advantage on, plus Disadvantage on Stealth from
@@ -11,54 +13,52 @@ var advantageRolls = []string{"save", "check", "attack", "initiative", "concentr
 // entry with a when text applies only in that situation, so it is listed
 // without marking rows. Conditions add their own entries later. This is sheet
 // guidance; rolls are not resolved.
-func hydrateAdvantages(sheet Object, sources []grantSource, modifiers []Object, armor armorState) {
-	entries := []any{}
-	add := func(advantage Object, name string, source Object) {
+func hydrateAdvantages(sheet *character.Calculation, sources []grantSource, modifiers []activeModifier, armor armorState) {
+	entries := []character.RollEntry{}
+	add := func(advantage Object, name string, source character.Source) {
 		if entry := rollEntry(advantage, name, source); entry != nil && armorRequirementMet(advantage["requires"], armor) {
-			entries = append(entries, entry)
+			entries = append(entries, *entry)
 		}
 	}
 	for _, source := range sources {
 		for _, advantage := range objects(source.Grants["advantages"]) {
-			add(advantage, firstText(source.Record["name"], source.Source["id"]), source.Source)
+			add(advantage, firstText(source.Record["name"], source.Source.ID), source.Source)
 		}
 	}
 	for _, modifier := range modifiers {
-		if text(modifier["target"]) == "advantage" {
-			add(modifier, text(modifier["sourceName"]), object(modifier["source"]))
+		if modifier.target() == "advantage" {
+			add(modifier.fields, modifier.name, modifier.source)
 		}
 	}
-	if restrictions := object(sheet["armorRestrictions"]); truth(restrictions["stealthDisadvantage"]) {
-		entries = append(entries, Object{
-			"on": "check", "mode": "disadvantage", "skills": []any{"stealth"},
-			"name":   firstText(restrictions["armorName"], restrictions["armorId"]),
-			"source": Object{"type": "armor", "id": text(restrictions["armorId"])},
+	if restrictions := sheet.ArmorRestrictions; restrictions != nil && restrictions.StealthDisadvantage {
+		entries = append(entries, character.RollEntry{
+			On: character.RollCheck, Mode: character.RollDisadvantage, Skills: []string{"stealth"},
+			Name:   firstText(restrictions.ArmorName, restrictions.ArmorID),
+			Source: character.Source{Type: character.SourceArmor, ID: restrictions.ArmorID},
 		})
 	}
 	if len(entries) > 0 {
-		sheet["advantages"] = entries
+		sheet.Advantages = entries
 	}
 	applyRollMarks(sheet)
 }
 
 // rollEntry validates one declared roll effect; an unknown roll or mode
 // declares nothing rather than guessing.
-func rollEntry(advantage Object, name string, source Object) Object {
-	on, mode := text(advantage["on"]), text(advantage["mode"])
-	if !contains(advantageRolls, on) || (mode != "" && mode != "advantage" && mode != "disadvantage") {
+func rollEntry(advantage Object, name string, source character.Source) *character.RollEntry {
+	on, mode := character.RollKind(text(advantage["on"])), character.RollMode(text(advantage["mode"]))
+	if !on.Valid() || mode != "" && !mode.Valid() {
 		return nil
 	}
-	entry := Object{"on": on, "name": name, "source": source}
-	if mode == "disadvantage" {
-		entry["mode"] = mode
+	entry := &character.RollEntry{On: on, Name: name, Source: source, When: text(advantage["when"])}
+	if mode == character.RollDisadvantage {
+		entry.Mode = mode
 	}
-	for _, key := range []string{"abilities", "skills"} {
-		if list := stringsOf(advantage[key]); len(list) > 0 {
-			entry[key] = anyStrings(list)
-		}
+	if list := stringsOf(advantage["abilities"]); len(list) > 0 {
+		entry.Abilities = list
 	}
-	if when := text(advantage["when"]); when != "" {
-		entry["when"] = when
+	if list := stringsOf(advantage["skills"]); len(list) > 0 {
+		entry.Skills = list
 	}
 	return entry
 }
@@ -69,87 +69,97 @@ func rollEntry(advantage Object, name string, source Object) Object {
 // checkAdvantage or checkDisadvantage on ability rows, and
 // <roll>Advantage or <roll>Disadvantage for attack, initiative, concentration
 // and death save rolls. Situational entries mark nothing.
-func applyRollMarks(sheet Object) {
+func applyRollMarks(sheet *character.Calculation) {
 	type marks struct{ advantage, disadvantage bool }
 	found := map[string]*marks{}
-	mark := func(key, mode string) {
+	mark := func(key string, mode character.RollMode) {
 		if found[key] == nil {
 			found[key] = &marks{}
 		}
-		if mode == "disadvantage" {
+		if mode == character.RollDisadvantage {
 			found[key].disadvantage = true
 		} else {
 			found[key].advantage = true
 		}
 	}
-	for _, entry := range objects(sheet["advantages"]) {
-		if text(entry["when"]) != "" {
+	for _, entry := range sheet.Advantages {
+		if entry.When != "" {
 			continue
 		}
-		on, mode := text(entry["on"]), text(entry["mode"])
-		abilities, skills := stringsOf(entry["abilities"]), stringsOf(entry["skills"])
-		switch on {
-		case "save":
+		switch entry.On {
+		case character.RollSave:
+			abilities := entry.Abilities
 			if len(abilities) == 0 {
 				abilities = Abilities[:]
 			}
 			for _, ability := range abilities {
-				mark("save:"+ability, mode)
+				mark("save:"+ability, entry.Mode)
 			}
-		case "check":
-			for id, raw := range object(sheet["skills"]) {
-				if contains(skills, id) || contains(abilities, text(object(raw)["ability"])) || len(skills)+len(abilities) == 0 {
-					mark("skill:"+id, mode)
+		case character.RollCheck:
+			for id, row := range sheet.Skills {
+				if contains(entry.Skills, id) || contains(entry.Abilities, row.Ability) || len(entry.Skills)+len(entry.Abilities) == 0 {
+					mark("skill:"+id, entry.Mode)
 				}
 			}
-			for _, ability := range abilities {
-				mark("ability:"+ability, mode)
+			for _, ability := range entry.Abilities {
+				mark("ability:"+ability, entry.Mode)
 			}
-		default:
-			mark(on, mode)
+		case character.RollAttack, character.RollInitiative, character.RollConcentration, character.RollDeathSave:
+			mark(string(entry.On), entry.Mode)
 		}
 	}
 	// Clear earlier marks so a later pass (conditions) can recompute the net result.
-	for _, group := range []string{"saves", "skills"} {
-		for _, raw := range object(sheet[group]) {
-			delete(object(raw), "advantage")
-			delete(object(raw), "disadvantage")
-		}
+	for id, row := range sheet.Saves {
+		row.Advantage, row.Disadvantage = false, false
+		sheet.Saves[id] = row
 	}
-	for _, raw := range object(sheet["abilities"]) {
-		delete(object(raw), "checkAdvantage")
-		delete(object(raw), "checkDisadvantage")
+	for id, row := range sheet.Skills {
+		row.Advantage, row.Disadvantage = false, false
+		sheet.Skills[id] = row
 	}
-	for _, on := range advantageRolls[2:] {
-		delete(sheet, on+"Advantage")
-		delete(sheet, on+"Disadvantage")
+	for id, row := range sheet.Abilities {
+		row.CheckAdvantage, row.CheckDisadvantage = false, false
+		sheet.Abilities[id] = row
 	}
+	sheet.RollMarks = character.RollMarks{}
 	for key, value := range found {
 		if value.advantage == value.disadvantage {
 			continue
 		}
-		suffix := "Advantage"
-		if value.disadvantage {
-			suffix = "Disadvantage"
-		}
-		var row Object
-		field := "advantage"
-		if value.disadvantage {
-			field = "disadvantage"
-		}
+		advantage, disadvantage := !value.disadvantage, value.disadvantage
 		switch kind, id, _ := strings.Cut(key, ":"); kind {
 		case "save":
-			row = object(object(sheet["saves"])[id])
+			if row, exists := sheet.Saves[id]; exists {
+				row.Advantage, row.Disadvantage = advantage, disadvantage
+				sheet.Saves[id] = row
+			}
 		case "skill":
-			row = object(object(sheet["skills"])[id])
+			if row, exists := sheet.Skills[id]; exists {
+				row.Advantage, row.Disadvantage = advantage, disadvantage
+				sheet.Skills[id] = row
+			}
 		case "ability":
-			row, field = object(object(sheet["abilities"])[id]), "check"+suffix
+			if row, exists := sheet.Abilities[id]; exists {
+				row.CheckAdvantage, row.CheckDisadvantage = advantage, disadvantage
+				sheet.Abilities[id] = row
+			}
 		default:
-			sheet[key+suffix] = true
-			continue
+			markRoll(&sheet.RollMarks, character.RollKind(kind), advantage)
 		}
-		if row != nil {
-			row[field] = true
-		}
+	}
+}
+
+// markRoll sets the net mark of a roll outside the ability, save and skill rows.
+func markRoll(marks *character.RollMarks, roll character.RollKind, advantage bool) {
+	switch roll {
+	case character.RollAttack:
+		marks.AttackAdvantage, marks.AttackDisadvantage = advantage, !advantage
+	case character.RollInitiative:
+		marks.InitiativeAdvantage, marks.InitiativeDisadvantage = advantage, !advantage
+	case character.RollConcentration:
+		marks.ConcentrationAdvantage, marks.ConcentrationDisadvantage = advantage, !advantage
+	case character.RollDeathSave:
+		marks.DeathSaveAdvantage, marks.DeathSaveDisadvantage = advantage, !advantage
+	case character.RollSave, character.RollCheck:
 	}
 }

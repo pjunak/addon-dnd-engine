@@ -1,25 +1,28 @@
 package rules
 
+import "github.com/pjunak/addon-dnd-engine/character"
+
 // A size choice belongs to its species, so changing species cannot transfer an
 // unrelated selection. Display prose is never parsed into mechanical options.
-func speciesSizeChoice(species Object) Object {
+func speciesSizeChoice(species Object) *character.PlanChoice {
 	if species["sizeOptions"] == nil {
 		return nil
 	}
-	return Object{
-		"id": "species:" + text(species["id"]) + ":size", "kind": "size", "prompt": "Size", "count": 1,
-		"from":   anyStrings(stringsOf(species["sizeOptions"])),
-		"source": Object{"type": "species", "id": text(species["id"]), "level": 1},
+	return &character.PlanChoice{
+		ID: "species:" + text(species["id"]) + ":size", Kind: character.ChoiceSize, Prompt: "Size", Count: 1,
+		From:   nonNilStrings(species["sizeOptions"]),
+		Source: &character.Source{Type: character.SourceSpecies, ID: text(species["id"]), Level: 1},
 	}
 }
 
-func selectedSpeciesSize(decisions, species Object) any {
+// selectedSpeciesSize is the chosen or fixed size, or "" while unknown.
+func selectedSpeciesSize(decisions, species Object) string {
 	if choice := speciesSizeChoice(species); choice != nil {
-		selected := text(object(decisions["featureChoices"])[text(choice["id"])])
-		if selected != "" && contains(stringsOf(choice["from"]), selected) {
+		selected := text(object(decisions["featureChoices"])[choice.ID])
+		if selected != "" && contains(choice.From, selected) {
 			return selected
 		}
-		return nil
+		return ""
 	}
 	// A species without size options has one fixed size. A compound display
 	// string such as "Medium or Small" is not a selection and never a default.
@@ -27,5 +30,5 @@ func selectedSpeciesSize(decisions, species Object) any {
 	case "Tiny", "Small", "Medium", "Large", "Huge", "Gargantuan":
 		return size
 	}
-	return nil
+	return ""
 }

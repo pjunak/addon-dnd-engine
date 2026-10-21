@@ -46,19 +46,19 @@ func TestRepeatedSpellGrantsSpendAndRecoverIndependently(t *testing.T) {
 	if !result.Ready {
 		t.Fatal(result.Issues)
 	}
-	grants := objects(result.SpellOptions["granted"])
+	grants := objects(view(result.SpellOptions)["granted"])
 	if len(grants) != 3 {
 		t.Fatal("collapsed grants", grants)
 	}
 	keys := []string{}
 	for _, grant := range grants {
 		source := object(grant["source"])
-		owner := grantOwner(source)
+		owner := grantOwner(decodeAs[character.Source](source))
 		ability := input.Build.Spells.CastingAbilities[owner+":casting"]
 		if text(grant["castingAbility"]) != ability {
 			t.Fatal("shared casting ability", grant)
 		}
-		key := grantFreeResourceKey(grant)
+		key := grantFreeResourceKey(decodeAs[character.SpellGrant](grant))
 		keys = append(keys, key)
 		if !contains(stringsOf(grant["slots"]), key) {
 			t.Fatal("free cast missing", grant)
@@ -68,20 +68,20 @@ func TestRepeatedSpellGrantsSpendAndRecoverIndependently(t *testing.T) {
 		t.Fatal("shared resource keys", keys)
 	}
 	for _, grant := range grants {
-		key := grantFreeResourceKey(grant)
+		key := grantFreeResourceKey(decodeAs[character.SpellGrant](grant))
 		var err error
-		result, err = ApplyCharacterPlay(result.Inputs, Object{"operation": "cast-granted-spell", "key": grant["key"], "slot": key}, records, profile)
+		result, err = applyPlay(result.Inputs, Object{"operation": "cast-granted-spell", "key": grant["key"], "slot": key}, records, profile)
 		if err != nil || result.Inputs.Play.ResourceUses[key] != 1 {
 			t.Fatal("independent cast failed", err, result.Issues)
 		}
-		if _, err = ApplyCharacterPlay(result.Inputs, Object{"operation": "cast-granted-spell", "key": grant["key"], "slot": key}, records, profile); err == nil {
+		if _, err = applyPlay(result.Inputs, Object{"operation": "cast-granted-spell", "key": grant["key"], "slot": key}, records, profile); err == nil {
 			t.Fatal("exhausted cast accepted")
 		}
 	}
-	if _, err := ApplyCharacterPlay(input, Object{"operation": "cast-granted-spell", "key": grants[0]["key"], "slot": keys[1]}, records, profile); err == nil {
+	if _, err := applyPlay(input, Object{"operation": "cast-granted-spell", "key": grants[0]["key"], "slot": keys[1]}, records, profile); err == nil {
 		t.Fatal("cast consumed another owner's free use")
 	}
-	rested, err := ApplyCharacterPlay(result.Inputs, Object{"operation": "rest", "rest": "short"}, records, profile)
+	rested, err := applyPlay(result.Inputs, Object{"operation": "rest", "rest": "short"}, records, profile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,7 +90,7 @@ func TestRepeatedSpellGrantsSpendAndRecoverIndependently(t *testing.T) {
 			t.Fatal("short rest refreshed long-rest grant")
 		}
 	}
-	rested, err = ApplyCharacterPlay(rested.Inputs, Object{"operation": "rest", "rest": "long"}, records, profile)
+	rested, err = applyPlay(rested.Inputs, Object{"operation": "rest", "rest": "long"}, records, profile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +100,7 @@ func TestRepeatedSpellGrantsSpendAndRecoverIndependently(t *testing.T) {
 		}
 	}
 	// Replacing the chosen spell retains this acquisition's spent allowance.
-	owner := grantOwner(object(grants[0]["source"]))
+	owner := grantOwner(decodeAs[character.Source](object(grants[0]["source"])))
 	result.Inputs.Build.Spells.GrantChoices[owner+":spell"] = []string{"alternate"}
 	changed := EvaluateCharacter(result.Inputs, records, profile)
 	if changed.Inputs.Play.ResourceUses[keys[0]] != 1 || !changed.Ready {
@@ -122,10 +122,10 @@ func TestRepeatedSpellListAndOwnerValidation(t *testing.T) {
 	input, records, profile = repeatedSpellFixture(t)
 	input.Build.Background = "other"
 	result = EvaluateCharacter(input, records, profile)
-	if len(objects(result.SpellOptions["granted"])) != 2 || !hasChoiceIssue(result, "spell-grant:"+strings.TrimSuffix(trainingOrigin, "proficiencies")+"spell") {
+	if len(objects(view(result.SpellOptions)["granted"])) != 2 || !hasChoiceIssue(result, "spell-grant:"+strings.TrimSuffix(trainingOrigin, "proficiencies")+"spell") {
 		t.Fatal("withdrawal transferred a grant", result.Issues)
 	}
-	for _, row := range objects(result.SpellOptions["granted"]) {
+	for _, row := range objects(view(result.SpellOptions)["granted"]) {
 		if !strings.Contains(text(row["key"]), "asi%3A") {
 			t.Fatal("owner changed", row)
 		}
@@ -139,7 +139,7 @@ func TestOriginFeatPresetIsRestrictedAndFeedsSpellPackage(t *testing.T) {
 	records.byKind["background"]["artisan"] = mustJSON(record)
 	input.Build.Choices = append(input.Build.Choices[:4], input.Build.Choices[5:]...)
 	result := EvaluateCharacter(input, records, profile)
-	if !result.Ready || len(objects(result.SpellOptions["granted"])) != 3 {
+	if !result.Ready || len(objects(view(result.SpellOptions)["granted"])) != 3 {
 		t.Fatal("origin preset failed", result.Issues)
 	}
 	input.Build.Choices = append(input.Build.Choices, character.Choice{ID: strings.TrimSuffix(trainingOrigin, "proficiencies") + "list", Value: mustJSON("beta")})
@@ -151,17 +151,17 @@ func TestOriginFeatPresetIsRestrictedAndFeedsSpellPackage(t *testing.T) {
 func TestRepeatedFeatPoolsAndActivationsStayWithTheirOwner(t *testing.T) {
 	input, records, profile := repeatedSpellFixture(t)
 	result := EvaluateCharacter(input, records, profile)
-	activations := objects(result.Sheet["activations"])
+	activations := objects(view(result.Sheet)["activations"])
 	if len(activations) != 3 {
 		t.Fatal(activations)
 	}
 	for _, activation := range activations {
 		key := text(activation["key"])
-		if text(object(activation["resource"])["key"]) != key || findPlayResource(Object(result.Sheet), key) == nil {
+		if text(object(activation["resource"])["key"]) != key || findPlayResource(result.Sheet.Calculation, key) == nil {
 			t.Fatal("pool and activation ownership differ", activation)
 		}
 		var err error
-		result, err = ApplyCharacterPlay(result.Inputs, Object{"operation": "toggle-feature", "key": key, "enabled": true}, records, profile)
+		result, err = applyPlay(result.Inputs, Object{"operation": "toggle-feature", "key": key, "enabled": true}, records, profile)
 		if err != nil || result.Inputs.Play.ResourceUses[key] != 1 {
 			t.Fatal("activation did not spend its own pool", err, result.Inputs.Play.ResourceUses)
 		}
@@ -178,8 +178,8 @@ func TestClearedSpellChoiceRetainsItsSpentAllowance(t *testing.T) {
 	input.Play.ResourceUses = map[string]int{key: 1}
 	input.Build.Spells.GrantChoices[strings.TrimSuffix(trainingOrigin, "proficiencies")+"spell"] = []string{}
 	result := EvaluateCharacter(input, records, profile)
-	resource := findPlayResource(Object(result.Sheet), key)
-	if resource == nil || integer(resource["remaining"], -1) != 0 || hasChoiceIssue(result, "resource:"+key) {
+	resource := findPlayResource(result.Sheet.Calculation, key)
+	if resource == nil || integer(view(resource)["remaining"], -1) != 0 || hasChoiceIssue(result, "resource:"+key) {
 		t.Fatal("clearing a spell lost its spent allowance", result.Issues, resource)
 	}
 	input.Build.Spells.GrantChoices[strings.TrimSuffix(trainingOrigin, "proficiencies")+"spell"] = []string{"alternate"}
@@ -195,21 +195,21 @@ func TestRepeatedFeatBonusSlotsAreIndependentAndUsable(t *testing.T) {
 	records.byKind["feat"]["training"] = mustJSON(feat)
 	result := EvaluateCharacter(input, records, profile)
 	slots := []string{}
-	for _, resource := range objects(result.Sheet["resources"]) {
-		if strings.HasSuffix(text(resource["key"]), ":feat-slot-training") {
-			slots = append(slots, text(resource["key"]))
+	for _, resource := range objects(view(result.Sheet)["resources"]) {
+		if strings.HasSuffix(text(view(resource)["key"]), ":feat-slot-training") {
+			slots = append(slots, text(view(resource)["key"]))
 		}
 	}
 	if len(unique(slots)) != 3 {
 		t.Fatal("bonus slots collapsed", slots)
 	}
-	grant := objects(result.SpellOptions["granted"])[0]
+	grant := objects(view(result.SpellOptions)["granted"])[0]
 	for _, slot := range slots {
 		if !contains(stringsOf(grant["slots"]), slot) {
 			t.Fatal("scoped slot unavailable", slot)
 		}
 		var err error
-		result, err = ApplyCharacterPlay(result.Inputs, Object{"operation": "cast-granted-spell", "key": grant["key"], "slot": slot}, records, profile)
+		result, err = applyPlay(result.Inputs, Object{"operation": "cast-granted-spell", "key": grant["key"], "slot": slot}, records, profile)
 		if err != nil || result.Inputs.Play.ResourceUses[slot] != 1 {
 			t.Fatal("cannot spend scoped bonus slot", err)
 		}

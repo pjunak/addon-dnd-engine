@@ -6,14 +6,18 @@ import (
 	"github.com/pjunak/addon-dnd-engine/character"
 )
 
-func grantOwner(source Object) string {
-	return character.AcquisitionOwner(text(source["type"])+":"+text(source["id"]), text(object(source["acquisition"])["id"]))
+func grantOwner(source character.Source) string {
+	acquisition := ""
+	if source.Acquisition != nil {
+		acquisition = source.Acquisition.ID
+	}
+	return character.AcquisitionOwner(string(source.Type)+":"+source.ID, acquisition)
 }
 
 // Acquisition and item resources belong to their owner, so two acquisitions or
 // two item instances never share spent uses: "item:<instance>:<key>".
-func grantResourceKey(source Object, key string) string {
-	if object(source["acquisition"]) != nil || text(source["type"]) == "item" {
+func grantResourceKey(source character.Source, key string) string {
+	if source.Acquisition != nil || source.Type == character.SourceItem {
 		return grantOwner(source) + ":" + key
 	}
 	return key
@@ -34,39 +38,38 @@ func itemGrantOwner(key string, inventory []character.Item) string {
 
 // grantSourceReference is the record a grant source stands for. An item source
 // is keyed by its inventory instance and names its record in ref.
-func grantSourceReference(source Object) character.Reference {
-	if ref := object(source["ref"]); ref != nil {
-		return character.Reference{Kind: text(ref["kind"]), ID: text(ref["id"])}
+func grantSourceReference(source character.Source) character.Reference {
+	if source.Ref != nil {
+		return *source.Ref
 	}
-	return character.Reference{Kind: text(source["type"]), ID: text(source["id"])}
+	return character.Reference{Kind: string(source.Type), ID: source.ID}
 }
 
 // grantSourceLabel names a grant source in guidance. An item's ID is an
 // inventory instance, so it is named by the item instead.
-func grantSourceLabel(source Object) string {
-	if text(source["type"]) == "item" {
-		return firstText(source["name"], guidanceLabel(text(source["id"])))
+func grantSourceLabel(source character.Source) string {
+	if source.Type == character.SourceItem {
+		return firstText(source.Name, guidanceLabel(source.ID))
 	}
-	return guidanceLabel(text(source["id"]))
+	return guidanceLabel(source.ID)
 }
 
 // An activation's resource is a resource key, or {key, cost} when one use
 // spends more than one point.
-func grantActivationResource(source Object, raw any) any {
+func grantActivationResource(source character.Source, raw any) *character.ActivationResource {
 	if key, ok := raw.(string); ok && key != "" {
 		raw = Object{"key": key}
 	}
-	if object(raw) == nil {
+	declared := object(raw)
+	if declared == nil {
 		return nil
 	}
-	resource := cloneObjectDeep(object(raw))
-	resource["key"] = grantResourceKey(source, text(resource["key"]))
-	return resource
+	return &character.ActivationResource{Key: grantResourceKey(source, text(declared["key"])), Cost: integer(declared["cost"], 0)}
 }
 
-func grantFreeResourceKey(grant Object) string {
-	if key := text(grant["resourceKey"]); key != "" {
-		return key
+func grantFreeResourceKey(grant character.SpellGrant) string {
+	if grant.ResourceKey != "" {
+		return grant.ResourceKey
 	}
 	return "charge:" + spellGrantKey(grant)
 }

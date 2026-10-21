@@ -6,39 +6,40 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/pjunak/addon-dnd-engine/character"
 )
 
 var builderModeSuffix = regexp.MustCompile(`:(ability|feat|featability)$`)
 
-func BuilderPlan(decisions Object, records Records, ruleset Ruleset) Object {
+func BuilderPlan(decisions Object, records Records, ruleset Ruleset) character.Plan {
 	modelBase, modelClasses := builderModel(decisions)
 	classChoices := collectClassChoices(modelClasses, object(decisions["featureChoices"]), records, ruleset)
-	plan := Object{
-		"schemaVersion": 1,
-		"edition":       ruleset.Edition,
-		"baseStats":     modelBase,
-		"classes":       modelClasses,
-		"pointBuy": Object{
-			"budget": ruleset.Constants.PointBuy.Budget,
-			"min":    ruleset.Constants.PointBuy.Min,
-			"max":    ruleset.Constants.PointBuy.Max,
-			"cost":   stringIntObject(ruleset.Constants.PointBuy.Cost),
+	plan := character.Plan{
+		SchemaVersion: 1,
+		Edition:       ruleset.Edition,
+		BaseStats:     modelBase,
+		Classes:       modelClasses,
+		PointBuy: character.PointBuy{
+			Budget: ruleset.Constants.PointBuy.Budget,
+			Min:    ruleset.Constants.PointBuy.Min,
+			Max:    ruleset.Constants.PointBuy.Max,
+			Cost:   copyCounts(ruleset.Constants.PointBuy.Cost),
 		},
-		"abilityScoreRange": Object{
-			"min": 1, "max": ruleset.Constants.AbilityCapHard,
-		},
-		"classChoices":           classChoices,
-		"creationChoices":        collectCreationChoices(decisions, records, classChoices),
-		"creationAbilityChoices": collectCreationAbilityChoices(decisions, records, ruleset),
+		AbilityScoreRange:      character.Range{Min: 1, Max: ruleset.Constants.AbilityCapHard},
+		ClassChoices:           classChoices,
+		CreationChoices:        collectCreationChoices(decisions, records, classChoices),
+		CreationAbilityChoices: collectCreationAbilityChoices(decisions, records, ruleset),
 	}
-	for _, choice := range objects(plan["classChoices"]) {
-		if text(choice["kind"]) != "asiMode" {
+	for index := range plan.ClassChoices {
+		choice := &plan.ClassChoices[index]
+		if choice.Kind != character.ChoiceASIMode {
 			continue
 		}
-		feat := object(choice["feat"])
-		selected := recordView(records, "feat", text(object(decisions["featureChoices"])[text(feat["id"])]))
+		feat := choice.Feat
+		selected := recordView(records, "feat", text(object(decisions["featureChoices"])[feat.ID]))
 		if object(object(selected["grants"])["abilityScoreIncrease"]) != nil {
-			feat["ability"] = findAbilityChoice(plan, text(object(feat["ability"])["id"]), decisions, records)
+			feat.Ability = findAbilityChoice(plan, feat.Ability.ID, decisions, records)
 		}
 	}
 	return plan
@@ -52,13 +53,21 @@ func NormalizeBuilderDecisions(decisions Object, records Records, ruleset Rulese
 		manualSaves = object(copy["saveProf"])
 	}
 	copy["saveProf"] = cloneObject(manualSaves)
-	copy["classes"] = cloneArray(values(plan["classes"]))
-	copy["baseStats"] = cloneObjectDeep(object(plan["baseStats"]))
+	classes := make([]any, 0, len(plan.Classes))
+	for _, current := range plan.Classes {
+		classes = append(classes, Object{"classId": current.ClassID, "level": current.Level, "subclass": current.Subclass})
+	}
+	copy["classes"] = classes
+	baseStats := Object{}
+	for ability, score := range plan.BaseStats {
+		baseStats[ability] = score
+	}
+	copy["baseStats"] = baseStats
 	for key, value := range resolveBuilderChoices(copy, plan, records) {
 		copy[key] = value
 	}
 	acquisitions := []any{}
-	for _, acquired := range selectedFeatAcquisitions(copy, records, values(plan["classChoices"])) {
+	for _, acquired := range selectedFeatAcquisitions(copy, records, plan.ClassChoices) {
 		record := recordView(records, "feat", acquired.featID)
 		source := Object{"type": "feat", "id": acquired.featID}
 		if featChoiceOwner(acquired, record) != "feat:"+acquired.featID {
@@ -69,9 +78,9 @@ func NormalizeBuilderDecisions(decisions Object, records Records, ruleset Rulese
 	}
 	copy["featAcquisitions"] = acquisitions
 	applyFeatureAbilityBonuses(copy, records)
-	for _, choice := range objects(plan["creationChoices"]) {
-		if value := text(choice["default"]); value != "" && text(object(copy["featureChoices"])[text(choice["id"])]) == "" {
-			playMap(copy, "featureChoices")[text(choice["id"])] = value
+	for _, choice := range plan.CreationChoices {
+		if choice.Default != "" && text(object(copy["featureChoices"])[choice.ID]) == "" {
+			playMap(copy, "featureChoices")[choice.ID] = choice.Default
 		}
 	}
 	return copy
@@ -108,7 +117,7 @@ func ApplyBuilderChoice(
 
 // The caller owns this decision map. Character input decoding already creates
 // one; the public choice operation detaches its caller's map before entering.
-func applyOwnedBuilderChoice(copy, change Object, records Records, plan Object) Object {
+func applyOwnedBuilderChoice(copy, change Object, records Records, plan character.Plan) Object {
 	choiceID := text(change["choiceId"])
 	if choiceID == "" {
 		return copy
@@ -125,10 +134,11 @@ func applyOwnedBuilderChoice(copy, change Object, records Records, plan Object) 
 	}
 
 	baseID := builderModeSuffix.ReplaceAllString(choiceID, "")
-	var descriptor Object
-	for _, choice := range append(objects(plan["classChoices"]), objects(plan["creationChoices"])...) {
-		if text(choice["id"]) == baseID || text(choice["id"]) == choiceID {
-			descriptor = choice
+	var descriptor *character.PlanChoice
+	choices := append(append([]character.PlanChoice{}, plan.ClassChoices...), plan.CreationChoices...)
+	for index := range choices {
+		if choices[index].ID == baseID || choices[index].ID == choiceID {
+			descriptor = &choices[index]
 			break
 		}
 	}
@@ -136,84 +146,87 @@ func applyOwnedBuilderChoice(copy, change Object, records Records, plan Object) 
 		return copy
 	}
 	value := text(change["value"])
-	key := choiceIDForSlot(choiceID, integer(change["slot"], 0), integer(descriptor["count"], 1))
+	key := choiceIDForSlot(choiceID, integer(change["slot"], 0), max(1, descriptor.Count))
 	setChoiceValue(object(copy["featureChoices"]), key, value)
-	if text(descriptor["kind"]) != "asiMode" {
+	if descriptor.Kind != character.ChoiceASIMode {
 		return copy
 	}
-	ability := object(descriptor["ability"])
-	feat := object(descriptor["feat"])
-	featAbility := object(feat["ability"])
-	if choiceID == text(descriptor["id"]) {
+	ability, feat := descriptor.Ability, descriptor.Feat
+	if choiceID == descriptor.ID {
 		if value != "asi" {
-			removeGrant(copy, text(ability["id"]))
+			removeGrant(copy, ability.ID)
 		}
 		if value != "feat" {
-			delete(object(copy["featureChoices"]), text(feat["id"]))
-			removeGrant(copy, text(featAbility["id"]))
+			delete(object(copy["featureChoices"]), feat.ID)
+			removeGrant(copy, feat.Ability.ID)
 		}
 		return copy
 	}
-	if choiceID == text(feat["id"]) {
-		removeGrant(copy, text(featAbility["id"]))
+	if choiceID == feat.ID {
+		removeGrant(copy, feat.Ability.ID)
 		selectedFeat := recordView(records, "feat", value)
 		increase := object(object(selectedFeat["grants"])["abilityScoreIncrease"])
 		eligible := FeatASIFrom(increase)
 		if increase != nil && len(eligible) == 1 {
-			upsertGrant(copy, text(featAbility["id"]), Object{"type": "feat"},
+			upsertGrant(copy, feat.Ability.ID, Object{"type": "feat"},
 				Object{eligible[0]: max(1, integer(increase["amount"], 1))},
-				builderAbilityCap(selectedFeat, descriptor))
+				builderAbilityCap(selectedFeat, *descriptor))
 		}
 	}
 	return copy
 }
 
-func builderModel(source Object) (Object, []any) {
-	classes := cloneArray(values(source["classes"]))
-	if len(classes) == 0 {
-		classes = []any{Object{"classId": "", "level": 1, "subclass": ""}}
+func builderModel(source Object) (map[string]int, []character.PlanClass) {
+	classes := []character.PlanClass{}
+	for _, current := range objects(source["classes"]) {
+		classes = append(classes, character.PlanClass{ClassID: text(current["classId"]), Level: integer(current["level"], 0), Subclass: text(current["subclass"])})
 	}
-	return cloneObjectDeep(object(source["baseStats"])), classes
+	if len(classes) == 0 {
+		classes = []character.PlanClass{{Level: 1}}
+	}
+	base := map[string]int{}
+	for ability, score := range object(source["baseStats"]) {
+		base[ability] = integer(score, 0)
+	}
+	return base, classes
 }
 
-func collectClassChoices(classes []any, selections Object, records Records, ruleset Ruleset) []any {
-	result := make([]any, 0)
+func collectClassChoices(classes []character.PlanClass, selections Object, records Records, ruleset Ruleset) []character.PlanChoice {
+	result := make([]character.PlanChoice, 0)
 	masteryEnabled := ruleset.Capabilities.WeaponMastery != nil && *ruleset.Capabilities.WeaponMastery
 	advancement := ruleset.Builder.AbilityScoreAdvancement
-	for classIndex, rawSelected := range classes {
-		selected := object(rawSelected)
-		classID := text(selected["classId"])
+	for classIndex, selected := range classes {
+		classID := selected.ClassID
 		record := recordView(records, "class", classID)
 		if record == nil {
 			continue
 		}
-		classLevel := max(1, integer(selected["level"], 1))
+		classLevel := max(1, selected.Level)
 		proficiencies := classProficiencies(record, classIndex == 0)
+		classSource := &character.Source{Type: character.SourceClass, ID: classID, Level: 1}
 		skills := object(proficiencies["skills"])
 		if integer(skills["choose"], 0) > 0 {
-			result = append(result, Object{
-				"id": "skills:" + classID, "kind": "skills", "count": max(1, integer(skills["choose"], 1)),
-				"from": anyStrings(stringsOf(skills["from"])), "classId": classID,
-				"source": Object{"type": "class", "id": classID, "level": 1},
+			result = append(result, character.PlanChoice{
+				ID: "skills:" + classID, Kind: character.ChoiceSkills, Count: max(1, integer(skills["choose"], 1)),
+				From: nonNilStrings(skills["from"]), ClassID: classID, Source: classSource,
 			})
 		}
 		if tools := object(proficiencies["toolChoice"]); integer(tools["count"], 0) > 0 {
-			result = append(result, Object{
-				"id": "tools:" + classID, "kind": "tools", "count": integer(tools["count"], 1),
-				"from": anyStrings(stringsOf(tools["from"])), "classId": classID,
-				"source": Object{"type": "class", "id": classID, "level": 1},
+			result = append(result, character.PlanChoice{
+				ID: "tools:" + classID, Kind: character.ChoiceTools, Count: integer(tools["count"], 1),
+				From: nonNilStrings(tools["from"]), ClassID: classID, Source: classSource,
 			})
 		}
-		subclassID := text(selected["subclass"])
+		subclassID := selected.Subclass
 		subclass := recordView(records, "subclass", subclassID)
 		overrides := classChoiceOverrides(classID, classLevel, subclassID, subclass, records)
 		context := choiceContext{
 			owner: classID, classID: classID, classLevel: classLevel,
-			sourceType: "class", records: records, masteryEnabled: masteryEnabled, selections: selections, overrides: overrides,
+			sourceType: character.SourceClass, records: records, masteryEnabled: masteryEnabled, selections: selections, overrides: overrides,
 		}
 		appendRecordChoices(&result, record["grants"], context)
 		context = choiceContext{
-			owner: subclassID, classID: classID, classLevel: classLevel, sourceType: "subclass",
+			owner: subclassID, classID: classID, classLevel: classLevel, sourceType: character.SourceSubclass,
 			fallbackLevel: integer(subclass["subclassLevel"], classSubclassLevel(record)), records: records, masteryEnabled: masteryEnabled, selections: selections, overrides: overrides,
 		}
 		appendRecordChoices(&result, subclass["grants"], context)
@@ -223,14 +236,14 @@ func collectClassChoices(classes []any, selections Object, records Records, rule
 				continue
 			}
 			appendRecordChoices(&result, feature["grants"], choiceContext{
-				owner: text(feature["id"]), classID: classID, classLevel: classLevel, sourceType: "feature",
+				owner: text(feature["id"]), classID: classID, classLevel: classLevel, sourceType: character.SourceFeature,
 				fallbackLevel: integer(feature["level"], 1), records: records, masteryEnabled: masteryEnabled, selections: selections, overrides: overrides,
 			})
 		}
 		// A chosen option offers its own choices once per slot that chose it.
 		for _, option := range chosenOptions(classID, classLevel, subclassID, selections, records) {
 			appendRecordChoices(&result, option.feature["grants"], choiceContext{
-				owner: text(option.feature["id"]), classID: classID, classLevel: classLevel, sourceType: "feature",
+				owner: text(option.feature["id"]), classID: classID, classLevel: classLevel, sourceType: character.SourceFeature,
 				fallbackLevel: min(classLevel, max(1, integer(option.feature["level"], 1))), records: records,
 				masteryEnabled: masteryEnabled, selections: selections, multiplier: option.count,
 			})
@@ -253,43 +266,43 @@ func collectClassChoices(classes []any, selections Object, records Records, rule
 			id := "asi:" + classID + ":" + jsonNumber(level)
 			categories := append([]string(nil), advancement.FeatCategories...)
 			categories = append(categories, advancement.CategoriesByLevel[jsonNumber(level)]...)
-			result = append(result, Object{
-				"id": id, "kind": "asiMode", "classId": classID, "level": level,
-				"source": Object{"type": "class", "id": classID, "level": level},
-				"ability": Object{
-					"id": id + ":ability", "kind": "abilityBudget", "eligible": anyStrings(Abilities[:]),
-					"budget": advancement.Budget, "perAbilityMax": advancement.PerAbilityMax,
+			result = append(result, character.PlanChoice{
+				ID: id, Kind: character.ChoiceASIMode, ClassID: classID, Level: level,
+				Source: &character.Source{Type: character.SourceClass, ID: classID, Level: level},
+				Ability: &character.PlanChoice{
+					ID: id + ":ability", Kind: character.ChoiceAbilityBudget, Eligible: append([]string{}, Abilities[:]...),
+					Budget: advancement.Budget, PerAbilityMax: advancement.PerAbilityMax,
 				},
-				"feat": Object{
-					"id": id + ":feat", "categories": anyStrings(unique(categories)),
-					"ability":             Object{"id": id + ":featability", "kind": "abilityBudget"},
-					"categoryAbilityCaps": stringIntObject(advancement.CategoryAbilityCaps),
+				Feat: &character.FeatChoice{
+					ID: id + ":feat", Categories: unique(categories),
+					Ability:             &character.PlanChoice{ID: id + ":featability", Kind: character.ChoiceAbilityBudget},
+					CategoryAbilityCaps: copyCounts(advancement.CategoryAbilityCaps),
 				},
 			})
 		}
 	}
 	seen := make(map[string]struct{})
-	filtered := make([]any, 0, len(result))
-	for _, raw := range result {
-		id := text(object(raw)["id"])
-		if id == "" {
+	filtered := make([]character.PlanChoice, 0, len(result))
+	for _, choice := range result {
+		if choice.ID == "" {
 			continue
 		}
-		if _, duplicate := seen[id]; duplicate {
+		if _, duplicate := seen[choice.ID]; duplicate {
 			continue
 		}
-		seen[id] = struct{}{}
-		filtered = append(filtered, raw)
+		seen[choice.ID] = struct{}{}
+		filtered = append(filtered, choice)
 	}
 	return filtered
 }
 
 type choiceContext struct {
-	owner, classID, sourceType string
-	classLevel, fallbackLevel  int
-	records                    Records
-	masteryEnabled             bool
-	selections                 Object
+	owner, classID            string
+	sourceType                character.SourceType
+	classLevel, fallbackLevel int
+	records                   Records
+	masteryEnabled            bool
+	selections                Object
 	// multiplier scales the slot counts of a repeatable option's own choices.
 	multiplier int
 	// overrides replace option limits of the class's choices by choice ID.
@@ -334,8 +347,8 @@ func classChoiceOverrides(classID string, classLevel int, subclassID string, sub
 	return overrides
 }
 
-func appendRecordChoices(result *[]any, rawGrants any, context choiceContext) {
-	grants := selectedChoiceGrants(object(rawGrants), Object{"type": context.sourceType, "id": context.owner}, context.selections)
+func appendRecordChoices(result *[]character.PlanChoice, rawGrants any, context choiceContext) {
+	grants := selectedChoiceGrants(object(rawGrants), character.Source{Type: context.sourceType, ID: context.owner}, context.selections)
 	for _, choice := range objects(grants["choices"]) {
 		if text(choice["id"]) == "" {
 			continue
@@ -350,101 +363,93 @@ func appendRecordChoices(result *[]any, rawGrants any, context choiceContext) {
 		if sourceLevel > context.classLevel {
 			continue
 		}
-		from := choice["from"]
+		from := stringsOf(choice["from"])
 		repeatable := []string{}
-		if values(from) == nil && text(choice["fromCategory"]) != "" {
-			ids := make([]string, 0)
+		if from == nil && text(choice["fromCategory"]) != "" {
+			from = []string{}
 			for _, option := range recordCatalog(context.records, "feature") {
 				if text(option["category"]) == text(choice["fromCategory"]) {
-					ids = append(ids, text(option["id"]))
+					from = append(from, text(option["id"]))
 					if truth(option["repeatable"]) {
 						repeatable = append(repeatable, text(option["id"]))
 					}
 				}
 			}
-			from = anyStrings(ids)
 		}
 		if text(choice["optionKind"]) != "" {
-			from = anyStrings(recordChoiceOptions(choice, context.classLevel, context.records))
+			from = recordChoiceOptions(choice, context.classLevel, context.records)
 		}
 		kind := choiceKind(choice, from)
-		if kind == "weaponMastery" && !context.masteryEnabled {
+		if kind == character.ChoiceWeaponMastery && !context.masteryEnabled {
 			continue
 		}
-		count := choiceCountAt(choice, context.classLevel) * max(1, context.multiplier)
-		descriptor := Object{
-			"id": text(choice["id"]), "kind": kind, "count": count,
-			"classId": context.classID,
-			"source":  Object{"type": context.sourceType, "id": context.owner, "level": sourceLevel},
+		descriptor := character.PlanChoice{
+			ID: text(choice["id"]), Kind: kind, Count: choiceCountAt(choice, context.classLevel) * max(1, context.multiplier),
+			ClassID: context.classID,
+			Source:  &character.Source{Type: context.sourceType, ID: context.owner, Level: sourceLevel},
 		}
-		copyChoiceFields(descriptor, choice)
-		if from != nil {
-			descriptor["from"] = cloneValue(from)
-		}
+		copyChoiceFields(&descriptor, choice)
+		descriptor.From = from
 		if category := text(choice["fromCategory"]); category != "" {
-			descriptor["fromCategory"] = category
+			descriptor.FromCategory = category
 			if len(repeatable) > 0 {
-				descriptor["repeatableOptions"] = anyStrings(repeatable)
+				descriptor.RepeatableOptions = repeatable
 			}
 		}
 		*result = append(*result, descriptor)
 	}
 }
 
-func copyChoiceFields(descriptor, choice Object) {
-	for _, key := range []string{"from", "category", "prompt", "default", "changeOn", "levelReplacements", "optionKind"} {
-		if value, exists := choice[key]; exists {
-			descriptor[key] = cloneValue(value)
-		}
-	}
+func copyChoiceFields(descriptor *character.PlanChoice, choice Object) {
+	descriptor.From = stringsOf(choice["from"])
+	descriptor.Category = text(choice["category"])
+	descriptor.Prompt = text(choice["prompt"])
+	descriptor.Default = text(choice["default"])
+	descriptor.ChangeOn = text(choice["changeOn"])
+	descriptor.LevelReplacements = integer(choice["levelReplacements"], 0)
+	descriptor.OptionKind = text(choice["optionKind"])
 }
 
-func collectOriginChoices(source Object, records Records) []any {
-	result := make([]any, 0)
-	appendChoice := func(choice Object, owner string, recordSource Object) {
-		if text(choice["id"]) == "" {
-			return
-		}
-		descriptor := Object{
-			"id": owner + ":" + text(choice["id"]), "kind": choiceKind(choice, choice["from"]),
-			"count":  max(1, integer(choice["count"], 1)),
-			"source": recordSource,
-		}
-		copyChoiceFields(descriptor, choice)
-		result = append(result, descriptor)
-	}
+func collectOriginChoices(source Object, records Records) []character.PlanChoice {
+	result := make([]character.PlanChoice, 0)
 	for _, origin := range selectedOrigins(source, records) {
 		record, typeID := origin.record, origin.kind
-		if typeID == "species" {
+		if typeID == character.SourceSpecies {
 			if choice := speciesSizeChoice(record); choice != nil {
-				result = append(result, choice)
+				result = append(result, *choice)
 			}
 		}
+		recordSource := origin.source()
 		if choice := object(record["toolProficiencyChoice"]); choice != nil {
-			descriptor := Object{
-				"id": typeID + ":" + text(record["id"]) + ":tool", "kind": "tools",
-				"count": max(1, integer(choice["count"], 1)), "from": anyStrings(stringsOf(choice["from"])),
-				"source": origin.source(),
-			}
-			if prompt, exists := choice["prompt"]; exists {
-				descriptor["prompt"] = cloneValue(prompt)
-			}
-			result = append(result, descriptor)
+			result = append(result, character.PlanChoice{
+				ID: string(typeID) + ":" + text(record["id"]) + ":tool", Kind: character.ChoiceTools,
+				Count: max(1, integer(choice["count"], 1)), From: nonNilStrings(choice["from"]),
+				Prompt: text(choice["prompt"]), Source: &recordSource,
+			})
 		}
+		owner := string(typeID) + ":" + text(record["id"])
 		for _, choice := range objects(object(record["grants"])["choices"]) {
-			appendChoice(choice, typeID+":"+text(record["id"]), origin.source())
+			if text(choice["id"]) == "" {
+				continue
+			}
+			descriptor := character.PlanChoice{
+				ID: owner + ":" + text(choice["id"]), Kind: choiceKind(choice, stringsOf(choice["from"])),
+				Count: max(1, integer(choice["count"], 1)), Source: &recordSource,
+			}
+			copyChoiceFields(&descriptor, choice)
+			result = append(result, descriptor)
 		}
 	}
 	return result
 }
 
-func collectCreationChoices(source Object, records Records, classChoices []any) []any {
+func collectCreationChoices(source Object, records Records, classChoices []character.PlanChoice) []character.PlanChoice {
 	result := collectOriginChoices(source, records)
 	seen := map[string]bool{}
 	for _, acquired := range selectedFeatAcquisitions(source, records, classChoices) {
-		for _, choice := range objects(featChoices(acquired, recordView(records, "feat", acquired.featID))) {
-			if id := text(choice["id"]); !seen[id] {
-				seen[id] = true
+		for _, choice := range featChoices(acquired, recordView(records, "feat", acquired.featID)) {
+			if !seen[choice.ID] {
+				seen[choice.ID] = true
 				result = append(result, choice)
 			}
 		}
@@ -452,13 +457,12 @@ func collectCreationChoices(source Object, records Records, classChoices []any) 
 	return result
 }
 
-func collectCreationAbilityChoices(source Object, records Records, ruleset Ruleset) []any {
-	result := make([]any, 0)
+func collectCreationAbilityChoices(source Object, records Records, ruleset Ruleset) []character.PlanChoice {
+	result := make([]character.PlanChoice, 0)
 	for _, origin := range selectedOrigins(source, records) {
-		typeID := origin.kind
 		config := originGrantPolicy(ruleset.Builder.BackgroundAbilityGrant)
 		choiceID := "bgasi"
-		if typeID == "species" {
+		if origin.kind == character.SourceSpecies {
 			config = originGrantPolicy(ruleset.Builder.SpeciesAbilityGrant)
 			choiceID = "speciesasi"
 		}
@@ -466,10 +470,10 @@ func collectCreationAbilityChoices(source Object, records Records, ruleset Rules
 		if config == nil || len(eligible) == 0 {
 			continue
 		}
-		result = append(result, Object{
-			"id": choiceID, "kind": "abilityBudget", "eligible": anyStrings(eligible),
-			"budget": integer(config["budget"], 0), "perAbilityMax": integer(config["perAbilityMax"], 0),
-			"source": origin.source(),
+		recordSource := origin.source()
+		result = append(result, character.PlanChoice{
+			ID: choiceID, Kind: character.ChoiceAbilityBudget, Eligible: eligible,
+			Budget: config.Budget, PerAbilityMax: config.PerAbilityMax, Source: &recordSource,
 		})
 	}
 	return result
@@ -477,27 +481,27 @@ func collectCreationAbilityChoices(source Object, records Records, ruleset Rules
 
 // characterOrigin is a selected background or species and its shared record.
 type characterOrigin struct {
-	kind   string
+	kind   character.SourceType
 	record Object
 }
 
 // source describes the origin as the grant source of its choices.
-func (origin characterOrigin) source() Object {
-	return Object{"type": origin.kind, "id": text(origin.record["id"]), "level": 1}
+func (origin characterOrigin) source() character.Source {
+	return character.Source{Type: origin.kind, ID: text(origin.record["id"]), Level: 1}
 }
 
 func selectedOrigins(source Object, records Records) []characterOrigin {
 	result := make([]characterOrigin, 0, 2)
 	if record := recordByID(records, "background", text(source["background"])); record != nil {
-		result = append(result, characterOrigin{"background", record})
+		result = append(result, characterOrigin{character.SourceBackground, record})
 	}
 	if record := recordByID(records, "species", text(source["species"])); record != nil {
-		result = append(result, characterOrigin{"species", record})
+		result = append(result, characterOrigin{character.SourceSpecies, record})
 	}
 	return result
 }
 
-func resolveBuilderChoices(source, plan Object, records Records) Object {
+func resolveBuilderChoices(source Object, plan character.Plan, records Records) Object {
 	resolved := Object{
 		"skillProficiencies": []any{}, "toolProficiencies": []any{}, "skillExpertise": Object{}, "skillUpgrades": []any{},
 		"feats": []any{}, "weaponMasteryChoices": []any{}, "languageProficiencies": []any{},
@@ -518,15 +522,10 @@ func resolveBuilderChoices(source, plan Object, records Records) Object {
 	for _, feat := range objects(source["extraFeats"]) {
 		featIDs = append(featIDs, text(feat["featId"]))
 	}
-	choices := append(objects(plan["classChoices"]), objects(plan["creationChoices"])...)
-	for _, choice := range choices {
+	for _, choice := range append(append([]character.PlanChoice{}, plan.ClassChoices...), plan.CreationChoices...) {
 		selected := choiceValues(source, choice)
-		switch text(choice["kind"]) {
-		case "skills":
-			appendResolved(resolved, "skillProficiencies", selected...)
-		case "tools":
-			appendResolved(resolved, "toolProficiencies", selected...)
-		case "proficiencies":
+		switch choice.Kind {
+		case character.ChoiceProficiencies:
 			for _, value := range selected {
 				if strings.HasPrefix(value, "skill:") {
 					appendResolved(resolved, "skillProficiencies", strings.TrimPrefix(value, "skill:"))
@@ -534,37 +533,26 @@ func resolveBuilderChoices(source, plan Object, records Records) Object {
 					appendResolved(resolved, "toolProficiencies", strings.TrimPrefix(value, "tool:"))
 				}
 			}
-		case "expertise":
+		case character.ChoiceExpertise:
 			for _, value := range selected {
 				object(resolved["skillExpertise"])[value] = true
 			}
-		case "skillExpertise":
+		case character.ChoiceSkillExpertise:
 			for _, value := range selected {
 				appendResolved(resolved, "skillProficiencies", value)
 				object(resolved["skillExpertise"])[value] = true
 			}
-		case "skillUpgrade":
-			appendResolved(resolved, "skillUpgrades", selected...)
-		case "languages":
-			appendResolved(resolved, "languageProficiencies", selected...)
-		case "savingThrows":
-			appendResolved(resolved, "saveProficiencies", selected...)
-		case "weapons":
-			appendResolved(resolved, "weaponProficiencies", selected...)
-		case "armor":
-			appendResolved(resolved, "armorProficiencies", selected...)
-		case "resistances":
-			appendResolved(resolved, "damageResistances", selected...)
-		case "immunities":
-			appendResolved(resolved, "conditionImmunities", selected...)
-		case "weaponMastery":
-			appendResolved(resolved, "weaponMasteryChoices", selected...)
-		case "feat":
+		case character.ChoiceFeat:
 			featIDs = append(featIDs, selected...)
-		case "asiMode":
-			if text(object(source["featureChoices"])[text(choice["id"])]) == "feat" {
-				featIDs = append(featIDs, text(object(source["featureChoices"])[text(object(choice["feat"])["id"])]))
+		case character.ChoiceASIMode:
+			if text(object(source["featureChoices"])[choice.ID]) == "feat" {
+				featIDs = append(featIDs, text(object(source["featureChoices"])[choice.Feat.ID]))
 			}
+		case character.ChoiceSkills, character.ChoiceTools, character.ChoiceSkillUpgrade, character.ChoiceLanguages,
+			character.ChoiceSavingThrows, character.ChoiceWeapons, character.ChoiceArmor, character.ChoiceResistances,
+			character.ChoiceImmunities, character.ChoiceWeaponMastery:
+			appendResolved(resolved, choiceKindSpecs[choice.Kind].resolved, selected...)
+		case character.ChoiceEnumerated, character.ChoiceAbilityBudget, character.ChoiceSize:
 		}
 	}
 	for key, raw := range resolved {
@@ -580,42 +568,37 @@ func resolveBuilderChoices(source, plan Object, records Records) Object {
 	return resolved
 }
 
-func choiceValues(source, choice Object) []string {
+func choiceValues(source Object, choice character.PlanChoice) []string {
 	choices := object(source["featureChoices"])
-	count := max(1, integer(choice["count"], 1))
+	count := max(1, choice.Count)
 	result := make([]string, 0, count)
 	for index := 0; index < count; index++ {
-		key := text(choice["id"])
+		key := choice.ID
 		if count > 1 {
 			key += "#" + jsonNumber(index)
 		}
 		value := text(choices[key])
 		if index == 0 && value == "" {
-			value = text(choice["default"])
+			value = choice.Default
 		}
 		// A repeatable option may fill several slots of the same choice.
-		if value != "" && (!contains(result, value) || contains(stringsOf(choice["repeatableOptions"]), value)) {
+		if value != "" && (!contains(result, value) || contains(choice.RepeatableOptions, value)) {
 			result = append(result, value)
 		}
 	}
 	return result
 }
 
-func choiceKind(choice Object, from any) string {
-	kinds := map[string]string{
-		"skillProficiency": "skills", "expertise": "expertise", "skillExpertise": "skillExpertise",
-		"toolProficiency": "tools", "proficiency": "proficiencies", "weaponMastery": "weaponMastery",
-		"language": "languages", "savingThrowProficiency": "savingThrows", "weaponProficiency": "weapons",
-		"armorProficiency": "armor", "damageResistance": "resistances", "conditionImmunity": "immunities",
-		"skillProficiencyOrExpertise": "skillUpgrade",
-	}
-	if kind := kinds[text(choice["type"])]; kind != "" {
+// choiceKind reads a record choice's type; without one, a choice with a
+// category and no option list is a feat choice.
+func choiceKind(choice Object, from []string) character.ChoiceKind {
+	if kind, known := choiceTypeKinds[text(choice["type"])]; known {
 		return kind
 	}
-	if text(choice["type"]) == "feat" || values(from) == nil && text(choice["category"]) != "" {
-		return "feat"
+	if from == nil && text(choice["category"]) != "" {
+		return character.ChoiceFeat
 	}
-	return "enumerated"
+	return character.ChoiceEnumerated
 }
 
 func sourceLevelOf(choice Object, fallback int) int {
@@ -628,58 +611,58 @@ func sourceLevelOf(choice Object, fallback int) int {
 	return fallback
 }
 
-func findAbilityChoice(plan Object, id string, source Object, records Records) Object {
-	for _, choice := range objects(plan["creationAbilityChoices"]) {
-		if text(choice["id"]) == id {
-			return choice
+func findAbilityChoice(plan character.Plan, id string, source Object, records Records) *character.PlanChoice {
+	for index := range plan.CreationAbilityChoices {
+		if plan.CreationAbilityChoices[index].ID == id {
+			choice := plan.CreationAbilityChoices[index]
+			return &choice
 		}
 	}
-	for _, choice := range objects(plan["classChoices"]) {
-		if text(choice["kind"]) != "asiMode" {
+	for _, choice := range plan.ClassChoices {
+		if choice.Kind != character.ChoiceASIMode {
 			continue
 		}
-		ability := object(choice["ability"])
-		if text(ability["id"]) == id {
-			result := cloneObject(ability)
-			result["source"] = Object{"type": "asi"}
-			return result
+		if choice.Ability.ID == id {
+			result := *choice.Ability
+			result.Source = &character.Source{Type: character.SourceASI}
+			return &result
 		}
-		feat := object(choice["feat"])
-		featAbility := object(feat["ability"])
-		if text(featAbility["id"]) == id {
-			featID := text(object(source["featureChoices"])[text(feat["id"])])
+		if choice.Feat.Ability != nil && choice.Feat.Ability.ID == id {
+			featID := text(object(source["featureChoices"])[choice.Feat.ID])
 			selected := recordView(records, "feat", featID)
 			increase := object(object(selected["grants"])["abilityScoreIncrease"])
 			if increase == nil || len(FeatASIFrom(increase)) == 0 {
 				return nil
 			}
 			budget := max(1, integer(increase["amount"], 1))
-			return Object{
-				"id": text(featAbility["id"]), "kind": "abilityBudget", "eligible": anyStrings(FeatASIFrom(increase)),
-				"budget": budget, "perAbilityMax": budget, "cap": builderAbilityCap(selected, choice),
-				"source": Object{"type": "feat"},
+			return &character.PlanChoice{
+				ID: id, Kind: character.ChoiceAbilityBudget, Eligible: FeatASIFrom(increase),
+				Budget: budget, PerAbilityMax: budget, Cap: builderAbilityCap(selected, choice),
+				Source: &character.Source{Type: character.SourceFeat},
 			}
 		}
 	}
 	return nil
 }
 
-func applyAbilityGrant(copy, descriptor, value Object) {
+func applyAbilityGrant(copy Object, descriptor *character.PlanChoice, value Object) {
 	ability := text(value["ability"])
-	eligible := stringsOf(descriptor["eligible"])
-	if descriptor["eligible"] != nil && !contains(eligible, ability) {
+	if descriptor.Eligible != nil && !contains(descriptor.Eligible, ability) {
 		return
 	}
 	var existing Object
 	for _, grant := range objects(copy["abilityGrants"]) {
-		if text(grant["id"]) == text(descriptor["id"]) {
+		if text(grant["id"]) == descriptor.ID {
 			existing = grant
 			break
 		}
 	}
 	assign := cloneObject(object(existing["assign"]))
-	budget := max(1, integer(descriptor["budget"], 1))
-	perAbilityMax := max(1, integer(descriptor["perAbilityMax"], budget))
+	budget := max(1, descriptor.Budget)
+	perAbilityMax := budget
+	if descriptor.PerAbilityMax != 0 {
+		perAbilityMax = max(1, descriptor.PerAbilityMax)
+	}
 	others := 0
 	for _, current := range Abilities {
 		if current != ability {
@@ -692,16 +675,22 @@ func applyAbilityGrant(copy, descriptor, value Object) {
 	} else {
 		delete(assign, ability)
 	}
-	upsertGrant(copy, text(descriptor["id"]), firstObject(descriptor["source"], Object{"type": "ability"}),
-		assign, integer(descriptor["cap"], 0))
+	source := Object{"type": "ability"}
+	if descriptor.Source != nil {
+		source = toObject(descriptor.Source)
+	}
+	upsertGrant(copy, descriptor.ID, source, assign, descriptor.Cap)
 }
 
-func builderAbilityCap(feat, descriptor Object) int {
+func builderAbilityCap(feat Object, descriptor character.PlanChoice) int {
 	explicit := object(object(feat["grants"])["abilityScoreIncrease"])["cap"]
 	if explicit != nil {
 		return integer(explicit, 0)
 	}
-	return integer(object(object(descriptor["feat"])["categoryAbilityCaps"])[text(feat["category"])], 0)
+	if descriptor.Feat == nil {
+		return 0
+	}
+	return descriptor.Feat.CategoryAbilityCaps[text(feat["category"])]
 }
 
 func choiceIDForSlot(id string, slot, count int) string {
@@ -741,12 +730,15 @@ func upsertGrant(copy Object, id string, source, assign Object, capValue int) {
 	copy["abilityGrants"] = append(values(copy["abilityGrants"]), grant)
 }
 
-func originGrantPolicy(body json.RawMessage) Object {
+func originGrantPolicy(body json.RawMessage) *OriginAbilityGrant {
 	if len(body) == 0 || string(body) == "false" {
 		return nil
 	}
-	value, _ := DecodeObject(body)
-	return value
+	var policy OriginAbilityGrant
+	if json.Unmarshal(body, &policy) != nil {
+		return nil
+	}
+	return &policy
 }
 
 func appendResolved(result Object, key string, additions ...string) {
@@ -760,23 +752,24 @@ func cloneObjectDeep(source Object) Object {
 	return copyJSONObject(source)
 }
 
-func cloneArray(source []any) []any {
-	if source == nil {
-		return []any{}
-	}
-	return copyJSONValue(source).([]any)
-}
-
 func cloneValue(source any) any {
 	return copyJSONValue(source)
 }
 
-func stringIntObject(source map[string]int) Object {
-	result := make(Object, len(source))
+func copyCounts(source map[string]int) map[string]int {
+	result := make(map[string]int, len(source))
 	for key, value := range source {
 		result[key] = value
 	}
 	return result
+}
+
+// nonNilStrings reads a list of strings, empty rather than nil when absent.
+func nonNilStrings(value any) []string {
+	if result := stringsOf(value); result != nil {
+		return result
+	}
+	return []string{}
 }
 
 func jsonNumber(value int) string {

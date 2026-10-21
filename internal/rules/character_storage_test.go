@@ -19,20 +19,20 @@ func TestStorageRetainsOwnedInstancesWithoutChangingMechanics(t *testing.T) {
 	input.Play.Inventory[1].ContainerID = "pouch"
 	input.Play.Inventory[2].ContainerID = "pack"
 	result := EvaluateCharacter(input, records, profile)
-	if !result.Ready || !reflect.DeepEqual(result.Inputs, input) || object(result.Guidance["authoredPlay"])["storage"] != true {
+	if !result.Ready || !reflect.DeepEqual(result.Inputs, input) || object(view(result.Guidance)["authoredPlay"])["storage"] != true {
 		t.Fatal("valid storage rejected or rewritten", result.Issues)
 	}
 	for _, key := range []string{"derived", "attunement", "weapons", "quickUse"} {
-		if !reflect.DeepEqual(before.Sheet[key], result.Sheet[key]) {
+		if !reflect.DeepEqual(view(before.Sheet)[key], view(result.Sheet)[key]) {
 			t.Fatal("organization changed mechanics", key)
 		}
 	}
-	containers := objects(object(result.Sheet["storage"])["containers"])
+	containers := objects(object(view(result.Sheet)["storage"])["containers"])
 	if !reflect.DeepEqual(stringsOf(containers[0]["itemIds"]), []string{"one", "empty"}) || !reflect.DeepEqual(stringsOf(containers[1]["itemIds"]), []string{"duplicate-copy"}) {
 		t.Fatal("same-name or depleted membership lost", containers)
 	}
 	for _, change := range []Object{{"operation": "consume-item", "itemId": "one"}, {"operation": "rest", "rest": "long"}, {"operation": "rest", "rest": "short"}} {
-		next, err := ApplyCharacterPlay(input, change, records, profile)
+		next, err := applyPlay(input, change, records, profile)
 		if err != nil || !reflect.DeepEqual(next.Inputs.Play.Containers, input.Play.Containers) {
 			t.Fatal("play changed container identity", err)
 		}
@@ -74,7 +74,7 @@ func TestStorageRejectsInvalidAssignmentsWithoutNormalizing(t *testing.T) {
 			candidate := cloneCharacter(input)
 			mutate(&candidate)
 			result := EvaluateCharacter(candidate, records, profile)
-			if result.Ready || truth(result.Guidance["canSave"]) || !reflect.DeepEqual(result.Inputs, candidate) {
+			if result.Ready || truth(view(result.Guidance)["canSave"]) || !reflect.DeepEqual(result.Inputs, candidate) {
 				t.Fatal("invalid storage accepted or rewritten", result.Issues)
 			}
 		})
@@ -93,13 +93,13 @@ func TestStorageSupportsOldIncompleteAndExplicitRemoval(t *testing.T) {
 	input.Play.Containers = []character.Container{{ID: "pack", Name: "Pouch"}}
 	input.Play.Inventory[0].ContainerID = "pack"
 	result := EvaluateCharacter(input, records, profile)
-	if !truth(result.Guidance["canSave"]) || result.Ready {
+	if !truth(view(result.Guidance)["canSave"]) || result.Ready {
 		t.Fatal("incomplete character cannot organize inventory", result.Issues)
 	}
 	input.Play.Containers = nil
 	input.Play.Inventory[0].ContainerID = ""
 	removed := EvaluateCharacter(input, records, profile)
-	if !truth(removed.Guidance["canSave"]) || !reflect.DeepEqual(removed.Inputs.Play.Inventory, quickUseItems()) {
+	if !truth(view(removed.Guidance)["canSave"]) || !reflect.DeepEqual(removed.Inputs.Play.Inventory, quickUseItems()) {
 		t.Fatal("explicit container removal changed contents", removed.Issues)
 	}
 }

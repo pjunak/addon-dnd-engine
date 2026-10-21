@@ -41,35 +41,32 @@ func TestCarryingCountsCarriedWeightAgainstStrength(t *testing.T) {
 	if !result.Ready {
 		t.Fatal(result.Issues)
 	}
-	carrying := object(result.Sheet["carrying"])
-	want := Object{"weightLb": 17.0, "capacityLb": 225.0, "itemsLb": 15.0, "coinsLb": 2.0, "coinWeight": true, "storedLb": 50.0, "weightlessLb": 20.0}
-	for key, value := range want {
-		if carrying[key] != value {
-			t.Errorf("%s = %v, want %v", key, carrying[key], value)
-		}
+	carrying := result.Sheet.Carrying
+	if carrying == nil || carrying.WeightLb != 17 || carrying.CapacityLb != 225 || carrying.ItemsLb != 15 || carrying.CoinsLb != 2 || !carrying.CoinWeight || carrying.StoredLb != 50 || carrying.WeightlessLb != 20 {
+		t.Fatalf("carrying = %+v", carrying)
 	}
-	if !reflect.DeepEqual(carrying["unknown"], []any{"mystery"}) {
-		t.Error("unknown weights", carrying["unknown"])
+	if !reflect.DeepEqual(carrying.Unknown, []string{"mystery"}) {
+		t.Error("unknown weights", carrying.Unknown)
 	}
-	containers := object(carrying["containers"])
-	if !reflect.DeepEqual(containers["in-pack"], Object{"loadLb": 5.0, "capacityLb": 30.0, "weightless": false, "stored": false}) ||
-		!reflect.DeepEqual(containers["in-bag"], Object{"loadLb": 20.0, "capacityLb": 500.0, "weightless": true, "stored": false}) ||
-		!reflect.DeepEqual(containers["camp"], Object{"loadLb": 50.0, "weightless": false, "stored": true}) {
+	containers := carrying.Containers
+	if containers["in-pack"] != (character.CarriedContainer{LoadLb: 5, CapacityLb: 30}) ||
+		containers["in-bag"] != (character.CarriedContainer{LoadLb: 20, CapacityLb: 500, Weightless: true}) ||
+		containers["camp"] != (character.CarriedContainer{LoadLb: 50, Stored: true}) {
 		t.Error("containers", containers)
 	}
-	if !reflect.DeepEqual(object(carrying["items"])["anvil"], Object{"eachLb": 50.0, "totalLb": 50.0, "custom": true}) {
-		t.Error("custom item weight", object(carrying["items"])["anvil"])
+	if carrying.Items["anvil"] != (character.CarriedItem{EachLb: 50, TotalLb: 50, Custom: true}) {
+		t.Error("custom item weight", carrying.Items["anvil"])
 	}
-	if offered := object(result.Guidance["storage"])["containerItems"]; !reflect.DeepEqual(offered, []any{Object{"itemId": "pack", "weightless": false, "capacityLb": 30.0}, Object{"itemId": "bag", "weightless": true, "capacityLb": 500.0}}) {
+	if offered := result.Guidance.Storage.ContainerItems; !reflect.DeepEqual(offered, []character.ContainerItem{{ItemID: "pack", CapacityLb: 30}, {ItemID: "bag", Weightless: true, CapacityLb: 500}}) {
 		t.Error("container items", offered)
 	}
 	off := false
 	input.Play.CoinWeight = &off
-	if carrying := object(EvaluateCharacter(input, records, profile).Sheet["carrying"]); carrying["weightLb"] != 15.0 || carrying["coinWeight"] != false {
+	if carrying := EvaluateCharacter(input, records, profile).Sheet.Carrying; carrying.WeightLb != 15 || carrying.CoinWeight {
 		t.Error("coin weight off", carrying)
 	}
 	profile.Constants.Carrying = nil
-	if EvaluateCharacter(input, records, profile).Sheet["carrying"] != nil {
+	if EvaluateCharacter(input, records, profile).Sheet.Carrying != nil {
 		t.Error("carrying without a ruleset policy")
 	}
 }

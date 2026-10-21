@@ -47,7 +47,7 @@ func TestClassReplacementIsBoundedAndPreservesAuthoredState(t *testing.T) {
 		t.Run(map[bool]string{false: "feat", true: "spell"}[spells], func(t *testing.T) {
 			input, records, profile, change := replacementFixture(t, spells)
 			original := cloneCharacter(input)
-			first, err := ApplyCharacterPlay(input, change, records, profile)
+			first, err := applyPlay(input, change, records, profile)
 			if err != nil || !first.Ready {
 				t.Fatalf("replace: %v %+v", err, first.Issues)
 			}
@@ -60,39 +60,39 @@ func TestClassReplacementIsBoundedAndPreservesAuthoredState(t *testing.T) {
 			if spells && !reflect.DeepEqual(first.Inputs.Build.Spells.GrantChoices["feature:training:chants"], []string{"third", "second"}) {
 				t.Fatal("lost sibling cantrip")
 			}
-			if _, err = ApplyCharacterPlay(first.Inputs, change, records, profile); err == nil {
+			if _, err = applyPlay(first.Inputs, change, records, profile); err == nil {
 				t.Fatal("allowed repeated replacement")
 			}
-			rested, err := ApplyCharacterPlay(first.Inputs, Object{"operation": "rest", "rest": "long"}, records, profile)
+			rested, err := applyPlay(first.Inputs, Object{"operation": "rest", "rest": "long"}, records, profile)
 			if err != nil || !reflect.DeepEqual(rested.Inputs.Build.Replacements, first.Inputs.Build.Replacements) {
 				t.Fatal("rest lost ledger", err)
 			}
-			if integer(objects(rested.Guidance["classReplacements"])[0]["remaining"], -1) != 0 {
+			if integer(objects(view(rested.Guidance)["classReplacements"])[0]["remaining"], -1) != 0 {
 				t.Fatal("rest refreshed allowance")
 			}
 			imported := cloneCharacter(rested.Inputs)
 			imported.Build.Replacements[0].Origin = "import"
-			if integer(objects(EvaluateCharacter(imported, records, profile).Guidance["classReplacements"])[0]["remaining"], -1) != 0 {
+			if integer(objects(view(EvaluateCharacter(imported, records, profile).Guidance)["classReplacements"])[0]["remaining"], -1) != 0 {
 				t.Fatal("import refreshed allowance")
 			}
 			records.byKind["class"]["other"] = mustJSON(Object{"id": "other", "kind": "class", "hitDie": "d8", "multiclassPrerequisites": Object{}})
 			multiclass := cloneCharacter(first.Inputs)
 			multiclass.Build.Levels = append(multiclass.Build.Levels, character.Level{ID: "other-level", ClassID: "other"})
-			if integer(objects(EvaluateCharacter(multiclass, records, profile).Guidance["classReplacements"])[0]["remaining"], -1) != 0 {
+			if integer(objects(view(EvaluateCharacter(multiclass, records, profile).Guidance)["classReplacements"])[0]["remaining"], -1) != 0 {
 				t.Fatal("other class refreshed allowance")
 			}
 			lower := cloneCharacter(first.Inputs)
 			lower.Build.Levels = lower.Build.Levels[:1]
-			if len(objects(EvaluateCharacter(lower, records, profile).Guidance["classReplacements"])) != 0 {
+			if len(objects(view(EvaluateCharacter(lower, records, profile).Guidance)["classReplacements"])) != 0 {
 				t.Fatal("initial level granted replacement")
 			}
 			lower.Build.Levels = append(lower.Build.Levels, character.Level{ID: "different-id", ClassID: "fighter"})
-			if integer(objects(EvaluateCharacter(lower, records, profile).Guidance["classReplacements"])[0]["remaining"], -1) != 0 {
+			if integer(objects(view(EvaluateCharacter(lower, records, profile).Guidance)["classReplacements"])[0]["remaining"], -1) != 0 {
 				t.Fatal("recreating level refreshed allowance")
 			}
 			first.Inputs.Build.Levels = append(first.Inputs.Build.Levels, character.Level{ID: "level-three", ClassID: "fighter"})
 			change["out"], change["ref"] = change["ref"], change["out"]
-			next, err := ApplyCharacterPlay(first.Inputs, change, records, profile)
+			next, err := applyPlay(first.Inputs, change, records, profile)
 			if err != nil || !next.Ready || len(next.Inputs.Build.Replacements) != 2 {
 				t.Fatal("next class level did not allow return to earlier selection", err, next.Issues)
 			}
@@ -108,7 +108,7 @@ func TestClassReplacementRejectsWrongOwnerAndIneligibleSelections(t *testing.T) 
 			for key, value := range patch {
 				change[key] = value
 			}
-			if _, err := ApplyCharacterPlay(input, change, records, profile); err == nil {
+			if _, err := applyPlay(input, change, records, profile); err == nil {
 				t.Fatalf("accepted %v", change)
 			}
 		}
@@ -119,7 +119,7 @@ func TestClassReplacementRejectsWrongOwnerAndIneligibleSelections(t *testing.T) 
 		}
 		delete(declaration[0], "levelReplacements")
 		records.byKind["feature"]["training"] = mustJSON(feature)
-		if _, err := ApplyCharacterPlay(input, valid, records, profile); err == nil {
+		if _, err := applyPlay(input, valid, records, profile); err == nil {
 			t.Fatal("undeclared source allowance was inferred")
 		}
 	}
@@ -128,18 +128,18 @@ func TestClassReplacementRejectsWrongOwnerAndIneligibleSelections(t *testing.T) 
 func TestReplacementPrerequisitesUseTheReplacementLevel(t *testing.T) {
 	input, records, profile, change := replacementFixture(t, false)
 	change["ref"] = "later"
-	if _, err := ApplyCharacterPlay(input, change, records, profile); err == nil {
+	if _, err := applyPlay(input, change, records, profile); err == nil {
 		t.Fatal("early feat allowed")
 	}
 	input.Build.Levels = append(input.Build.Levels, character.Level{ID: "third", ClassID: "fighter"})
-	next, err := ApplyCharacterPlay(input, change, records, profile)
+	next, err := applyPlay(input, change, records, profile)
 	if err != nil || !next.Ready {
 		t.Fatal("eligible later acquisition rejected", err, next.Issues)
 	}
 	if !EvaluateCharacter(next.Inputs, records, profile).Ready {
 		t.Fatal("replacement cannot be reloaded")
 	}
-	for _, option := range objects(object(object(next.Guidance["choices"])["training-pick"])["options"]) {
+	for _, option := range objects(object(object(view(next.Guidance)["choices"])["training-pick"])["options"]) {
 		if text(option["id"]) == "later" {
 			return
 		}
@@ -149,28 +149,28 @@ func TestReplacementPrerequisitesUseTheReplacementLevel(t *testing.T) {
 
 func TestClassReplacementHistorySurvivesSourceWithdrawalAndBuilderCorrection(t *testing.T) {
 	input, records, profile, change := replacementFixture(t, false)
-	next, err := ApplyCharacterPlay(input, change, records, profile)
+	next, err := applyPlay(input, change, records, profile)
 	if err != nil {
 		t.Fatal(err)
 	}
 	feature := records.byKind["feature"]["training"]
 	delete(records.byKind["feature"], "training")
 	unavailable := EvaluateCharacter(next.Inputs, records, profile)
-	if len(objects(unavailable.Guidance["classReplacements"])) != 0 || !reflect.DeepEqual(unavailable.Inputs.Build.Replacements, next.Inputs.Build.Replacements) {
+	if len(objects(view(unavailable.Guidance)["classReplacements"])) != 0 || !reflect.DeepEqual(unavailable.Inputs.Build.Replacements, next.Inputs.Build.Replacements) {
 		t.Fatal("missing source erased or reissued a replacement")
 	}
 	records.byKind["feature"]["training"] = feature
 	corrected := cloneCharacter(next.Inputs)
 	corrected.Build.Choices[0].Value = mustJSON("first")
 	result := EvaluateCharacter(corrected, records, profile)
-	if !result.Ready || integer(objects(result.Guidance["classReplacements"])[0]["remaining"], -1) != 0 {
+	if !result.Ready || integer(objects(view(result.Guidance)["classReplacements"])[0]["remaining"], -1) != 0 {
 		t.Fatal("ordinary correction should remain possible without resetting the allowance", result.Issues)
 	}
 }
 
 func TestMalformedClassReplacementHistoryBlocksSaving(t *testing.T) {
 	input, records, profile, change := replacementFixture(t, false)
-	next, err := ApplyCharacterPlay(input, change, records, profile)
+	next, err := applyPlay(input, change, records, profile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -186,13 +186,13 @@ func TestMalformedClassReplacementHistoryBlocksSaving(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			invalid := cloneCharacter(next.Inputs)
 			mutate(&invalid.Build.Replacements[0])
-			if EvaluateCharacter(invalid, records, profile).Guidance["canSave"] != false {
+			if view(EvaluateCharacter(invalid, records, profile).Guidance)["canSave"] != false {
 				t.Fatal("invalid ledger was saveable")
 			}
 		})
 	}
 	next.Inputs.Build.Replacements = append(next.Inputs.Build.Replacements, next.Inputs.Build.Replacements[0])
-	if EvaluateCharacter(next.Inputs, records, profile).Guidance["canSave"] != false {
+	if view(EvaluateCharacter(next.Inputs, records, profile).Guidance)["canSave"] != false {
 		t.Fatal("duplicate allowance was saveable")
 	}
 }

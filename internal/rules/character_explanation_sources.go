@@ -9,12 +9,12 @@ import (
 // Keep the full evidence once, and link calculations to their own sources.
 // Repeating every selected record on every statistic grows with both the number
 // of features and statistics and can prevent an otherwise legal sheet saving.
-func scopeCharacterExplanationSources(input character.Inputs, decisions, sheet Object, evidence []character.Evidence, explanations map[string]character.Explanation) {
+func scopeCharacterExplanationSources(input character.Inputs, decisions Object, sheet *character.Calculation, evidence []character.Evidence, explanations map[string]character.Explanation) {
 	retained := map[character.Reference]bool{}
 	for _, entry := range evidence {
 		retained[entry.Reference] = true
 	}
-	sourceRef := grantSourceReference
+
 	set := func(path string, candidates []character.Reference) {
 		explanation, exists := explanations[path]
 		if !exists {
@@ -37,7 +37,7 @@ func scopeCharacterExplanationSources(input character.Inputs, decisions, sheet O
 		refs := []character.Reference{}
 		for _, grant := range objects(decisions["abilityGrants"]) {
 			if integer(object(grant["assign"])[ability], 0) != 0 {
-				refs = append(refs, sourceRef(object(grant["source"])))
+				refs = append(refs, grantSourceReference(sourceFromObject(object(grant["source"]))))
 			}
 		}
 		for _, term := range explanations["abilities."+ability+".score"].Terms {
@@ -61,66 +61,69 @@ func scopeCharacterExplanationSources(input character.Inputs, decisions, sheet O
 	trainingSources := []character.Reference{}
 	hpSources := abilitySources("CON")
 	for _, entry := range evidence {
-		if characterTrainingFacts(Object(entry.Facts)) {
+		facts := factsOf(entry)
+		if characterTrainingFacts(facts) {
 			trainingSources = append(trainingSources, entry.Reference)
 		}
-		if object(entry.Facts["grants"])["hpPerLevel"] != nil {
+		if object(facts["grants"])["hpPerLevel"] != nil {
 			hpSources = append(hpSources, entry.Reference)
 		}
 	}
-	for _, current := range objects(sheet["classes"]) {
-		hpSources = append(hpSources, classSources(text(current["classId"]))...)
+	for _, current := range sheet.Classes {
+		hpSources = append(hpSources, classSources(current.ClassID)...)
 	}
 	set("derived.maxHp", hpSources)
-	for _, group := range []string{"skills", "saves"} {
-		for key, raw := range object(sheet[group]) {
-			row := object(raw)
-			ability := key
-			if group == "skills" {
-				ability = text(row["ability"])
-			}
-			refs := abilitySources(ability)
-			if truth(row["proficient"]) {
-				refs = append(refs, trainingSources...)
-			}
-			set(group+"."+key+".total", refs)
+	checkSources := func(path, ability string, proficient bool) {
+		refs := abilitySources(ability)
+		if proficient {
+			refs = append(refs, trainingSources...)
 		}
+		set(path, refs)
+	}
+	for key, row := range sheet.Skills {
+		checkSources("skills."+key+".total", row.Ability, row.Proficient)
+	}
+	for key, row := range sheet.Saves {
+		checkSources("saves."+key+".total", key, row.Proficient)
 	}
 	set("currencyWorth.value", nil)
-	for index := range objects(sheet["weapons"]) {
+	for index := range sheet.Weapons {
 		set(fmtIndex("weapons", index)+".reach", nil)
 		set(fmtIndex("weapons", index)+".range", nil)
 	}
-	casters := objects(object(sheet["spellcasting"])["perClass"])
+	casters := sheet.Spellcasting.PerClass
 	for index, caster := range casters {
-		refs := append(classSources(text(caster["classId"])), abilitySources(text(caster["ability"]))...)
+		refs := append(classSources(caster.ClassID), abilitySources(caster.Ability)...)
 		set(fmtIndex("spellcasting.perClass", index)+".saveDC", refs)
 		set(fmtIndex("spellcasting.perClass", index)+".spellAttack", refs)
-		set(fmtIndex("spellcasting.perClass", index)+".preparedLimit", classSources(text(caster["classId"])))
+		set(fmtIndex("spellcasting.perClass", index)+".preparedLimit", classSources(caster.ClassID))
 	}
-	for _, resource := range objects(sheet["resources"]) {
-		source := object(resource["source"])
-		refs := []character.Reference{sourceRef(source)}
-		switch text(source["type"]) {
-		case "pactMagic":
-			refs = classSources(text(source["id"]))
-		case "spellcasting":
+	for _, resource := range sheet.Resources {
+		source := resource.Source
+		refs := []character.Reference{grantSourceReference(source)}
+		switch source.Type {
+		case character.SourcePactMagic:
+			refs = classSources(source.ID)
+		case character.SourceSpellcasting:
 			for _, caster := range casters {
-				if object(caster["pact"]) == nil {
-					refs = append(refs, classSources(text(caster["classId"]))...)
+				if caster.Pact == nil {
+					refs = append(refs, classSources(caster.ClassID)...)
 				}
 			}
-		case "class":
-			if text(resource["kind"]) == "hitdice" {
-				for _, current := range objects(sheet["classes"]) {
-					if text(current["hitDie"]) == text(resource["die"]) {
-						refs = append(refs, character.Reference{Kind: "class", ID: text(current["classId"])})
+		case character.SourceClass:
+			if resource.Kind == character.ResourceHitDice {
+				for _, current := range sheet.Classes {
+					if current.HitDie == resource.Die {
+						refs = append(refs, character.Reference{Kind: "class", ID: current.ClassID})
 					}
 				}
 			}
+		case character.SourceSubclass, character.SourceFeature, character.SourceSpecies, character.SourceBackground,
+			character.SourceFeat, character.SourceItem, character.SourceArmor, character.SourceCondition,
+			character.SourceSpell, character.SourceASI, character.SourceAbility:
 		}
 		for _, field := range []string{"max", "remaining"} {
-			set("resources."+text(resource["key"])+"."+field, refs)
+			set("resources."+resource.Key+"."+field, refs)
 		}
 	}
 }

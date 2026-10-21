@@ -1,19 +1,53 @@
 # D&D service contracts
 
-The engine provides `dnd5e.rules-engine` 5.0.0 and consumes nonexclusive
+The engine provides `dnd5e.rules-engine` 6.0.0 and consumes nonexclusive
 `dnd5e.rules-data` 3.0.0. Provider selection, compatible books and generation
 lifetime belong to the host. Runtime policy addresses contracts and record IDs.
 
 ## Character evaluation
 
-`evaluate-character` accepts `{contractVersion:"rules-character.v2", inputs}`.
-`character-play` adds a closed operation-specific `change`. The response is
-`{contractVersion:"rules-character-response.v2", identity, evaluation, policy}`.
+`evaluate-character` accepts `{contractVersion:"rules-character.v3", inputs}`.
+`character-play` adds `change`, a typed play command: a tagged union on
+`operation` whose variants list exactly their fields (`character.PlayCommand`).
+The response is
+`{contractVersion:"rules-character-response.v3", identity, evaluation, policy}`.
 Requests are bounded to `character.MaxRequestBytes` (180,000 bytes); callers
 check their payload against it before calling, and a larger request fails with
 `INVALID_REQUEST` naming its size. The public Go types in
 [character/model.go](../character/model.go) generate the JSON Schemas through
 `go run ./cmd/character-contract`; the sheet uses these same types.
+
+## Typed model
+
+Every part of the result is a typed struct in the `character` package:
+`Sheet`, `Plan`, `Guidance`, `SpellOptions`, explanations, evidence and issues.
+`sheet.status` is `calculated` or `needs-choices`; the calculated statistics
+(the embedded `Calculation`) are absent while choices are missing, and play
+state (inspiration, hands, quick use, storage, conditions, equipment,
+carrying, concentration) is always present. Every `source` has the shared
+`Source` shape. Explanations are keyed by JSON paths into the sheet and their
+values are display values; `evidence[].facts` is the provider record without
+its prose.
+
+Each closed set is a named string type with its values listed once:
+play operations, effect targets and modes, grant conditions, source types,
+choice kinds, resource kinds, rests, roll kinds and modes, movement modes,
+issue severities and the smaller statuses. `go run ./tools/check.go` runs the
+`exhaustive` linter, so every switch and map literal over a set covers all
+of its values.
+
+`character.Schema` and `character.TypeScript` read the same fields, so the
+JSON Schemas and the TypeScript types Sheets generates always agree:
+
+- A closed set is a string `enum` and a TypeScript union of literals.
+- A tagged union (`PlayCommand`) is a `oneOf` of closed objects with a
+  `const` tag, and a TypeScript union of object types.
+- `omitempty` fields are optional and never null; a pointer without
+  `omitempty` is required and may be null (`T | null`).
+- Arrays and objects are never null. The service fills any missing list
+  before it responds (`character.FillEmpty`).
+- Named structs are shared `$defs`; schemas carry no size bounds, because the
+  request limit already bounds the input.
 
 Inputs contain ordered levels with stable IDs and recorded HP rolls, foundation
 and advancement decisions, spell selections/acquisitions, inventory instances,
@@ -201,7 +235,7 @@ cantrips/spellbook selections. Their issues carry a stable `id` target and `tab`
 Invalid existing foundation/advancement choices have `repair: true` and do not
 count as complete. This does not remove the input or make a rejected choice
 saveable. Labels retain readable `label` text; additive `labelKey` templates
-and ordered `labelArgs` let clients translate Engine UI wording while preserving
+and ordered string `labelArgs` let clients translate Engine UI wording while preserving
 authored record names. Clients may fall back to `label`.
 
 Choice validation issues use `<kind>:<choice ID>#<slot>` identities. In particular,
@@ -354,8 +388,8 @@ schema or automatic default.
 
 `sheet.derived.size` and its explanation retain the chosen value and species
 evidence. Fixed-size records use their canonical `size` directly. Unselected or
-invalid size choices produce null; undeclared compound summaries omit the
-projection field. Neither produces an inferred choice. Missing choices can save as incomplete builds; forged values/slots
+invalid size choices and undeclared compound summaries omit the projection
+field. Neither produces an inferred choice. Missing choices can save as incomplete builds; forged values/slots
 use ordinary validation and stable repair issue IDs. Changing sources does
 not mutate Engine inputs. The coordinator's existing explicit save/adoption
 policy determines whether an already saved invalid selection is withdrawn.
@@ -500,7 +534,10 @@ concentration and the hand operations above. Each command validates
 its own fields and uses the same evaluation before and after applying it.
 An invalid character must be repaired in Build before dependent play actions.
 
-Damage/healing clamp to known bounds; direct invalid HP is rejected. Hit dice
+Damage/healing clamp to known bounds; direct invalid HP is rejected. Every
+calculated evaluation lowers `inputs.play.hp` to the effective maximum when the
+maximum has dropped below it (a raised maximum never heals); an unfinished
+build keeps the saved value. Hit dice
 require the actual recorded result and a unique roll ID. Resources store spent
 uses; the projection exposes capacity, spent and remaining. Spell and pact slot
 resources (`kind: "slot"`) also give their spell `level`. Ending an activation

@@ -9,42 +9,45 @@ import (
 // Proficiency choices share one eligibility pool, including typed skills/tools
 // and mixed grants. Earlier valid choices reserve their training; within a level,
 // class choices and direct origins precede the feats those origins can grant.
-func characterProficiencyOptions(input character.Inputs, plan Object, records Records, profile Ruleset) map[string][]any {
+func characterProficiencyOptions(input character.Inputs, plan character.Plan, records Records, profile Ruleset) map[string][]character.Option {
 	pending := map[string]bool{}
-	for _, group := range []string{"creationChoices", "classChoices"} {
-		for _, choice := range objects(plan[group]) {
+	for _, group := range [][]character.PlanChoice{plan.CreationChoices, plan.ClassChoices} {
+		for _, choice := range group {
 			if isProficiencyChoice(choice) {
-				pending[text(choice["id"])] = true
+				pending[choice.ID] = true
 			}
 		}
 	}
-	result, claimed, combinedSeen := map[string][]any{}, map[string]bool{}, map[string]bool{}
+	result, claimed, combinedSeen := map[string][]character.Option{}, map[string]bool{}, map[string]bool{}
 	for index := 0; index < max(1, len(input.Build.Levels)) && len(pending) > 0; index++ {
 		prefix := cloneCharacter(input)
 		prefix.Build.Levels = prefix.Build.Levels[:min(index+1, len(prefix.Build.Levels))]
 		detached := character.Result{Issues: []character.Issue{}}
 		decisions := characterDecisions(prefix, records, profile, &detached)
 		prefixPlan := BuilderPlan(decisions, records, profile)
-		choices, replaceable := []Object{}, []Object{}
+		choices, replaceable := []character.PlanChoice{}, []character.PlanChoice{}
 		combinedNow := []string{}
-		basePlan := cloneObjectDeep(prefixPlan)
-		for _, group := range []string{"classChoices", "creationChoices"} {
-			basePlan[group] = []any{}
-			for _, choice := range objects(prefixPlan[group]) {
+		basePlan := prefixPlan
+		basePlan.ClassChoices, basePlan.CreationChoices = []character.PlanChoice{}, []character.PlanChoice{}
+		for _, group := range []struct {
+			choices []character.PlanChoice
+			base    *[]character.PlanChoice
+		}{{prefixPlan.ClassChoices, &basePlan.ClassChoices}, {prefixPlan.CreationChoices, &basePlan.CreationChoices}} {
+			for _, choice := range group.choices {
 				if !isProficiencyChoice(choice) {
 					// Combined training may add Expertise to an existing skill;
 					// it must not disqualify that earlier proficiency choice.
-					if text(choice["kind"]) == "skillExpertise" && !combinedSeen[text(choice["id"])] {
-						combinedNow = append(combinedNow, text(choice["id"]))
+					if choice.Kind == character.ChoiceSkillExpertise && !combinedSeen[choice.ID] {
+						combinedNow = append(combinedNow, choice.ID)
 						continue
 					}
-					basePlan[group] = append(values(basePlan[group]), choice)
+					*group.base = append(*group.base, choice)
 					continue
 				}
-				if !pending[text(choice["id"])] {
+				if !pending[choice.ID] {
 					continue
 				}
-				if text(choice["changeOn"]) != "" {
+				if choice.ChangeOn != "" {
 					if index+1 >= len(input.Build.Levels) {
 						replaceable = append(replaceable, choice)
 					}
@@ -66,60 +69,56 @@ func characterProficiencyOptions(input character.Inputs, plan Object, records Re
 		for key, value := range resolveBuilderChoices(decisions, basePlan, records) {
 			normalized[key] = value
 		}
-		sheet := Hydrate(normalized, records, &profile).Sheet
+		sheet := Hydrate(normalized, records, profile).Sheet
 		applyCharacterEffects(prefix, sheet, &detached, records)
-		tools := stringsOf(object(sheet["proficiencies"])["tools"])
+		tools := sheet.Proficiencies.Tools
 		for _, choice := range choices {
-			if text(choice["changeOn"]) != "" {
-				for _, group := range []string{"classChoices", "creationChoices"} {
-					for _, combined := range objects(prefixPlan[group]) {
-						if text(combined["kind"]) == "skillExpertise" {
-							for _, skill := range choiceValues(decisions, combined) {
-								claimed["skill:"+canonicalSkill(skill)] = true
-							}
+			if choice.ChangeOn != "" {
+				for _, combined := range append(append([]character.PlanChoice{}, prefixPlan.ClassChoices...), prefixPlan.CreationChoices...) {
+					if combined.Kind == character.ChoiceSkillExpertise {
+						for _, skill := range choiceValues(decisions, combined) {
+							claimed["skill:"+canonicalSkill(skill)] = true
 						}
 					}
 				}
 			}
-			id, options, eligible := text(choice["id"]), []any{}, map[string]bool{}
-			for _, option := range objects(builderChoiceOptions(choice, sheet, records)) {
-				value := text(option["id"])
-				key := proficiencyChoiceKey(choice, value)
+			options, eligible := []character.Option{}, map[string]bool{}
+			for _, option := range builderChoiceOptions(choice, sheet, records) {
+				key := proficiencyChoiceKey(choice, option.ID)
 				already := claimed[key]
 				if skill, ok := strings.CutPrefix(key, "skill:"); ok {
-					already = already || truth(object(object(sheet["skills"])[canonicalSkill(skill)])["proficient"])
+					already = already || sheet.Skills[canonicalSkill(skill)].Proficient
 				}
 				if tool, ok := strings.CutPrefix(key, "tool:"); ok {
 					already = already || contains(tools, tool)
 				}
 				if !already {
 					options = append(options, option)
-					eligible[value] = true
+					eligible[option.ID] = true
 				}
 			}
-			result[id] = options
+			result[choice.ID] = options
 			for _, selected := range choiceValues(decisions, choice) {
 				if eligible[selected] {
 					claimed[proficiencyChoiceKey(choice, selected)] = true
 				}
 			}
-			delete(pending, id)
+			delete(pending, choice.ID)
 		}
 	}
 	return result
 }
 
-func isProficiencyChoice(choice Object) bool {
-	kind := text(choice["kind"])
-	return kind == "skills" || kind == "tools" || kind == "proficiencies"
-}
-
-func proficiencyChoiceKey(choice Object, value string) string {
-	switch text(choice["kind"]) {
-	case "skills":
+func proficiencyChoiceKey(choice character.PlanChoice, value string) string {
+	switch choice.Kind {
+	case character.ChoiceSkills:
 		return "skill:" + canonicalSkill(value)
-	case "tools":
+	case character.ChoiceTools:
 		return "tool:" + value
+	case character.ChoiceExpertise, character.ChoiceSkillExpertise, character.ChoiceSkillUpgrade, character.ChoiceProficiencies,
+		character.ChoiceWeaponMastery, character.ChoiceLanguages, character.ChoiceSavingThrows, character.ChoiceWeapons,
+		character.ChoiceArmor, character.ChoiceResistances, character.ChoiceImmunities, character.ChoiceFeat,
+		character.ChoiceEnumerated, character.ChoiceASIMode, character.ChoiceAbilityBudget, character.ChoiceSize:
 	}
 	if skill, ok := strings.CutPrefix(value, "skill:"); ok {
 		return "skill:" + canonicalSkill(skill)

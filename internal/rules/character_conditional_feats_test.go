@@ -25,10 +25,10 @@ func TestConditionalFeatChoicesReserveOnlyEarlierValidSelections(t *testing.T) {
 	input, records, profile := conditionalFeatFixture(t)
 	before, sources := cloneCharacter(input), string(mustJSON(records.byKind))
 	result := EvaluateCharacter(input, records, profile)
-	if !result.Ready || !truth(result.Guidance["canSave"]) {
+	if !result.Ready || !truth(view(result.Guidance)["canSave"]) {
 		t.Fatal(result.Issues)
 	}
-	if got := objects(object(object(result.Guidance["choices"])[trainingEight])["options"]); len(got) != 1 || text(got[0]["id"]) != "storm" {
+	if got := objects(object(object(view(result.Guidance)["choices"])[trainingEight])["options"]); len(got) != 1 || text(got[0]["id"]) != "storm" {
 		t.Fatal("later acquisition did not exclude earlier choices", got)
 	}
 	if !reflect.DeepEqual(input, before) || string(mustJSON(records.byKind)) != sources || !reflect.DeepEqual(result, EvaluateCharacter(input, records, profile)) {
@@ -36,7 +36,7 @@ func TestConditionalFeatChoicesReserveOnlyEarlierValidSelections(t *testing.T) {
 	}
 	input.Build.Choices[6].Value = mustJSON("ember")
 	result = EvaluateCharacter(input, records, profile)
-	if !hasChoiceIssue(result, "invalid-option:"+trainingEight+"#0") || hasChoiceIssue(result, "invalid-option:"+trainingOrigin+"#0") || truth(result.Guidance["canSave"]) || !truth(builderIssue(result, trainingEight)["repair"]) {
+	if !hasChoiceIssue(result, "invalid-option:"+trainingEight+"#0") || hasChoiceIssue(result, "invalid-option:"+trainingOrigin+"#0") || truth(view(result.Guidance)["canSave"]) || !truth(builderIssue(result, trainingEight)["repair"]) {
 		t.Fatal("duplicate was accepted or invalidated the earlier owner", result.Issues)
 	}
 	// Reordering authored entries must not change which acquisition owns an option.
@@ -59,7 +59,7 @@ func TestConditionalFeatIncompleteCorrectionAndWithdrawal(t *testing.T) {
 	// Removing only the invalid later pick leaves a legal, incomplete build.
 	input.Build.Choices = append(input.Build.Choices[:5], input.Build.Choices[6:]...)
 	result = EvaluateCharacter(input, records, profile)
-	if result.Ready || !truth(result.Guidance["canSave"]) {
+	if result.Ready || !truth(view(result.Guidance)["canSave"]) {
 		t.Fatal("incomplete choice cannot save", result.Issues)
 	}
 	input.Build.Choices = append(input.Build.Choices, character.Choice{ID: trainingFour, Value: mustJSON("ember")})
@@ -69,8 +69,8 @@ func TestConditionalFeatIncompleteCorrectionAndWithdrawal(t *testing.T) {
 	input.Build.Background = "other"
 	input.Build.Choices = append(input.Build.Choices[:4], input.Build.Choices[5:]...)
 	result = EvaluateCharacter(input, records, profile)
-	options := objects(object(object(result.Guidance["choices"])[trainingFour])["options"])
-	if len(options) != 3 || !truth(result.Guidance["canSave"]) {
+	options := objects(object(object(view(result.Guidance)["choices"])[trainingFour])["options"])
+	if len(options) != 3 || !truth(view(result.Guidance)["canSave"]) {
 		t.Fatal("withdrawing the origin did not release its option", options, result.Issues)
 	}
 }
@@ -88,7 +88,7 @@ func TestConditionalFeatCapacityAndUnknownPoliciesFailClosed(t *testing.T) {
 		object(feat["grants"])["choices"] = []any{Object{"id": "proficiencies", "type": "enumerated", "count": 1, "from": []any{"ember", "frost"}}}
 		records.byKind["feat"]["training"] = mustJSON(feat)
 		result := EvaluateCharacter(input, records, profile)
-		if !hasFeatBlock(result, "training") || truth(result.Guidance["canSave"]) || offeredFeat(result, "asi:fighter:8", "training") {
+		if !hasFeatBlock(result, "training") || truth(view(result.Guidance)["canSave"]) || offeredFeat(result, "asi:fighter:8", "training") {
 			t.Fatal("exhausted or unsupported repetition accepted", policy, result.Issues)
 		}
 	}

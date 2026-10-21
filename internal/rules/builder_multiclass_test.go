@@ -28,7 +28,7 @@ func TestMulticlassSkillsUseOnlyTheDeclaredReducedPool(t *testing.T) {
 					classes[0], classes[1] = classes[1], classes[0]
 					want = 2
 				}
-				plan := BuilderPlan(Object{"classes": classes}, records, profile)
+				plan := view(BuilderPlan(Object{"classes": classes}, records, profile))
 				found := 0
 				for _, choice := range objects(plan["classChoices"]) {
 					if text(choice["id"]) == "skills:wizard" {

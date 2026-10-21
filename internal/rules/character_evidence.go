@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -43,13 +44,14 @@ func (records *characterRecords) Value(kind, id string) (json.RawMessage, bool) 
 	for _, key := range []string{"text", "description", "lore", "body", "entries", "fluff", "art", "images"} {
 		delete(facts, key)
 	}
+	factBody, _ := json.Marshal(facts)
 	identity := SourceIdentity{}
 	if source, ok := records.source.(interface {
 		Provenance(string, string) SourceIdentity
 	}); ok {
 		identity = source.Provenance(kind, id)
 	}
-	records.selected[kind+":"+id] = character.Evidence{Reference: character.Reference{Kind: kind, ID: id}, Name: firstText(record["name"], id), Book: text(record["book"]), Hash: hex.EncodeToString(sum[:]), Summary: summary, Facts: facts, PackageID: identity.PackageID, PackageGeneration: identity.PackageGeneration, ContentRevision: identity.ContentRevision}
+	records.selected[kind+":"+id] = character.Evidence{Reference: character.Reference{Kind: kind, ID: id}, Name: firstText(record["name"], id), Book: text(record["book"]), Hash: hex.EncodeToString(sum[:]), Summary: summary, Facts: character.RecordFacts(factBody), PackageID: identity.PackageID, PackageGeneration: identity.PackageGeneration, ContentRevision: identity.ContentRevision}
 	return body, true
 }
 
@@ -83,35 +85,62 @@ func (records *characterRecords) evidence() []character.Evidence {
 	return result
 }
 
-func captureCharacterSources(sheet Object, records *characterRecords) {
-	for _, feature := range objects(sheet["features"]) {
+func captureCharacterSources(sheet *character.Calculation, records *characterRecords) {
+	for _, feature := range sheet.Features {
 		// A chosen subclass fills its class's slot row with kind "subclass".
-		_, _ = records.Value(firstText(feature["kind"], "feature"), text(feature["id"]))
+		_, _ = records.Value(firstText(feature.Kind, "feature"), feature.ID)
 	}
-	for _, resource := range objects(sheet["resources"]) {
-		ref := grantSourceReference(object(resource["source"]))
+	for _, resource := range sheet.Resources {
+		ref := grantSourceReference(resource.Source)
 		_, _ = records.Value(ref.Kind, ref.ID)
 	}
-
 }
 
-// Source tables belong in retained evidence. The playable projection contains
-// identities and selected results, not a second copy of every progression row.
-func compactCharacterProjection(sheet Object) {
-	for _, key := range []string{"class", "species", "background"} {
-		if record := object(sheet[key]); record != nil {
-			identity := Object{}
-			for _, field := range []string{"id", "name", "kind", "book"} {
-				if value, exists := record[field]; exists {
-					identity[field] = value
-				}
-			}
-			sheet[key] = identity
+// factsOf decodes an evidence entry's record facts.
+func factsOf(entry character.Evidence) Object {
+	facts, _ := DecodeObject(json.RawMessage(entry.Facts))
+	return facts
+}
+
+// jsonView is a value's JSON form, with whole numbers as int. Explanations
+// are keyed by JSON paths, so their generic walk reads the sheet in this form.
+func jsonView(value any) Object {
+	body, _ := json.Marshal(value)
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder.UseNumber()
+	var decoded any
+	_ = decoder.Decode(&decoded)
+	view, _ := jsonViewValue(decoded).(Object)
+	return view
+}
+
+func jsonViewValue(value any) any {
+	switch current := value.(type) {
+	case json.Number:
+		if whole, err := current.Int64(); err == nil {
+			return int(whole)
 		}
+		number, _ := current.Float64()
+		return number
+	case map[string]any:
+		result := Object{}
+		for key, child := range current {
+			result[key] = jsonViewValue(child)
+		}
+		return result
+	case []any:
+		result := make([]any, len(current))
+		for index, child := range current {
+			result[index] = jsonViewValue(child)
+		}
+		return result
+	default:
+		return current
 	}
 }
 
-func characterExplanations(input character.Inputs, sheet Object, evidence []character.Evidence, profile Ruleset) map[string]character.Explanation {
+func characterExplanations(input character.Inputs, calculation *character.Calculation, evidence []character.Evidence, profile Ruleset) map[string]character.Explanation {
+	sheet := jsonView(calculation)
 	result := map[string]character.Explanation{}
 	if size := object(sheet["derived"])["size"]; size != nil {
 		source := character.Reference{Kind: "species", ID: input.Build.Species}
@@ -185,7 +214,7 @@ func characterExplanations(input character.Inputs, sheet Object, evidence []char
 	hp := object(sheet["hp"])
 	hpTerms := []character.Term{{Label: "Level gains", Value: hp["levels"]}}
 	for _, bonus := range objects(hp["fixedBonuses"]) {
-		ref := grantSourceReference(object(bonus["source"]))
+		ref := grantSourceReference(sourceFromObject(object(bonus["source"])))
 		hpTerms = append(hpTerms, character.Term{Label: text(bonus["name"]), Value: bonus["value"], Source: &ref})
 	}
 	makeExplanation("derived.maxHp", "Maximum HP", "sum of each level's max(minimum gain, hit die result + Constitution modifier) + per-level grants + fixed grants", derived["maxHp"], hpTerms...)
@@ -197,7 +226,7 @@ func characterExplanations(input character.Inputs, sheet Object, evidence []char
 		}
 	}
 	for _, bonus := range objects(ac["bonuses"]) {
-		ref := grantSourceReference(object(bonus["source"]))
+		ref := grantSourceReference(sourceFromObject(object(bonus["source"])))
 		terms = append(terms, character.Term{Label: text(bonus["name"]), Value: Object{"bonus": bonus["value"], "requires": bonus["requires"]},
 			Source: &ref, Status: text(bonus["status"])})
 	}
@@ -207,7 +236,8 @@ func characterExplanations(input character.Inputs, sheet Object, evidence []char
 	speedTerms := []character.Term{}
 	for _, entry := range evidence {
 		for _, key := range []string{"speeds", "speed", "grants", "modifiers"} {
-			if fact, ok := entry.Facts[key]; ok && key != "grants" || key == "grants" && object(entry.Facts[key])["speedBonus"] != nil {
+			facts := factsOf(entry)
+			if fact, ok := facts[key]; ok && key != "grants" || key == "grants" && object(facts[key])["speedBonus"] != nil {
 				ref := entry.Reference
 				speedTerms = append(speedTerms, character.Term{Label: entry.Name + ": " + key, Value: fact, Source: &ref})
 			}
@@ -222,8 +252,9 @@ func characterExplanations(input character.Inputs, sheet Object, evidence []char
 		terms := []character.Term{}
 		for _, entry := range evidence {
 			ref := entry.Reference
-			grants := object(entry.Facts["grants"])
-			if senses := object(entry.Facts["senses"]); senses[key] != nil {
+			facts := factsOf(entry)
+			grants := object(facts["grants"])
+			if senses := object(facts["senses"]); senses[key] != nil {
 				terms = append(terms, character.Term{Label: entry.Name, Value: senses[key], Source: &ref})
 			}
 			if senses := object(grants["senses"]); senses[key] != nil {
@@ -236,7 +267,7 @@ func characterExplanations(input character.Inputs, sheet Object, evidence []char
 			// activations.
 			activations := objects(grants["activations"])
 			if ref.Kind != "magic-item" {
-				activations = append(objects(entry.Facts["activations"]), activations...)
+				activations = append(objects(facts["activations"]), activations...)
 			}
 			for _, activation := range activations {
 				for _, modifier := range objects(activation["modifiers"]) {
@@ -245,8 +276,8 @@ func characterExplanations(input character.Inputs, sheet Object, evidence []char
 						continue
 					}
 					status := "inactive"
-					for _, current := range objects(sheet["activations"]) {
-						if grantSourceReference(object(current["source"])) == ref && text(current["id"]) == text(activation["id"]) && truth(current["active"]) {
+					for _, current := range calculation.Activations {
+						if grantSourceReference(current.Source) == ref && current.ID == text(activation["id"]) && current.Active {
 							status = "applied"
 						}
 					}
@@ -282,7 +313,7 @@ func characterExplanations(input character.Inputs, sheet Object, evidence []char
 		ability := integer(object(object(sheet["abilities"])[abilityName])["mod"], 0)
 		modifiers := make([]character.Term, 0)
 		for _, row := range objects(weapon["modifiers"]) {
-			ref := grantSourceReference(object(row["source"]))
+			ref := grantSourceReference(sourceFromObject(object(row["source"])))
 			value := cloneObject(row)
 			delete(value, "name")
 			delete(value, "source")
@@ -358,7 +389,7 @@ func fmtIndex(path string, index int) string { return path + "." + jsonNumber(in
 func bonusTerms(bonuses []Object) []character.Term {
 	terms := make([]character.Term, 0, len(bonuses))
 	for _, bonus := range bonuses {
-		ref := grantSourceReference(object(bonus["source"]))
+		ref := grantSourceReference(sourceFromObject(object(bonus["source"])))
 		value := bonus["value"]
 		if bonus["requires"] != nil {
 			value = Object{"bonus": bonus["value"], "requires": bonus["requires"]}

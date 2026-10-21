@@ -2,7 +2,6 @@ package rules
 
 import (
 	"encoding/json"
-	"fmt"
 	"sort"
 	"strconv"
 
@@ -11,62 +10,74 @@ import (
 
 // EvaluateCharacter evaluates detached decisions. Completion, eligibility and
 // numerical constraints all belong here, never in the persistence or UI layer.
-func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset) character.Result {
+func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset) (result character.Result) {
 	snapshot := newCharacterRecordSnapshot(records)
 	if verifyRecords != nil {
 		defer verifyRecords(snapshot)
 	}
 	records = snapshot
 	input = cloneCharacter(input)
-	result := character.Result{ContractVersion: character.ContractVersion, Inputs: input, Sheet: map[string]any{}, Guidance: map[string]any{}, Plan: map[string]any{}, SpellOptions: map[string]any{}, Explanations: map[string]character.Explanation{}, Evidence: []character.Evidence{}, Issues: []character.Issue{}}
+	result = character.Result{ContractVersion: character.ContractVersion, Inputs: input, Sheet: character.Sheet{Status: character.SheetNeedsChoices}, Explanations: map[string]character.Explanation{}, Evidence: []character.Evidence{}, Issues: []character.Issue{}}
+	defer finishResult(&result)
 	if profile.Constants.Character == nil {
-		addCharacterIssue(&result, "character-policy", "rules", "The rules profile does not define character creation policy.", "blocker", nil)
+		addCharacterIssue(&result, "character-policy", "rules", "The rules profile does not define character creation policy.", character.SeverityBlocker, nil)
 		return result
 	}
+	needsChoices := len(input.Build.BaseScores) != 6 || len(input.Build.Levels) == 0 || input.Build.Species == "" || input.Build.Background == ""
 	tracked := newCharacterRecords(records)
 	decisions := characterDecisions(input, tracked, profile, &result)
 	normalized := NormalizeBuilderDecisions(decisions, tracked, profile)
 	applyCharacterAbilityEffects(input, normalized, &result, profile, tracked)
 	tracked.selected = map[string]character.Evidence{}
-	hydrated := Hydrate(normalized, tracked, &profile)
-	species := object(hydrated.Sheet["species"])
-	if size := selectedSpeciesSize(normalized, species); size != nil || speciesSizeChoice(species) != nil {
-		object(hydrated.Sheet["derived"])["size"] = size
-	}
-	result.Sheet = hydrated.Sheet
-	annotateSpellbookCapacity(input, hydrated.Sheet)
-	result.Sheet["feats"] = acquiredFeatRows(selectedFeats(normalized, tracked), objects(normalized["featAcquisitions"]))
+	hydrated := Hydrate(normalized, tracked, profile)
+	sheet := hydrated.Sheet
+	result.Sheet = character.Sheet{Status: character.SheetCalculated, Calculation: sheet}
+	sheet.Derived.Size = selectedSpeciesSize(normalized, recordByID(tracked, "species", text(normalized["species"])))
+	annotateSpellbookCapacity(input, sheet)
+	sheet.Feats = acquiredFeatRows(selectedFeats(normalized, tracked), objects(normalized["featAcquisitions"]))
 	for _, ability := range Abilities {
-		object(object(hydrated.Sheet["abilities"])[ability])["cap"] = object(normalized["scoreCaps"])[ability]
+		row := sheet.Abilities[ability]
+		row.Cap = integer(object(normalized["scoreCaps"])[ability], 0)
+		sheet.Abilities[ability] = row
 	}
-	baseAttunementWarning := attunementCapacityWarning(integer(object(hydrated.Sheet["attunement"])["limit"], 0))
-	applyCharacterHitDice(input, hydrated.Sheet, tracked, &result, profile)
-	applyCharacterEffects(input, hydrated.Sheet, &result, tracked)
-	normalized["resourceUses"] = characterRemainingResources(input, hydrated.Sheet)
+	baseAttunementWarning := attunementCapacityWarning(sheet.Attunement.Limit)
+	applyCharacterHitDice(input, sheet, tracked, &result, profile)
+	applyCharacterEffects(input, sheet, &result, tracked)
+	// A lowered maximum lowers current HP with it; a raised one never heals.
+	if !needsChoices && sheet.Derived.MaxHP >= 0 && input.Play.HP > sheet.Derived.MaxHP {
+		input.Play.HP = sheet.Derived.MaxHP
+		result.Inputs.Play.HP = input.Play.HP
+	}
+	normalized["resourceUses"] = characterRemainingResources(input, sheet)
 	// Catalog discovery and legality checks must not retain every unselected
 	// option as character evidence. The calculation reads above are retained.
 	untracked := records
 	result.Plan = BuilderPlan(decisions, untracked, profile)
-	choiceOptions := characterExpertiseOptions(input, Object(result.Plan), untracked, profile)
-	for id, options := range characterProficiencyOptions(input, Object(result.Plan), untracked, profile) {
+	choiceOptions := characterExpertiseOptions(input, result.Plan, untracked, profile)
+	for id, options := range characterProficiencyOptions(input, result.Plan, untracked, profile) {
 		choiceOptions[id] = options
 	}
-	for id, options := range characterConditionalFeatOptions(input, Object(result.Plan), untracked, profile) {
+	for id, options := range characterConditionalFeatOptions(input, result.Plan, untracked, profile) {
 		choiceOptions[id] = options
 	}
-	result.Guidance = builderGuidance(decisions, Object(result.Plan), untracked, profile, choiceOptions)
-	result.SpellOptions = SpellOptions(normalized, hydrated.Sheet, untracked, profile)
-	for _, caster := range objects(result.SpellOptions["classes"]) {
-		remaining := characterSpellReplacements(input, untracked, text(caster["classId"]))
-		caster["canSwap"] = remaining > 0
-		caster["replacementsRemaining"] = remaining
+	result.Guidance = builderGuidance(decisions, result.Plan, untracked, profile, choiceOptions)
+	result.SpellOptions = SpellOptions(normalized, sheet, untracked, profile)
+	for index := range result.SpellOptions.Classes {
+		caster := &result.SpellOptions.Classes[index]
+		remaining := characterSpellReplacements(input, untracked, caster.ClassID)
+		caster.CanSwap = remaining > 0
+		caster.ReplacementsRemaining = remaining
 	}
 	validateCharacter(input, decisions, untracked, profile, &result)
 	validateCharacterSpellProgression(input, untracked, profile, &result)
 	validateClassReplacementLedger(input, profile, &result)
-	for _, section := range objects(result.Guidance["sections"]) {
-		for _, issue := range objects(section["issues"]) {
-			addCharacterIssue(&result, "choice:"+text(issue["id"]), text(issue["id"]), text(issue["label"]), firstText(issue["severity"], "blocker"), nil)
+	for _, section := range result.Guidance.Sections {
+		for _, issue := range section.Issues {
+			severity := issue.Severity
+			if severity == "" {
+				severity = character.SeverityBlocker
+			}
+			addCharacterIssue(&result, "choice:"+issue.ID, issue.ID, issue.Label, severity, nil)
 		}
 	}
 	for _, warning := range hydrated.Warnings {
@@ -75,9 +86,9 @@ func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset)
 		if warning == baseAttunementWarning {
 			continue
 		}
-		addCharacterIssue(&result, "rules-warning:"+warning, "build", warning, "warning", nil)
+		addCharacterIssue(&result, "rules-warning:"+warning, "build", warning, character.SeverityWarning, nil)
 	}
-	captureCharacterSources(hydrated.Sheet, tracked)
+	captureCharacterSources(sheet, tracked)
 	// Retain learned spell facts for offline reading without attaching every
 	// spell to unrelated statistics. Explanations use the calculation reads.
 	calculationEvidence := tracked.evidence()
@@ -88,12 +99,11 @@ func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset)
 			}
 		}
 	}
-	if selections := characterSelections(decisions, Object(result.Plan), Object(result.Guidance), tracked); len(selections) > 0 {
-		hydrated.Sheet["selections"] = selections
+	if selections := characterSelections(decisions, result.Plan, result.Guidance, tracked); len(selections) > 0 {
+		sheet.Selections = selections
 	}
 	result.Evidence = tracked.evidence()
-	compactCharacterProjection(hydrated.Sheet)
-	result.Explanations = characterExplanations(input, hydrated.Sheet, calculationEvidence, profile)
+	result.Explanations = characterExplanations(input, sheet, calculationEvidence, profile)
 	for key, explanation := range result.Explanations {
 		if explanation.Unit != "" {
 			explanation.Unit = profile.Constants.Character.DistanceUnit
@@ -101,22 +111,17 @@ func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset)
 		}
 	}
 	appendEffectExplanations(input, &result, records)
-	scopeCharacterExplanationSources(input, normalized, hydrated.Sheet, calculationEvidence, result.Explanations)
+	scopeCharacterExplanationSources(input, normalized, sheet, calculationEvidence, result.Explanations)
 	validateCharacterHands(input, records, &result)
-	result.Ready = true
-	for _, issue := range result.Issues {
-		if issue.Severity == "blocker" {
-			result.Ready = false
-		}
-	}
-	if len(input.Build.BaseScores) != 6 || len(input.Build.Levels) == 0 || input.Build.Species == "" || input.Build.Background == "" {
-		result.Sheet = map[string]any{"status": "needs-choices"}
+	result.Ready = !characterHasBlocker(result)
+	if needsChoices {
+		result.Sheet = character.Sheet{Status: character.SheetNeedsChoices}
 		result.Explanations = map[string]character.Explanation{"status": {Label: "Calculated values need choices", Formula: "Choose base abilities, species, background and the first class level to calculate the character.", Value: nil, Terms: []character.Term{}, Sources: []character.Reference{}}}
 	}
 	characterEditorGuidance(input, decisions, records, profile, &result)
 	inspiration := input.Play.Inspiration != nil && *input.Play.Inspiration
-	result.Sheet["inspiration"] = inspiration
-	result.Guidance["authoredPlay"] = Object{"inspiration": true, "quickUse": true, "storage": true, "bodyPlacement": true, "hands": true, "conditions": true}
+	result.Sheet.Inspiration = inspiration
+	result.Guidance.AuthoredPlay = character.AuthoredPlay{Inspiration: true, QuickUse: true, Storage: true, BodyPlacement: true, Hands: true, Conditions: true}
 	characterConditions(input, records, profile, &result)
 	characterConcentration(input, tracked, profile, &result)
 	if len(input.Play.Conditions) > 0 && profile.Constants.Character.ConditionRules != "" {
@@ -125,14 +130,33 @@ func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset)
 	result.Evidence = tracked.evidence()
 	characterHands(input, records, &result)
 	characterQuickUse(input, &result)
-	result.Sheet["activeItems"] = characterActiveItems(input, records)
+	result.Sheet.ActiveItems = characterActiveItems(input, records)
 	characterStorage(input, &result)
 	characterCarrying(input, tracked, profile, &result)
 	characterPlacement(input, &result)
-	result.Guidance["classReplacements"] = classReplacementOptions(input, records, profile, &result)
+	result.Guidance.ClassReplacements = classReplacementOptions(input, records, profile, &result)
 	result.Explanations["inspiration"] = character.Explanation{Label: "Inspiration", Formula: "Authored play state. Awarding and spending Inspiration are explicit edits; calculation and rest do not change it.", Value: inspiration, Terms: []character.Term{}, Sources: []character.Reference{}}
 	return result
 }
+
+// finishResult makes every required list and map the evaluation computed
+// non-null, as the published schema requires. Inputs stay as the caller sent
+// them; the service fills them before responding.
+func finishResult(result *character.Result) {
+	character.FillEmpty(&result.Sheet)
+	character.FillEmpty(&result.Plan)
+	character.FillEmpty(&result.Guidance)
+	character.FillEmpty(&result.SpellOptions)
+	character.FillEmpty(&result.Explanations)
+	character.FillEmpty(&result.Evidence)
+	character.FillEmpty(&result.Issues)
+	if checkResult != nil {
+		checkResult(*result)
+	}
+}
+
+// checkResult lets tests check every evaluation result.
+var checkResult func(character.Result)
 
 func characterDecisions(input character.Inputs, records Records, profile Ruleset, result *character.Result) Object {
 	build, play := input.Build, input.Play
@@ -176,10 +200,10 @@ func characterDecisions(input character.Inputs, records Records, profile Ruleset
 		for _, choice := range choices {
 			var value any
 			if json.Unmarshal(choice.Value, &value) != nil {
-				addCharacterIssue(result, "invalid-choice:"+choice.ID, choice.ID, "Choice value is invalid.", "blocker", nil)
+				addCharacterIssue(result, "invalid-choice:"+choice.ID, choice.ID, "Choice value is invalid.", character.SeverityBlocker, nil)
 				continue
 			}
-			descriptor := findCharacterChoice(plan, choice.ID, decisions, records, profile)
+			descriptor := findCharacterChoice(plan, choice.ID, decisions, records)
 			if descriptor == nil {
 				pending = append(pending, choice)
 				continue
@@ -192,7 +216,7 @@ func characterDecisions(input character.Inputs, records Records, profile Ruleset
 				}
 			} else {
 				decisions = applyOwnedBuilderChoice(decisions, Object{"choiceId": choice.ID, "slot": choice.Slot, "value": value}, records, plan)
-				if kind := text(descriptor["kind"]); kind == "feat" || kind == "asiMode" || kind == "enumerated" {
+				if kind := descriptor.Kind; kind == character.ChoiceFeat || kind == character.ChoiceASIMode || kind == character.ChoiceEnumerated {
 					plan = BuilderPlan(decisions, records, profile)
 				}
 			}
@@ -231,184 +255,12 @@ func characterDecisions(input character.Inputs, records Records, profile Ruleset
 	return decisions
 }
 
-func ApplyCharacterPlay(input character.Inputs, change Object, records Records, profile Ruleset) (character.Result, error) {
-	// Play commands resolve records by ID only, like evaluation, and share one
-	// decode cache across the evaluations of this command.
-	snapshot := newCharacterRecordSnapshot(records)
-	if verifyRecords != nil {
-		defer verifyRecords(snapshot)
-	}
-	records = snapshot
-	if text(change["operation"]) == "replace-class-choice" {
-		return replaceClassChoice(input, change, records, profile)
-	}
-	if operation := text(change["operation"]); operation == "set-hand" || operation == "set-grip" {
-		return applyCharacterHandCommand(input, change, records, profile)
-	}
-	if operation := text(change["operation"]); operation == "keep-concentration" || operation == "end-concentration" {
-		return applyConcentrationCommand(input, change, records, profile)
-	}
-	current := EvaluateCharacter(input, records, profile)
-	if !current.Ready {
-		return current, fmt.Errorf("Resolve the character's blocking choices before applying play changes.")
-	}
-	input = cloneCharacter(current.Inputs)
-	switch text(change["operation"]) {
-	case "consume-item":
-		if err := consumeCharacterItem(&input, change); err != nil {
-			return current, err
-		}
-	case "spend-hit-die":
-		resource := findPlayResource(Object(current.Sheet), text(change["key"]))
-		roll, ok := change["result"].(float64)
-		size := hitDieSize(text(resource["die"]))
-		id := text(change["rollId"])
-		if len(change) != 4 || !ok || roll != float64(int(roll)) || roll < 1 || roll > float64(size) || id == "" || text(resource["kind"]) != "hitdice" {
-			return current, fmt.Errorf("Record a valid result for an available hit die.")
-		}
-		for _, old := range input.Play.Rolls {
-			if old.ID == id {
-				return current, fmt.Errorf("This roll has already been recorded.")
-			}
-		}
-		key := text(resource["key"])
-		if input.Play.ResourceUses[key] >= integer(resource["max"], 0) {
-			return current, fmt.Errorf("No hit dice remain in this pool.")
-		}
-		if input.Play.ResourceUses == nil {
-			input.Play.ResourceUses = map[string]int{}
-		}
-		input.Play.ResourceUses[key]++
-		healing := max(profile.Constants.Character.MinimumHPGain, int(roll)+integer(object(object(current.Sheet["abilities"])["CON"])["mod"], 0))
-		input.Play.HP = min(integer(object(current.Sheet["derived"])["maxHp"], 0), input.Play.HP+healing)
-		input.Play.Rolls = append(input.Play.Rolls, character.PlayRoll{ID: id, Resource: key, Die: size, Result: int(roll), At: input.Play.AsOf, Origin: "recorded"})
-	case "set-hp", "heal", "damage", "set-temporary-hp":
-		amount, ok := change["amount"].(float64)
-		if !ok || amount != float64(int(amount)) || amount < 0 || amount > 1_000_000 || len(change) != 2 {
-			return current, fmt.Errorf("Enter a non-negative whole amount.")
-		}
-		maximum := integer(object(current.Sheet["derived"])["maxHp"], 0)
-		switch text(change["operation"]) {
-		case "set-hp":
-			if int(amount) > maximum {
-				return current, fmt.Errorf("Current HP cannot exceed the effective maximum (%d).", maximum)
-			}
-			input.Play.HP = int(amount)
-		case "heal":
-			input.Play.HP = min(maximum, input.Play.HP+int(amount))
-		case "damage":
-			absorbed := min(input.Play.TemporaryHP, int(amount))
-			input.Play.TemporaryHP -= absorbed
-			input.Play.HP = max(0, input.Play.HP-(int(amount)-absorbed))
-			concentrationAfterDamage(&input, int(amount), profile)
-		case "set-temporary-hp":
-			input.Play.TemporaryHP = int(amount)
-		}
-	default:
-		if text(change["operation"]) == "swap-spell" && characterSpellReplacements(input, records, text(change["classId"])) < 1 {
-			return current, fmt.Errorf("No recorded level-up spell replacements remain for this class.")
-		}
-		if text(change["operation"]) == "toggle-feature" && truth(change["enabled"]) && !input.Play.ActiveFeatures[text(change["key"])] {
-			for _, activation := range objects(current.Sheet["activations"]) {
-				if text(activation["key"]) == text(change["key"]) {
-					if key := text(object(activation["resource"])["key"]); key != "" {
-						cost := max(1, integer(object(activation["resource"])["cost"], 1))
-						resource := findPlayResource(Object(current.Sheet), key)
-						if resource == nil || input.Play.ResourceUses[key]+cost > integer(resource["max"], 0) {
-							return current, fmt.Errorf("No uses of this feature remain.")
-						}
-						if input.Play.ResourceUses == nil {
-							input.Play.ResourceUses = map[string]int{}
-						}
-						input.Play.ResourceUses[key] += cost
-					}
-				}
-			}
-		}
-		if text(change["operation"]) == "copy-spell" {
-			if id := text(change["acquisitionId"]); id == "" {
-				return current, fmt.Errorf("Spell copying requires a recorded acquisition ID.")
-			}
-			for _, acquisition := range input.Build.Spells.Acquisitions {
-				if acquisition.ID == text(change["acquisitionId"]) {
-					return current, fmt.Errorf("This spell acquisition is already recorded.")
-				}
-			}
-			if scrollID := text(change["scrollId"]); scrollID != "" {
-				found := false
-				for _, item := range input.Play.Inventory {
-					found = found || item.ID == scrollID && item.Quantity > 0 && item.SpellID == text(change["ref"])
-				}
-				if !found {
-					return current, fmt.Errorf("Choose an owned scroll explicitly associated with this spell.")
-				}
-			}
-		}
-		decisions := characterDecisions(input, records, profile, &current)
-		decisions["resourceUses"] = characterRemainingResources(input, Object(current.Sheet))
-		command := cloneObjectDeep(change)
-		if text(change["operation"]) == "copy-spell" {
-			delete(command, "acquisitionId")
-		}
-		next, err := applyPlayWithSheet(decisions, command, records, profile, Object(current.Sheet))
-		if err != nil {
-			return current, err
-		}
-		if text(change["operation"]) == "copy-spell" {
-			spell := recordByID(records, "spell", text(change["ref"]))
-			input.Build.Spells.Acquisitions = append(input.Build.Spells.Acquisitions, character.SpellAcquisition{ID: text(change["acquisitionId"]), ClassID: text(change["classId"]), SpellID: text(change["ref"]), Level: len(input.Build.Levels), At: input.Play.AsOf, CostGP: ScrollCopyCost(number(spell["level"], 0), profile), ScrollID: text(change["scrollId"]), Origin: "recorded"})
-		}
-		input.Play.HP = integer(next["hp"], input.Play.HP)
-		input.Play.TemporaryHP = integer(next["tempHp"], input.Play.TemporaryHP)
-		decodeInto(next["currency"], &input.Play.Currency)
-		for _, resource := range objects(current.Sheet["resources"]) {
-			if input.Play.ResourceUses == nil {
-				input.Play.ResourceUses = map[string]int{}
-			}
-			key := text(resource["key"])
-			input.Play.ResourceUses[key] = integer(resource["max"], 0) - integer(object(next["resourceUses"])[key], integer(resource["max"], 0))
-		}
-		decodeInto(next["activeFeatures"], &input.Play.ActiveFeatures)
-		decodeInto(next["preparedSpells"], &input.Play.PreparedSpells)
-		decodeInto(next["cantrips"], &input.Build.Spells.Cantrips)
-		decodeInto(next["spellbook"], &input.Build.Spells.Spellbook)
-		decodeInto(next["grantChoices"], &input.Build.Spells.GrantChoices)
-		decodeInto(next["grantCastingAbilities"], &input.Build.Spells.CastingAbilities)
-		previousSwaps := len(input.Build.Spells.Swaps)
-		decodeInto(next["spellSwaps"], &input.Build.Spells.Swaps)
-		for index := previousSwaps; index < len(input.Build.Spells.Swaps); index++ {
-			input.Build.Spells.Swaps[index].Origin = "recorded"
-		}
-		items := map[string]Object{}
-		for _, item := range objects(next["inventory"]) {
-			items[text(item["id"])] = item
-		}
-		for index := range input.Play.Inventory {
-			item := &input.Play.Inventory[index]
-			before := item.Quantity
-			if next, ok := items[item.ID]; ok {
-				item.Quantity = integer(next["qty"], item.Quantity)
-			} else {
-				item.Quantity = 0
-			}
-			if before > 0 && item.Quantity == 0 {
-				clearCharacterItemState(&input, item.ID)
-			}
-		}
-		if ref := castConcentration(change, Object(current.Sheet), records); ref != "" {
-			input.Play.Concentration = &character.Concentration{Ref: ref}
-		}
-	}
-	return EvaluateCharacter(input, records, profile), nil
-}
-
 // The public character model records spent uses. The existing arithmetic
 // helpers consume remaining uses, so the conversion is confined to this boundary.
-func characterRemainingResources(input character.Inputs, sheet Object) Object {
+func characterRemainingResources(input character.Inputs, sheet *character.Calculation) Object {
 	remaining := Object{}
-	for _, resource := range objects(sheet["resources"]) {
-		key := text(resource["key"])
-		remaining[key] = integer(resource["max"], 0) - input.Play.ResourceUses[key]
+	for _, resource := range sheet.Resources {
+		remaining[resource.Key] = resource.Max - input.Play.ResourceUses[resource.Key]
 	}
 	return remaining
 }
@@ -441,7 +293,7 @@ func decodeInto[T any](value any, target *T) {
 		*target = replacement
 	}
 }
-func addCharacterIssue(result *character.Result, id, target, message, severity string, reference *character.Reference) {
+func addCharacterIssue(result *character.Result, id, target, message string, severity character.IssueSeverity, reference *character.Reference) {
 	for _, issue := range result.Issues {
 		if issue.ID == id {
 			return

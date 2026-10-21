@@ -46,20 +46,20 @@ func TestRepeatableFeatChoicesBelongToIndependentAcquisitions(t *testing.T) {
 		t.Fatal(result.Issues)
 	}
 	for _, id := range []string{trainingOrigin, trainingFour, trainingEight} {
-		entry := object(object(result.Guidance["choices"])[id])
+		entry := object(object(view(result.Guidance)["choices"])[id])
 		if integer(entry["picked"], 0) != 3 || !truth(entry["done"]) {
 			t.Fatal("acquisition choices collapsed", id, entry)
 		}
 	}
-	if text(object(object(result.Guidance["choices"])[trainingFour])["label"]) != "Training · Fighter level 4" {
+	if text(object(object(view(result.Guidance)["choices"])[trainingFour])["label"]) != "Training · Fighter level 4" {
 		t.Fatal("missing source label", result.Guidance)
 	}
 	for _, skill := range []string{"arcana", "history", "nature", "medicine"} {
-		if !truth(object(object(result.Sheet["skills"])[skill])["proficient"]) {
+		if !truth(object(object(view(result.Sheet)["skills"])[skill])["proficient"]) {
 			t.Fatal("missing selected skill", skill)
 		}
 	}
-	if tools := stringsOf(object(result.Sheet["proficiencies"])["tools"]); len(tools) != 5 {
+	if tools := stringsOf(object(view(result.Sheet)["proficiencies"])["tools"]); len(tools) != 5 {
 		t.Fatal("missing independent tool choices", tools)
 	}
 	if !reflect.DeepEqual(input, before) || string(mustJSON(records.byKind)) != string(sources) || !reflect.DeepEqual(result, EvaluateCharacter(input, records, profile)) {
@@ -68,13 +68,13 @@ func TestRepeatableFeatChoicesBelongToIndependentAcquisitions(t *testing.T) {
 	// Origin replacement removes only its own grant, without renumbering later choices.
 	input.Build.Background = "other"
 	result = EvaluateCharacter(input, records, profile)
-	if !hasChoiceIssue(result, "unavailable-choice:"+trainingOrigin+"#0") || hasChoiceIssue(result, "unavailable-choice:"+trainingFour+"#0") || !truth(object(object(result.Sheet["skills"])["nature"])["proficient"]) || truth(object(object(result.Sheet["skills"])["arcana"])["proficient"]) {
+	if !hasChoiceIssue(result, "unavailable-choice:"+trainingOrigin+"#0") || hasChoiceIssue(result, "unavailable-choice:"+trainingFour+"#0") || !truth(object(object(view(result.Sheet)["skills"])["nature"])["proficient"]) || truth(object(object(view(result.Sheet)["skills"])["arcana"])["proficient"]) {
 		t.Fatal("replacement transferred or lost another acquisition", result.Issues)
 	}
 	// Removing the later advancement cannot take the earlier choices with it.
 	input.Build.Levels = input.Build.Levels[:4]
 	result = EvaluateCharacter(input, records, profile)
-	if !hasChoiceIssue(result, "unavailable-choice:"+trainingEight+"#2") || hasChoiceIssue(result, "unavailable-choice:"+trainingFour+"#2") || truth(object(object(result.Sheet["skills"])["nature"])["proficient"]) {
+	if !hasChoiceIssue(result, "unavailable-choice:"+trainingEight+"#2") || hasChoiceIssue(result, "unavailable-choice:"+trainingFour+"#2") || truth(object(object(view(result.Sheet)["skills"])["nature"])["proficient"]) {
 		t.Fatal("later removal affected the wrong acquisition", result.Issues)
 	}
 }
@@ -83,7 +83,7 @@ func TestRepeatableFeatChoicesRejectDuplicateSlotsAndForgedOwners(t *testing.T) 
 	input, records, profile := repeatableFixture(t)
 	input.Build.Choices[len(input.Build.Choices)-1].Value = mustJSON("skill:nature")
 	result := EvaluateCharacter(input, records, profile)
-	if !hasChoiceIssue(result, "duplicate-option:"+trainingEight+"#2") || truth(result.Guidance["canSave"]) {
+	if !hasChoiceIssue(result, "duplicate-option:"+trainingEight+"#2") || truth(view(result.Guidance)["canSave"]) {
 		t.Fatal("duplicate slot accepted", result.Issues)
 	}
 	input.Build.Choices = append(input.Build.Choices, character.Choice{ID: "forged:feat", Value: mustJSON("training")},
@@ -99,12 +99,12 @@ func TestWithdrawnFeatChoiceIsNeverReboundToAnotherAcquisition(t *testing.T) {
 	input.Build.Levels = input.Build.Levels[:1]
 	input.Build.Choices = []character.Choice{{ID: trainingOrigin, Slot: 2, Value: mustJSON("tool:flute")}}
 	input.Grants = []character.Grant{{ID: "reward", Name: "Training reward", Reason: "Study", ActorID: "dm", GrantedAt: input.Play.AsOf, Active: true, Condition: "always", EffectiveLevel: 1, Feat: &character.Reference{Kind: "feat", ID: "training"}}}
-	if result := EvaluateCharacter(input, records, profile); !truth(result.Guidance["canSave"]) {
+	if result := EvaluateCharacter(input, records, profile); !truth(view(result.Guidance)["canSave"]) {
 		t.Fatal("scoped choice was not accepted", result.Issues)
 	}
 	input.Build.Background = "other"
 	result := EvaluateCharacter(input, records, profile)
-	if !hasChoiceIssue(result, "unavailable-choice:"+trainingOrigin+"#2") || len(stringsOf(object(result.Sheet["proficiencies"])["tools"])) != 0 {
+	if !hasChoiceIssue(result, "unavailable-choice:"+trainingOrigin+"#2") || len(stringsOf(object(view(result.Sheet)["proficiencies"])["tools"])) != 0 {
 		t.Fatal("withdrawn choice was rebound to a different acquisition", result.Issues)
 	}
 }
@@ -121,7 +121,7 @@ func TestFeatChoicesFollowSpeciesSelectionAndDMGrantLifetime(t *testing.T) {
 		{ID: "feat:training@grant%3Areward:proficiencies", Value: mustJSON("tool:drum")}}
 	input.Grants = []character.Grant{{ID: "reward", Name: "Second training", Reason: "Study", ActorID: "dm", GrantedAt: input.Play.AsOf, Active: true, Condition: "always", EffectiveLevel: 1, Feat: &character.Reference{Kind: "feat", ID: "training"}}}
 	result := EvaluateCharacter(input, records, profile)
-	if !truth(result.Guidance["canSave"]) || !truth(object(object(result.Sheet["skills"])["arcana"])["proficient"]) || !contains(stringsOf(object(result.Sheet["proficiencies"])["tools"]), "drum") {
+	if !truth(view(result.Guidance)["canSave"]) || !truth(object(object(view(result.Sheet)["skills"])["arcana"])["proficient"]) || !contains(stringsOf(object(view(result.Sheet)["proficiencies"])["tools"]), "drum") {
 		t.Fatal("child sorted before parent lost its choices", result.Issues)
 	}
 	input.Grants[0].Active = false
@@ -139,7 +139,7 @@ func TestNonrepeatableFeatCannotBeAcquiredAgain(t *testing.T) {
 	records.byKind["feat"]["training"] = mustJSON(feat)
 	input.Build.Choices = input.Build.Choices[:4]
 	result := EvaluateCharacter(input, records, profile)
-	if !hasFeatBlock(result, "training") || truth(result.Guidance["canSave"]) || offeredFeat(result, "asi:fighter:8", "training") {
+	if !hasFeatBlock(result, "training") || truth(view(result.Guidance)["canSave"]) || offeredFeat(result, "asi:fighter:8", "training") {
 		t.Fatal("duplicate nonrepeatable feat accepted", result.Issues)
 	}
 }
@@ -167,13 +167,13 @@ func TestNestedFeatAcquisitionDoesNotDuplicateItsNormalizedSummary(t *testing.T)
 	records.byKind["background"]["artisan"] = mustJSON(Object{"kind": "background", "id": "artisan", "originFeat": "mentor"})
 	input.Build.Choices = []character.Choice{{ID: "feat:mentor:student", Value: mustJSON("training")}, {ID: "feat:training@feat%3Amentor%3Astudent:proficiencies", Value: mustJSON("tool:flute")}}
 	result := EvaluateCharacter(input, records, profile)
-	if !truth(result.Guidance["canSave"]) || !contains(stringsOf(object(result.Sheet["proficiencies"])["tools"]), "flute") {
+	if !truth(view(result.Guidance)["canSave"]) || !contains(stringsOf(object(view(result.Sheet)["proficiencies"])["tools"]), "flute") {
 		t.Fatal(result.Issues)
 	}
 	detached := character.Result{}
 	decisions := characterDecisions(input, records, profile, &detached)
 	normalized := NormalizeBuilderDecisions(decisions, records, profile)
-	before, after := BuilderPlan(decisions, records, profile), BuilderPlan(normalized, records, profile)
+	before, after := view(BuilderPlan(decisions, records, profile)), view(BuilderPlan(normalized, records, profile))
 	if !reflect.DeepEqual(before["creationChoices"], after["creationChoices"]) {
 		t.Fatal("normalized summary created a phantom acquisition", before["creationChoices"], after["creationChoices"])
 	}

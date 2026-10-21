@@ -34,7 +34,7 @@ func TestChosenSubclassFillsItsTableSlot(t *testing.T) {
 		return nil
 	}
 	// Without a chosen subclass the table slot and placeholder stay as printed.
-	unchosen := Hydrate(Object{"classes": []any{Object{"classId": "wizard", "level": 6}}},
+	unchosen := hydrateView(Object{"classes": []any{Object{"classId": "wizard", "level": 6}}},
 		records, &profile).Sheet
 	if find(values(unchosen["features"]), "wizard-arcane-tradition") == nil {
 		t.Fatalf("unchosen slot row missing in %v", unchosen["features"])
@@ -42,7 +42,7 @@ func TestChosenSubclassFillsItsTableSlot(t *testing.T) {
 	if find(values(unchosen["features"]), "Subclass Feature") == nil {
 		t.Fatalf("unchosen placeholder missing in %v", unchosen["features"])
 	}
-	sheet := Hydrate(Object{
+	sheet := hydrateView(Object{
 		"classes": []any{Object{"classId": "wizard", "level": 6, "subclass": "evoker"}},
 	}, records, &profile).Sheet
 	features := values(sheet["features"])
@@ -71,7 +71,7 @@ func TestProgressionLabelsResolveSharedFeatures(t *testing.T) {
 		"kind": "feature", "id": "ability-score-improvement", "name": "Ability Score Improvement",
 		"classId": nil, "level": nil, "shared": true,
 	})
-	sheet := Hydrate(Object{"classes": []any{Object{"classId": "wizard", "level": 5}}}, records, &profile).Sheet
+	sheet := hydrateView(Object{"classes": []any{Object{"classId": "wizard", "level": 5}}}, records, &profile).Sheet
 	var shared, unlisted Object
 	for _, feature := range objects(sheet["features"]) {
 		switch text(feature["id"]) {

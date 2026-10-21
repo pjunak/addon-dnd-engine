@@ -12,9 +12,6 @@ func TestUniversalArithmetic(t *testing.T) {
 	if AbilityModifier(9) != -1 || AbilityModifier(16) != 3 {
 		t.Fatal("ability modifier regression")
 	}
-	if ClampHP(-2, 10) != 0 || ClampHP(12, 10) != 10 || ClampHP(4, 0) != 4 {
-		t.Fatal("hit point clamp regression")
-	}
 }
 
 func TestRulesetPublishesTheCoreFormulas(t *testing.T) {
@@ -43,11 +40,6 @@ func TestValidatedRulesetDrivesEditionPolicy(t *testing.T) {
 	if ruleset.StableID() != "synthetic-dnd-2024" || ScrollCopyCost(3, ruleset) != 150 {
 		t.Fatalf("ruleset = %+v", ruleset)
 	}
-	if PointBuyCost(15, ruleset) != 9 || PointsSpent(map[string]int{
-		"STR": 15, "DEX": 8, "CON": 8, "INT": 8, "WIS": 8, "CHA": 8,
-	}, ruleset) != 9 {
-		t.Fatal("point-buy regression")
-	}
 	if slots := MulticlassSlots(5, ruleset); len(slots) != 3 || slots[2] != 2 {
 		t.Fatalf("slots = %v", slots)
 	}
@@ -56,9 +48,6 @@ func TestValidatedRulesetDrivesEditionPolicy(t *testing.T) {
 	}
 	if values := FeatASIFrom(map[string]any{"from": []any{"ANY"}}); len(values) != 6 {
 		t.Fatalf("feat ASI values = %v", values)
-	}
-	if cap := FeatAbilityCap(map[string]any{"category": "epicBoon"}, ruleset); cap == nil || *cap != 30 {
-		t.Fatalf("feat cap = %v", cap)
 	}
 }
 

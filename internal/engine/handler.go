@@ -3,13 +3,10 @@
 package engine
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strconv"
-	"strings"
 
 	"github.com/pjunak/addon-dnd-engine/character"
 	"github.com/pjunak/addon-dnd-engine/internal/provider"
@@ -21,7 +18,7 @@ import (
 
 const (
 	Contract        = "dnd5e.rules-engine"
-	ContractVersion = "5.0.0"
+	ContractVersion = "6.0.0"
 	methodPrefix    = "service/" + Contract + "/"
 )
 
@@ -45,6 +42,13 @@ type contextResponse struct {
 	Status                string            `json:"status"`
 	Identity              provider.Identity `json:"identity"`
 	Errors                []string          `json:"errors"`
+}
+
+type characterResponse struct {
+	ContractVersion string                 `json:"contractVersion"`
+	Identity        provider.Identity      `json:"identity"`
+	Evaluation      character.Result       `json:"evaluation"`
+	Policy          *rules.CharacterPolicy `json:"policy"`
 }
 
 type getRequest struct {
@@ -73,18 +77,6 @@ type queryResponse struct {
 	NextCursor      string            `json:"nextCursor,omitempty"`
 }
 
-type deriveRequest struct {
-	ContractVersion string          `json:"contractVersion"`
-	Operation       string          `json:"operation"`
-	Input           json.RawMessage `json:"input"`
-}
-
-type deriveResponse struct {
-	ContractVersion string             `json:"contractVersion"`
-	Value           any                `json:"value"`
-	Identity        *provider.Identity `json:"identity,omitempty"`
-}
-
 func New(data RulesData) (*Handler, error) {
 	if data == nil {
 		return nil, errors.New("rules-data provider client is required")
@@ -104,28 +96,38 @@ func (handler *Handler) HandleRPC(ctx context.Context, request workerrpc.Request
 		var input struct {
 			ContractVersion string           `json:"contractVersion"`
 			Inputs          character.Inputs `json:"inputs"`
-			Change          rules.Object     `json:"change,omitempty"`
+			Change          json.RawMessage  `json:"change,omitempty"`
 		}
 		if jsonexact.Decode(request.Params, &input) != nil || input.ContractVersion != character.ContractVersion {
 			return nil, invalidRequest("character request is invalid")
+		}
+		play := request.Method == methodPrefix+"character-play"
+		if !play && input.Change != nil {
+			return nil, invalidRequest("evaluation does not accept a play command")
+		}
+		var command character.PlayCommand
+		if play {
+			decoded, err := character.DecodePlayCommand(input.Change)
+			if err != nil {
+				return nil, invalidRequest(err.Error())
+			}
+			command = decoded
 		}
 		identity, records, profile, err := handler.provider.Evaluation(ctx, request.Meta)
 		if err != nil {
 			return nil, err
 		}
 		var result character.Result
-		if request.Method == methodPrefix+"character-play" {
-			result, err = rules.ApplyCharacterPlay(input.Inputs, input.Change, records, profile)
+		if play {
+			result, err = rules.ApplyCharacterPlay(input.Inputs, command, records, profile)
 			if err != nil {
 				return nil, invalidRequest(err.Error())
 			}
 		} else {
-			if input.Change != nil {
-				return nil, invalidRequest("evaluation does not accept a play command")
-			}
 			result = rules.EvaluateCharacter(input.Inputs, records, profile)
 		}
-		return map[string]any{"contractVersion": "rules-character-response.v2", "identity": identity, "evaluation": result, "policy": profile.Constants.Character}, nil
+		character.FillEmpty(&result)
+		return characterResponse{ContractVersion: character.ResponseVersion, Identity: identity, Evaluation: result, Policy: profile.Constants.Character}, nil
 	case methodPrefix + "context":
 		if err := decodeEmpty(request.Params); err != nil {
 			return nil, invalidRequest("rules engine context request is invalid")
@@ -164,19 +166,6 @@ func (handler *Handler) HandleRPC(ctx context.Context, request workerrpc.Request
 			ContractVersion: "rules-engine-query-result.v1", Identity: result.Identity,
 			Records: result.Records, NextCursor: result.NextCursor,
 		}, nil
-	case methodPrefix + "derive":
-		var input deriveRequest
-		if jsonexact.Decode(request.Params, &input) != nil || input.ContractVersion != "rules-engine-derive.v1" ||
-			input.Operation == "" || !objectPayload(input.Input) {
-			return nil, invalidRequest("rules engine derive request is invalid")
-		}
-		value, identity, err := handler.derive(ctx, request.Meta, input)
-		if err != nil {
-			return nil, err
-		}
-		return deriveResponse{
-			ContractVersion: "rules-engine-derived.v1", Value: value, Identity: identity,
-		}, nil
 
 	default:
 		return nil, workerrpc.NewRPCError(workerrpc.JSONRPCMethodNotFound, workerrpc.KindNotFound,
@@ -184,151 +173,9 @@ func (handler *Handler) HandleRPC(ctx context.Context, request workerrpc.Request
 	}
 }
 
-func (handler *Handler) derive(
-	ctx context.Context,
-	meta *workerrpc.Meta,
-	request deriveRequest,
-) (any, *provider.Identity, error) {
-	switch request.Operation {
-	case "ability-modifier":
-		var input struct {
-			Score *float64 `json:"score"`
-		}
-		if jsonexact.Decode(request.Input, &input) != nil || input.Score == nil {
-			return nil, nil, invalidDerive()
-		}
-		return rules.AbilityModifier(*input.Score), nil, nil
-	case "clamp-hp":
-		var input struct {
-			HitPoints *float64 `json:"hitPoints"`
-			Maximum   *float64 `json:"maximum"`
-		}
-		if jsonexact.Decode(request.Input, &input) != nil || input.HitPoints == nil || input.Maximum == nil {
-			return nil, nil, invalidDerive()
-		}
-		return rules.ClampHP(*input.HitPoints, *input.Maximum), nil, nil
-	case "feat-asi-from":
-		var input struct {
-			Grant map[string]any `json:"grant"`
-		}
-		if jsonexact.Decode(request.Input, &input) != nil || input.Grant == nil {
-			return nil, nil, invalidDerive()
-		}
-		return rules.FeatASIFrom(input.Grant), nil, nil
-	}
-	if !rulesetOperation(request.Operation) {
-		return nil, nil, invalidRequest("rules engine derive operation is unknown")
-	}
-
-	profile, err := handler.provider.Ruleset(ctx, meta)
-	if err != nil {
-		return nil, nil, err
-	}
-	identity := profile.Identity
-	switch request.Operation {
-	case "scroll-copy-cost":
-		var input struct {
-			Level *float64 `json:"level"`
-		}
-		if jsonexact.Decode(request.Input, &input) != nil || input.Level == nil {
-			return nil, nil, invalidDerive()
-		}
-		return rules.ScrollCopyCost(*input.Level, profile.Ruleset), &identity, nil
-	case "point-buy-cost":
-		var input struct {
-			Score *int `json:"score"`
-		}
-		if jsonexact.Decode(request.Input, &input) != nil || input.Score == nil {
-			return nil, nil, invalidDerive()
-		}
-		return rules.PointBuyCost(*input.Score, profile.Ruleset), &identity, nil
-	case "points-spent":
-		var input struct {
-			Scores map[string]int `json:"scores"`
-		}
-		if jsonexact.Decode(request.Input, &input) != nil || input.Scores == nil {
-			return nil, nil, invalidDerive()
-		}
-		return rules.PointsSpent(input.Scores, profile.Ruleset), &identity, nil
-	case "multiclass-slots":
-		var input struct {
-			CasterLevel *int `json:"casterLevel"`
-		}
-		if jsonexact.Decode(request.Input, &input) != nil || input.CasterLevel == nil {
-			return nil, nil, invalidDerive()
-		}
-		return rules.MulticlassSlots(*input.CasterLevel, profile.Ruleset), &identity, nil
-	case "pact-magic":
-		var input struct {
-			Level *int `json:"level"`
-		}
-		if jsonexact.Decode(request.Input, &input) != nil || input.Level == nil {
-			return nil, nil, invalidDerive()
-		}
-		return rules.PactMagic(*input.Level, profile.Ruleset), &identity, nil
-	case "proficiency-bonus":
-		var input struct {
-			TotalLevel *int `json:"totalLevel"`
-		}
-		if jsonexact.Decode(request.Input, &input) != nil || input.TotalLevel == nil || *input.TotalLevel < 1 || *input.TotalLevel > 20 {
-			return nil, nil, invalidDerive()
-		}
-		return profile.Ruleset.ProficiencyBonus(*input.TotalLevel), &identity, nil
-	case "hit-die-average":
-		var input struct {
-			HitDie string `json:"hitDie"`
-		}
-		size, err := 0, jsonexact.Decode(request.Input, &input)
-		if err == nil {
-			size, err = strconv.Atoi(strings.TrimPrefix(strings.ToLower(input.HitDie), "d"))
-		}
-		if err != nil || !strings.HasPrefix(strings.ToLower(input.HitDie), "d") || size < 2 || size > 100 {
-			return nil, nil, invalidDerive()
-		}
-		return profile.Ruleset.FixedHitPoints(size), &identity, nil
-	case "save-dc":
-		var input struct {
-			AbilityScore *float64 `json:"abilityScore"`
-			TotalLevel   *int     `json:"totalLevel"`
-		}
-		if jsonexact.Decode(request.Input, &input) != nil || input.AbilityScore == nil || input.TotalLevel == nil || *input.TotalLevel < 1 || *input.TotalLevel > 20 {
-			return nil, nil, invalidDerive()
-		}
-		return profile.Ruleset.Constants.SpellSaveDCBase + profile.Ruleset.ProficiencyBonus(*input.TotalLevel) + rules.AbilityModifier(*input.AbilityScore), &identity, nil
-	case "feat-ability-cap":
-		var input struct {
-			Feat map[string]any `json:"feat"`
-		}
-		if jsonexact.Decode(request.Input, &input) != nil || input.Feat == nil {
-			return nil, nil, invalidDerive()
-		}
-		return rules.FeatAbilityCap(input.Feat, profile.Ruleset), &identity, nil
-	}
-	panic("ruleset operation was accepted but not handled")
-}
-
-func rulesetOperation(operation string) bool {
-	switch operation {
-	case "proficiency-bonus", "hit-die-average", "save-dc",
-		"scroll-copy-cost", "point-buy-cost", "points-spent", "multiclass-slots", "pact-magic", "feat-ability-cap":
-		return true
-	default:
-		return false
-	}
-}
-
-func invalidDerive() error {
-	return invalidRequest("rules engine derive input is invalid")
-}
-
 func invalidRequest(message string) error {
 	return workerrpc.NewRPCError(workerrpc.JSONRPCInvalidParams, workerrpc.KindInvalidRequest,
 		message, false, nil)
-}
-
-func objectPayload(body json.RawMessage) bool {
-	trimmed := bytes.TrimSpace(body)
-	return len(trimmed) > 1 && trimmed[0] == '{' && trimmed[len(trimmed)-1] == '}' && json.Valid(trimmed)
 }
 
 func decodeEmpty(body json.RawMessage) error {

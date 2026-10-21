@@ -11,30 +11,37 @@ import (
 // acquired. known is false when a multi-slot choice, replacement history or a
 // feat granted by another feat makes that mapping uncertain; repeatable is
 // false when the feat cannot be acquired that many times.
-func featOptionLevels(input character.Inputs, descriptor, choice, feat Object, acquisitions []featAcquisition) (ends []int, repeatable, known bool) {
-	if integer(choice["count"], 1) > 1 {
+func featOptionLevels(input character.Inputs, descriptor, choice character.PlanChoice, feat Object, acquisitions []featAcquisition) (ends []int, repeatable, known bool) {
+	if choice.Count > 1 {
 		return nil, true, false
 	}
 	// A replacement can move this acquisition, or another copy of the same
 	// feat, to a later level. The progression validator reconstructs that history.
 	for _, entry := range input.Build.Replacements {
-		if entry.Kind == "feat" && (entry.Key == text(choice["id"]) || entry.In == text(feat["id"]) || entry.Out == text(feat["id"])) {
+		if entry.Kind == character.ReplaceFeat && (entry.Key == choice.ID || entry.In == text(feat["id"]) || entry.Out == text(feat["id"])) {
 			return nil, true, false
 		}
 	}
-	source := object(descriptor["source"])
-	classID := text(descriptor["classId"])
-	if classID == "" && text(source["type"]) != "background" && text(source["type"]) != "species" {
+	source := character.Source{}
+	if descriptor.Source != nil {
+		source = *descriptor.Source
+	}
+	classID := descriptor.ClassID
+	if classID == "" && source.Type != character.SourceBackground && source.Type != character.SourceSpecies {
 		return nil, true, false
 	}
-	at := featAcquisitionIndex(input, classID, integer(source["level"], 1))
+	level := source.Level
+	if level == 0 {
+		level = 1
+	}
+	at := featAcquisitionIndex(input, classID, level)
 	if at < 0 {
 		return nil, true, false
 	}
 	// Replacing a feat can also remove the feats it granted. Let the full
 	// candidate plan resolve those descendants before checking duplicates.
 	for _, selected := range acquisitions {
-		if selected.id != text(choice["id"]) {
+		if selected.id != choice.ID {
 			continue
 		}
 		for _, acquired := range acquisitions {
@@ -46,7 +53,7 @@ func featOptionLevels(input character.Inputs, descriptor, choice, feat Object, a
 	ends = []int{at}
 	count := 1
 	for _, acquired := range acquisitions {
-		if acquired.id == text(choice["id"]) || acquired.featID != text(feat["id"]) {
+		if acquired.id == choice.ID || acquired.featID != text(feat["id"]) {
 			continue
 		}
 		count++
@@ -72,11 +79,9 @@ func levelPrerequisitesMet(input character.Inputs, feat Object, ends []int) bool
 		prefix := input
 		prefix.Build.Levels = prefix.Build.Levels[:end]
 		check := character.Result{}
-		validatePrerequisite(feat["prerequisites"], "feat:"+text(feat["id"]), "choices", prefix, Object{"totalLevel": end}, &check, nil)
-		for _, issue := range check.Issues {
-			if issue.Severity == "blocker" {
-				return false
-			}
+		validatePrerequisite(feat["prerequisites"], "feat:"+text(feat["id"]), "choices", prefix, &character.Calculation{TotalLevel: end}, &check, nil)
+		if characterHasBlocker(check) {
+			return false
 		}
 	}
 	return true

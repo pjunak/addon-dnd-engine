@@ -1,1133 +1,2016 @@
 {
-  "additionalProperties": false,
-  "properties": {
-    "contractVersion": {
-      "maxLength": 30000,
-      "type": "string"
+  "$defs": {
+    "ACCandidate": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "value": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "value"
+      ],
+      "type": "object"
     },
-    "evidence": {
-      "items": {
-        "additionalProperties": false,
-        "properties": {
-          "book": {
-            "maxLength": 30000,
-            "type": "string"
-          },
-          "contentRevision": {
-            "maxLength": 30000,
-            "type": "string"
-          },
-          "facts": {
-            "additionalProperties": {},
-            "maxProperties": 1000,
-            "type": [
-              "object",
-              "null"
-            ]
-          },
-          "hash": {
-            "maxLength": 30000,
-            "type": "string"
-          },
-          "name": {
-            "maxLength": 30000,
-            "type": "string"
-          },
-          "packageGeneration": {
-            "maxLength": 30000,
-            "type": "string"
-          },
-          "packageId": {
-            "maxLength": 30000,
-            "type": "string"
-          },
-          "reference": {
-            "additionalProperties": false,
-            "properties": {
-              "id": {
-                "maxLength": 30000,
-                "type": "string"
-              },
-              "kind": {
-                "maxLength": 30000,
-                "type": "string"
-              }
+    "AbilityScore": {
+      "additionalProperties": false,
+      "properties": {
+        "base": {
+          "type": "integer"
+        },
+        "bonus": {
+          "type": "integer"
+        },
+        "cap": {
+          "type": "integer"
+        },
+        "checkAdvantage": {
+          "type": "boolean"
+        },
+        "checkDisadvantage": {
+          "type": "boolean"
+        },
+        "mod": {
+          "type": "integer"
+        },
+        "score": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "base",
+        "score",
+        "mod",
+        "bonus"
+      ],
+      "type": "object"
+    },
+    "Acquisition": {
+      "additionalProperties": false,
+      "properties": {
+        "classId": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "level": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "classId",
+        "level"
+      ],
+      "type": "object"
+    },
+    "AcquisitionLevel": {
+      "additionalProperties": false,
+      "properties": {
+        "classId": {
+          "type": "string"
+        },
+        "classLevel": {
+          "type": "integer"
+        },
+        "id": {
+          "type": "string"
+        },
+        "level": {
+          "type": "integer"
+        },
+        "source": {
+          "$ref": "#/$defs/Reference"
+        }
+      },
+      "required": [
+        "id",
+        "classId",
+        "level",
+        "classLevel",
+        "source"
+      ],
+      "type": "object"
+    },
+    "Activation": {
+      "additionalProperties": false,
+      "properties": {
+        "active": {
+          "type": "boolean"
+        },
+        "available": {
+          "type": "boolean"
+        },
+        "condition": {
+          "type": "string"
+        },
+        "exclusiveGroup": {
+          "oneOf": [
+            {
+              "type": "string"
             },
-            "required": [
-              "kind",
-              "id"
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "key": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "resource": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/ActivationResource"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "source": {
+          "$ref": "#/$defs/Source"
+        }
+      },
+      "required": [
+        "key",
+        "id",
+        "name",
+        "source",
+        "resource",
+        "exclusiveGroup",
+        "active",
+        "available"
+      ],
+      "type": "object"
+    },
+    "ActivationResource": {
+      "additionalProperties": false,
+      "properties": {
+        "cost": {
+          "type": "integer"
+        },
+        "key": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "key"
+      ],
+      "type": "object"
+    },
+    "ActiveItem": {
+      "additionalProperties": false,
+      "properties": {
+        "itemId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "ref": {
+          "$ref": "#/$defs/Reference"
+        }
+      },
+      "required": [
+        "itemId",
+        "name",
+        "ref"
+      ],
+      "type": "object"
+    },
+    "ArmorClass": {
+      "additionalProperties": false,
+      "properties": {
+        "activeBonus": {
+          "type": "integer"
+        },
+        "base": {
+          "type": "string"
+        },
+        "bonuses": {
+          "items": {
+            "$ref": "#/$defs/ConditionalBonus"
+          },
+          "type": "array"
+        },
+        "candidates": {
+          "items": {
+            "$ref": "#/$defs/ACCandidate"
+          },
+          "type": "array"
+        },
+        "restrictions": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/ArmorRestrictions"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "shield": {
+          "type": "integer"
+        },
+        "speciesBonus": {
+          "type": "integer"
+        },
+        "value": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "value",
+        "base",
+        "shield",
+        "candidates",
+        "restrictions"
+      ],
+      "type": "object"
+    },
+    "ArmorRequirement": {
+      "additionalProperties": false,
+      "properties": {
+        "armorTypes": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "noArmor": {
+          "type": "boolean"
+        },
+        "noShield": {
+          "type": "boolean"
+        },
+        "notArmorTypes": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "ArmorRestrictions": {
+      "additionalProperties": false,
+      "properties": {
+        "armorId": {
+          "type": "string"
+        },
+        "armorName": {
+          "type": "string"
+        },
+        "meetsStrength": {
+          "type": "boolean"
+        },
+        "speedPenalty": {
+          "type": "integer"
+        },
+        "stealthDisadvantage": {
+          "type": "boolean"
+        },
+        "strengthRequirement": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "armorId",
+        "armorName",
+        "strengthRequirement",
+        "meetsStrength",
+        "speedPenalty",
+        "stealthDisadvantage"
+      ],
+      "type": "object"
+    },
+    "Attack": {
+      "additionalProperties": false,
+      "properties": {
+        "ability": {
+          "type": "string"
+        },
+        "attackBonus": {
+          "type": "integer"
+        },
+        "criticalRange": {
+          "type": "integer"
+        },
+        "damage": {
+          "type": "string"
+        },
+        "damageType": {
+          "type": "string"
+        },
+        "featureAttack": {
+          "type": "string"
+        },
+        "grip": {
+          "enum": [
+            "one",
+            "two"
+          ],
+          "type": "string"
+        },
+        "itemId": {
+          "type": "string"
+        },
+        "mastery": {
+          "type": "string"
+        },
+        "masteryActive": {
+          "type": "boolean"
+        },
+        "modifiers": {
+          "items": {
+            "$ref": "#/$defs/AttackApplied"
+          },
+          "type": "array"
+        },
+        "name": {
+          "type": "string"
+        },
+        "proficient": {
+          "type": "boolean"
+        },
+        "properties": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "range": {
+          "$ref": "#/$defs/WeaponRange"
+        },
+        "reach": {
+          "type": "integer"
+        },
+        "ref": {
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/Source"
+        },
+        "unarmed": {
+          "type": "boolean"
+        },
+        "versatileDamage": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "attackBonus",
+        "ability",
+        "damage",
+        "versatileDamage",
+        "damageType",
+        "properties",
+        "mastery",
+        "masteryActive",
+        "proficient"
+      ],
+      "type": "object"
+    },
+    "AttackApplied": {
+      "additionalProperties": false,
+      "properties": {
+        "ability": {
+          "type": "string"
+        },
+        "attackBonus": {
+          "type": "integer"
+        },
+        "damageBonus": {
+          "type": "integer"
+        },
+        "damageDie": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/Source"
+        }
+      },
+      "required": [
+        "name",
+        "source"
+      ],
+      "type": "object"
+    },
+    "Attunement": {
+      "additionalProperties": false,
+      "properties": {
+        "count": {
+          "type": "integer"
+        },
+        "limit": {
+          "type": "integer"
+        },
+        "over": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "count",
+        "limit",
+        "over"
+      ],
+      "type": "object"
+    },
+    "AuthoredPlay": {
+      "additionalProperties": false,
+      "properties": {
+        "bodyPlacement": {
+          "type": "boolean"
+        },
+        "conditions": {
+          "type": "boolean"
+        },
+        "hands": {
+          "type": "boolean"
+        },
+        "inspiration": {
+          "type": "boolean"
+        },
+        "quickUse": {
+          "type": "boolean"
+        },
+        "storage": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "inspiration",
+        "quickUse",
+        "storage",
+        "bodyPlacement",
+        "hands",
+        "conditions"
+      ],
+      "type": "object"
+    },
+    "Build": {
+      "additionalProperties": false,
+      "properties": {
+        "background": {
+          "type": "string"
+        },
+        "baseScores": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "type": "object"
+        },
+        "choices": {
+          "items": {
+            "$ref": "#/$defs/Choice"
+          },
+          "type": "array"
+        },
+        "levels": {
+          "items": {
+            "$ref": "#/$defs/Level"
+          },
+          "type": "array"
+        },
+        "lineage": {
+          "type": "string"
+        },
+        "method": {
+          "enum": [
+            "array",
+            "point-buy",
+            "rolled"
+          ],
+          "type": "string"
+        },
+        "replacements": {
+          "items": {
+            "$ref": "#/$defs/ClassReplacement"
+          },
+          "type": "array"
+        },
+        "rolls": {
+          "items": {
+            "$ref": "#/$defs/Roll"
+          },
+          "type": "array"
+        },
+        "species": {
+          "type": "string"
+        },
+        "spells": {
+          "$ref": "#/$defs/SpellDecisions"
+        },
+        "subclasses": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "method",
+        "baseScores",
+        "rolls",
+        "species",
+        "lineage",
+        "background",
+        "levels",
+        "subclasses",
+        "choices",
+        "spells"
+      ],
+      "type": "object"
+    },
+    "CarriedContainer": {
+      "additionalProperties": false,
+      "properties": {
+        "capacityLb": {
+          "type": "number"
+        },
+        "loadLb": {
+          "type": "number"
+        },
+        "stored": {
+          "type": "boolean"
+        },
+        "weightless": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "loadLb",
+        "weightless",
+        "stored"
+      ],
+      "type": "object"
+    },
+    "CarriedItem": {
+      "additionalProperties": false,
+      "properties": {
+        "custom": {
+          "type": "boolean"
+        },
+        "eachLb": {
+          "type": "number"
+        },
+        "totalLb": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "eachLb",
+        "totalLb",
+        "custom"
+      ],
+      "type": "object"
+    },
+    "Carrying": {
+      "additionalProperties": false,
+      "properties": {
+        "capacityLb": {
+          "type": "number"
+        },
+        "coinWeight": {
+          "type": "boolean"
+        },
+        "coinsLb": {
+          "type": "number"
+        },
+        "containers": {
+          "additionalProperties": {
+            "$ref": "#/$defs/CarriedContainer"
+          },
+          "type": "object"
+        },
+        "items": {
+          "additionalProperties": {
+            "$ref": "#/$defs/CarriedItem"
+          },
+          "type": "object"
+        },
+        "itemsLb": {
+          "type": "number"
+        },
+        "storedLb": {
+          "type": "number"
+        },
+        "unknown": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "weightLb": {
+          "type": "number"
+        },
+        "weightlessLb": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "capacityLb",
+        "weightLb",
+        "itemsLb",
+        "coinsLb",
+        "storedLb",
+        "weightlessLb",
+        "coinWeight",
+        "items",
+        "containers",
+        "unknown"
+      ],
+      "type": "object"
+    },
+    "Caster": {
+      "additionalProperties": false,
+      "properties": {
+        "ability": {
+          "type": "string"
+        },
+        "cantripsKnown": {
+          "type": "integer"
+        },
+        "classId": {
+          "type": "string"
+        },
+        "expandedSpellIds": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "level": {
+          "type": "integer"
+        },
+        "maxSpellLevel": {
+          "type": "integer"
+        },
+        "pact": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/PactSlots"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "preparation": {
+          "$ref": "#/$defs/Preparation"
+        },
+        "preparedCount": {
+          "type": "integer"
+        },
+        "preparedLimit": {
+          "type": "integer"
+        },
+        "prepares": {
+          "type": "string"
+        },
+        "ritual": {
+          "type": "boolean"
+        },
+        "saveDC": {
+          "type": "integer"
+        },
+        "spellAttack": {
+          "type": "integer"
+        },
+        "spellListClassId": {
+          "type": "string"
+        },
+        "spellLists": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "spellbookBonus": {
+          "type": "integer"
+        },
+        "spellbookBonusSources": {
+          "items": {
+            "$ref": "#/$defs/SpellbookBonusSource"
+          },
+          "type": "array"
+        },
+        "spellbookCapacity": {
+          "type": "integer"
+        },
+        "spellbookKnown": {
+          "type": "integer"
+        },
+        "type": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "classId",
+        "level",
+        "ability",
+        "type",
+        "prepares",
+        "ritual",
+        "spellListClassId",
+        "saveDC",
+        "spellAttack",
+        "preparedLimit",
+        "preparedCount",
+        "cantripsKnown",
+        "spellbookKnown",
+        "maxSpellLevel",
+        "pact",
+        "expandedSpellIds"
+      ],
+      "type": "object"
+    },
+    "CasterOptions": {
+      "additionalProperties": false,
+      "properties": {
+        "canSwap": {
+          "type": "boolean"
+        },
+        "castSlots": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "type": "object"
+        },
+        "classId": {
+          "type": "string"
+        },
+        "copyCosts": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "type": "object"
+        },
+        "replacementsRemaining": {
+          "type": "integer"
+        },
+        "ritualIds": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "spellIds": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "classId",
+        "spellIds",
+        "ritualIds",
+        "copyCosts",
+        "castSlots",
+        "canSwap",
+        "replacementsRemaining"
+      ],
+      "type": "object"
+    },
+    "CastingAbilityChoice": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "options": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "selected": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "source": {
+          "$ref": "#/$defs/Source"
+        }
+      },
+      "required": [
+        "key",
+        "source",
+        "options",
+        "selected"
+      ],
+      "type": "object"
+    },
+    "Choice": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "slot": {
+          "type": "integer"
+        },
+        "value": {
+          "oneOf": [
+            {
+              "maxLength": 300,
+              "type": "string"
+            },
+            {
+              "additionalProperties": {
+                "maximum": 30,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "maxProperties": 6,
+              "type": "object"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "slot",
+        "value"
+      ],
+      "type": "object"
+    },
+    "ChoiceGuidance": {
+      "additionalProperties": false,
+      "properties": {
+        "done": {
+          "type": "boolean"
+        },
+        "featOptions": {
+          "items": {
+            "$ref": "#/$defs/Option"
+          },
+          "type": "array"
+        },
+        "id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "labelArgs": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "labelKey": {
+          "type": "string"
+        },
+        "options": {
+          "items": {
+            "$ref": "#/$defs/Option"
+          },
+          "type": "array"
+        },
+        "picked": {
+          "type": "integer"
+        },
+        "required": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "labelKey",
+        "labelArgs",
+        "options",
+        "picked",
+        "required",
+        "done"
+      ],
+      "type": "object"
+    },
+    "ClassGuidance": {
+      "additionalProperties": false,
+      "properties": {
+        "classId": {
+          "type": "string"
+        },
+        "hitDieMax": {
+          "type": "integer"
+        },
+        "level": {
+          "type": "integer"
+        },
+        "levels": {
+          "items": {
+            "$ref": "#/$defs/LevelGuidance"
+          },
+          "type": "array"
+        },
+        "name": {
+          "type": "string"
+        },
+        "subclassLevel": {
+          "type": "integer"
+        },
+        "subclasses": {
+          "items": {
+            "$ref": "#/$defs/Option"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "classId",
+        "name",
+        "level",
+        "subclassLevel",
+        "hitDieMax",
+        "subclasses",
+        "levels"
+      ],
+      "type": "object"
+    },
+    "ClassReplacement": {
+      "additionalProperties": false,
+      "properties": {
+        "classId": {
+          "type": "string"
+        },
+        "classLevel": {
+          "type": "integer"
+        },
+        "in": {
+          "type": "string"
+        },
+        "key": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "feat",
+            "spell"
+          ],
+          "type": "string"
+        },
+        "origin": {
+          "type": "string"
+        },
+        "out": {
+          "type": "string"
+        },
+        "slot": {
+          "type": "integer"
+        },
+        "source": {
+          "$ref": "#/$defs/Reference"
+        }
+      },
+      "required": [
+        "source",
+        "classId",
+        "classLevel",
+        "kind",
+        "key",
+        "slot",
+        "out",
+        "in"
+      ],
+      "type": "object"
+    },
+    "ClassValue": {
+      "additionalProperties": false,
+      "properties": {
+        "classId": {
+          "type": "string"
+        },
+        "key": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "subclassId": {
+          "type": "string"
+        },
+        "value": {
+          "type": [
+            "string",
+            "number"
+          ]
+        }
+      },
+      "required": [
+        "classId",
+        "key",
+        "name",
+        "value"
+      ],
+      "type": "object"
+    },
+    "Concentration": {
+      "additionalProperties": false,
+      "properties": {
+        "ref": {
+          "type": "string"
+        },
+        "saveDC": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "type": "object"
+    },
+    "Condition": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "level": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "level"
+      ],
+      "type": "object"
+    },
+    "ConditionEffects": {
+      "additionalProperties": false,
+      "properties": {
+        "d20Adjustment": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "d20Adjustment"
+      ],
+      "type": "object"
+    },
+    "ConditionGuidance": {
+      "additionalProperties": false,
+      "properties": {
+        "available": {
+          "type": "boolean"
+        },
+        "options": {
+          "items": {
+            "$ref": "#/$defs/ConditionOption"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "available",
+        "options"
+      ],
+      "type": "object"
+    },
+    "ConditionOption": {
+      "additionalProperties": false,
+      "properties": {
+        "canAdd": {
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string"
+        },
+        "labelKey": {
+          "type": "string"
+        },
+        "maximumLevel": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "reference": {
+          "$ref": "#/$defs/Reference"
+        },
+        "summary": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "labelKey",
+        "summary",
+        "maximumLevel",
+        "canAdd",
+        "reference"
+      ],
+      "type": "object"
+    },
+    "ConditionalBonus": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "requires": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/ArmorRequirement"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "source": {
+          "$ref": "#/$defs/Source"
+        },
+        "status": {
+          "enum": [
+            "applied",
+            "inactive"
+          ],
+          "type": "string"
+        },
+        "value": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name",
+        "source",
+        "value",
+        "status",
+        "requires"
+      ],
+      "type": "object"
+    },
+    "Container": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "itemId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "type": "object"
+    },
+    "ContainerItem": {
+      "additionalProperties": false,
+      "properties": {
+        "capacityLb": {
+          "type": "number"
+        },
+        "itemId": {
+          "type": "string"
+        },
+        "weightless": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "itemId",
+        "weightless"
+      ],
+      "type": "object"
+    },
+    "CurrencyWorth": {
+      "additionalProperties": false,
+      "properties": {
+        "coin": {
+          "type": "string"
+        },
+        "value": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "coin",
+        "value"
+      ],
+      "type": "object"
+    },
+    "Derived": {
+      "additionalProperties": false,
+      "properties": {
+        "armorClass": {
+          "type": "integer"
+        },
+        "hitDie": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "initiative": {
+          "type": "integer"
+        },
+        "maxHp": {
+          "type": "integer"
+        },
+        "passivePerception": {
+          "type": "integer"
+        },
+        "proficiencyBonus": {
+          "type": "integer"
+        },
+        "size": {
+          "type": "string"
+        },
+        "speed": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "armorClass",
+        "hitDie",
+        "initiative",
+        "maxHp",
+        "passivePerception",
+        "proficiencyBonus",
+        "speed"
+      ],
+      "type": "object"
+    },
+    "Effect": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "add",
+            "maximum",
+            "minimum",
+            "set"
+          ],
+          "type": "string"
+        },
+        "target": {
+          "enum": [
+            "abilityCap",
+            "abilityScore",
+            "armorClass",
+            "attunementLimit",
+            "initiative",
+            "maxHp",
+            "proficiency",
+            "resourceMax",
+            "savingThrow",
+            "sense",
+            "speed"
+          ],
+          "type": "string"
+        },
+        "value": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "target",
+        "mode",
+        "value"
+      ],
+      "type": "object"
+    },
+    "EquipmentFacts": {
+      "additionalProperties": false,
+      "properties": {
+        "bodyPlacements": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "slot": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "slot",
+        "bodyPlacements"
+      ],
+      "type": "object"
+    },
+    "EquipmentGuidance": {
+      "additionalProperties": false,
+      "properties": {
+        "attuneReason": {
+          "type": "string"
+        },
+        "bodyPlacements": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "canAttune": {
+          "type": "boolean"
+        },
+        "canEquip": {
+          "type": "boolean"
+        },
+        "equipReason": {
+          "type": "string"
+        },
+        "slot": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "slot",
+        "bodyPlacements",
+        "canEquip",
+        "canAttune"
+      ],
+      "type": "object"
+    },
+    "Evidence": {
+      "additionalProperties": false,
+      "properties": {
+        "book": {
+          "type": "string"
+        },
+        "contentRevision": {
+          "type": "string"
+        },
+        "facts": {
+          "type": "object"
+        },
+        "hash": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "packageGeneration": {
+          "type": "string"
+        },
+        "packageId": {
+          "type": "string"
+        },
+        "reference": {
+          "$ref": "#/$defs/Reference"
+        },
+        "summary": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "reference",
+        "name",
+        "hash",
+        "summary",
+        "facts"
+      ],
+      "type": "object"
+    },
+    "Explanation": {
+      "additionalProperties": false,
+      "properties": {
+        "formula": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "maximum": {
+          "type": "integer"
+        },
+        "minimum": {
+          "type": "integer"
+        },
+        "sources": {
+          "items": {
+            "$ref": "#/$defs/Reference"
+          },
+          "type": "array"
+        },
+        "terms": {
+          "items": {
+            "$ref": "#/$defs/Term"
+          },
+          "type": "array"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "value": {}
+      },
+      "required": [
+        "label",
+        "formula",
+        "value",
+        "terms",
+        "sources"
+      ],
+      "type": "object"
+    },
+    "FeatChoice": {
+      "additionalProperties": false,
+      "properties": {
+        "ability": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/PlanChoice"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "categories": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "categoryAbilityCaps": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "type": "object"
+        },
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "categories",
+        "ability",
+        "categoryAbilityCaps"
+      ],
+      "type": "object"
+    },
+    "FeatIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "category"
+      ],
+      "type": "object"
+    },
+    "Grant": {
+      "additionalProperties": false,
+      "properties": {
+        "active": {
+          "type": "boolean"
+        },
+        "actorId": {
+          "type": "string"
+        },
+        "condition": {
+          "enum": [
+            "always",
+            "attuned",
+            "equipped"
+          ],
+          "type": "string"
+        },
+        "effectiveLevel": {
+          "type": "integer"
+        },
+        "effects": {
+          "items": {
+            "$ref": "#/$defs/Effect"
+          },
+          "type": "array"
+        },
+        "expiresAt": {
+          "type": "string"
+        },
+        "feat": {
+          "$ref": "#/$defs/Reference"
+        },
+        "grantedAt": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "itemId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "waivers": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "reason",
+        "actorId",
+        "grantedAt",
+        "active",
+        "effectiveLevel",
+        "condition",
+        "effects",
+        "waivers"
+      ],
+      "type": "object"
+    },
+    "Guidance": {
+      "additionalProperties": false,
+      "properties": {
+        "authoredPlay": {
+          "$ref": "#/$defs/AuthoredPlay"
+        },
+        "canSave": {
+          "type": "boolean"
+        },
+        "choices": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ChoiceGuidance"
+          },
+          "type": "object"
+        },
+        "classOptions": {
+          "items": {
+            "$ref": "#/$defs/Option"
+          },
+          "type": "array"
+        },
+        "classReplacements": {
+          "items": {
+            "$ref": "#/$defs/ReplacementGuidance"
+          },
+          "type": "array"
+        },
+        "classes": {
+          "items": {
+            "$ref": "#/$defs/ClassGuidance"
+          },
+          "type": "array"
+        },
+        "complete": {
+          "type": "integer"
+        },
+        "conditions": {
+          "$ref": "#/$defs/ConditionGuidance"
+        },
+        "derived": {
+          "$ref": "#/$defs/Derived"
+        },
+        "equipment": {
+          "additionalProperties": {
+            "$ref": "#/$defs/EquipmentGuidance"
+          },
+          "type": "object"
+        },
+        "hands": {
+          "$ref": "#/$defs/HandsGuidance"
+        },
+        "quickUse": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ItemUse"
+          },
+          "type": "object"
+        },
+        "ready": {
+          "type": "boolean"
+        },
+        "saveIssues": {
+          "items": {
+            "$ref": "#/$defs/Issue"
+          },
+          "type": "array"
+        },
+        "sections": {
+          "items": {
+            "$ref": "#/$defs/GuidanceSection"
+          },
+          "type": "array"
+        },
+        "storage": {
+          "$ref": "#/$defs/StorageGuidance"
+        },
+        "total": {
+          "type": "integer"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "choices",
+        "classes",
+        "sections",
+        "total",
+        "complete",
+        "ready",
+        "derived",
+        "warnings",
+        "canSave",
+        "saveIssues",
+        "classOptions",
+        "classReplacements",
+        "equipment",
+        "hands",
+        "quickUse",
+        "conditions",
+        "storage",
+        "authoredPlay"
+      ],
+      "type": "object"
+    },
+    "GuidanceIssue": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "labelArgs": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "labelKey": {
+          "type": "string"
+        },
+        "level": {
+          "type": "integer"
+        },
+        "repair": {
+          "type": "boolean"
+        },
+        "severity": {
+          "enum": [
+            "blocker",
+            "info",
+            "warning"
+          ],
+          "type": "string"
+        },
+        "tab": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "labelKey",
+        "labelArgs",
+        "tab"
+      ],
+      "type": "object"
+    },
+    "GuidanceSection": {
+      "additionalProperties": false,
+      "properties": {
+        "complete": {
+          "type": "integer"
+        },
+        "id": {
+          "type": "string"
+        },
+        "issues": {
+          "items": {
+            "$ref": "#/$defs/GuidanceIssue"
+          },
+          "type": "array"
+        },
+        "total": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "total",
+        "complete",
+        "issues"
+      ],
+      "type": "object"
+    },
+    "HPBreakdown": {
+      "additionalProperties": false,
+      "properties": {
+        "conMod": {
+          "type": "integer"
+        },
+        "conTotal": {
+          "type": "integer"
+        },
+        "dice": {
+          "type": "integer"
+        },
+        "fixedBonus": {
+          "type": "integer"
+        },
+        "level": {
+          "type": "integer"
+        },
+        "miscPerLevel": {
+          "type": "integer"
+        },
+        "miscTotal": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "dice",
+        "conMod",
+        "conTotal",
+        "miscPerLevel",
+        "miscTotal",
+        "level"
+      ],
+      "type": "object"
+    },
+    "HPLevel": {
+      "additionalProperties": false,
+      "properties": {
+        "bonus": {
+          "type": "integer"
+        },
+        "classId": {
+          "type": "string"
+        },
+        "constitution": {
+          "type": "integer"
+        },
+        "die": {
+          "type": "integer"
+        },
+        "gained": {
+          "type": "integer"
+        },
+        "levelId": {
+          "type": "string"
+        },
+        "method": {
+          "type": "string"
+        },
+        "minimum": {
+          "type": "integer"
+        },
+        "result": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "levelId",
+        "classId",
+        "die",
+        "result",
+        "method",
+        "constitution",
+        "minimum",
+        "bonus",
+        "gained"
+      ],
+      "type": "object"
+    },
+    "HandOption": {
+      "additionalProperties": false,
+      "properties": {
+        "canMain": {
+          "type": "boolean"
+        },
+        "canOff": {
+          "type": "boolean"
+        },
+        "grips": {
+          "items": {
+            "enum": [
+              "one",
+              "two"
             ],
-            "type": "object"
-          },
-          "summary": {
-            "maxLength": 30000,
             "type": "string"
-          }
+          },
+          "type": "array"
         },
-        "required": [
-          "reference",
-          "name",
-          "hash",
-          "summary",
-          "facts"
-        ],
-        "type": "object"
-      },
-      "maxItems": 500,
-      "type": [
-        "array",
-        "null"
-      ]
-    },
-    "explanations": {
-      "additionalProperties": {
-        "additionalProperties": false,
-        "properties": {
-          "formula": {
-            "maxLength": 30000,
-            "type": "string"
-          },
-          "label": {
-            "maxLength": 30000,
-            "type": "string"
-          },
-          "maximum": {
-            "maximum": 1000000,
-            "minimum": -1000000,
-            "type": "integer"
-          },
-          "minimum": {
-            "maximum": 1000000,
-            "minimum": -1000000,
-            "type": "integer"
-          },
-          "sources": {
-            "items": {
-              "additionalProperties": false,
-              "properties": {
-                "id": {
-                  "maxLength": 30000,
-                  "type": "string"
-                },
-                "kind": {
-                  "maxLength": 30000,
-                  "type": "string"
-                }
-              },
-              "required": [
-                "kind",
-                "id"
-              ],
-              "type": "object"
-            },
-            "maxItems": 500,
-            "type": [
-              "array",
-              "null"
-            ]
-          },
-          "terms": {
-            "items": {
-              "additionalProperties": false,
-              "properties": {
-                "grantId": {
-                  "maxLength": 30000,
-                  "type": "string"
-                },
-                "label": {
-                  "maxLength": 30000,
-                  "type": "string"
-                },
-                "source": {
-                  "additionalProperties": false,
-                  "properties": {
-                    "id": {
-                      "maxLength": 30000,
-                      "type": "string"
-                    },
-                    "kind": {
-                      "maxLength": 30000,
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "kind",
-                    "id"
-                  ],
-                  "type": "object"
-                },
-                "status": {
-                  "maxLength": 30000,
-                  "type": "string"
-                },
-                "value": {}
-              },
-              "required": [
-                "label",
-                "value"
-              ],
-              "type": "object"
-            },
-            "maxItems": 500,
-            "type": [
-              "array",
-              "null"
-            ]
-          },
-          "unit": {
-            "maxLength": 30000,
-            "type": "string"
-          },
-          "value": {}
+        "itemId": {
+          "type": "string"
         },
-        "required": [
-          "label",
-          "formula",
-          "value",
-          "terms",
-          "sources"
-        ],
-        "type": "object"
+        "name": {
+          "type": "string"
+        }
       },
-      "maxProperties": 1000,
-      "type": [
-        "object",
-        "null"
-      ]
+      "required": [
+        "itemId",
+        "name",
+        "grips",
+        "canMain",
+        "canOff"
+      ],
+      "type": "object"
     },
-    "guidance": {
-      "additionalProperties": {},
-      "maxProperties": 1000,
-      "type": [
-        "object",
-        "null"
-      ]
+    "HandSlot": {
+      "additionalProperties": false,
+      "properties": {
+        "active": {
+          "type": "boolean"
+        },
+        "itemId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "reference": {
+          "$ref": "#/$defs/Reference"
+        }
+      },
+      "required": [
+        "itemId",
+        "name",
+        "active"
+      ],
+      "type": "object"
     },
-    "inputs": {
+    "Hands": {
+      "additionalProperties": false,
+      "properties": {
+        "grip": {
+          "enum": [
+            "one",
+            "two"
+          ],
+          "type": "string"
+        },
+        "main": {
+          "type": "string"
+        },
+        "off": {
+          "type": "string"
+        },
+        "suspendedOff": {
+          "$ref": "#/$defs/SuspendedHand"
+        }
+      },
+      "required": [
+        "main",
+        "off",
+        "grip"
+      ],
+      "type": "object"
+    },
+    "HandsGuidance": {
+      "additionalProperties": false,
+      "properties": {
+        "canRelease": {
+          "type": "boolean"
+        },
+        "canTwo": {
+          "type": "boolean"
+        },
+        "grips": {
+          "items": {
+            "enum": [
+              "one",
+              "two"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "options": {
+          "items": {
+            "$ref": "#/$defs/HandOption"
+          },
+          "type": "array"
+        },
+        "restoreReason": {
+          "enum": [
+            "",
+            "changed",
+            "empty",
+            "ineligible",
+            "missing",
+            "occupied"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "options",
+        "grips",
+        "canRelease",
+        "canTwo",
+        "restoreReason"
+      ],
+      "type": "object"
+    },
+    "HitPoints": {
+      "additionalProperties": false,
+      "properties": {
+        "breakdown": {
+          "$ref": "#/$defs/HPBreakdown"
+        },
+        "fixedBonuses": {
+          "items": {
+            "$ref": "#/$defs/NamedValue"
+          },
+          "type": "array"
+        },
+        "levels": {
+          "items": {
+            "$ref": "#/$defs/HPLevel"
+          },
+          "type": "array"
+        },
+        "max": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "max",
+        "breakdown",
+        "levels"
+      ],
+      "type": "object"
+    },
+    "Inputs": {
       "additionalProperties": false,
       "properties": {
         "build": {
-          "additionalProperties": false,
-          "properties": {
-            "background": {
-              "maxLength": 30000,
-              "type": "string"
-            },
-            "baseScores": {
-              "additionalProperties": {
-                "maximum": 1000000,
-                "minimum": -1000000,
-                "type": "integer"
-              },
-              "maxProperties": 1000,
-              "type": [
-                "object",
-                "null"
-              ]
-            },
-            "choices": {
-              "items": {
-                "additionalProperties": false,
-                "properties": {
-                  "id": {
-                    "maxLength": 30000,
-                    "type": "string"
-                  },
-                  "slot": {
-                    "maximum": 1000000,
-                    "minimum": -1000000,
-                    "type": "integer"
-                  },
-                  "value": {
-                    "oneOf": [
-                      {
-                        "maxLength": 300,
-                        "type": "string"
-                      },
-                      {
-                        "additionalProperties": {
-                          "maximum": 30,
-                          "minimum": 0,
-                          "type": "integer"
-                        },
-                        "maxProperties": 6,
-                        "type": "object"
-                      }
-                    ]
-                  }
-                },
-                "required": [
-                  "id",
-                  "slot",
-                  "value"
-                ],
-                "type": "object"
-              },
-              "maxItems": 500,
-              "type": [
-                "array",
-                "null"
-              ]
-            },
-            "levels": {
-              "items": {
-                "additionalProperties": false,
-                "properties": {
-                  "classId": {
-                    "maxLength": 30000,
-                    "type": "string"
-                  },
-                  "hitPoints": {
-                    "maximum": 1000000,
-                    "minimum": -1000000,
-                    "type": "integer"
-                  },
-                  "id": {
-                    "maxLength": 30000,
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "id",
-                  "classId"
-                ],
-                "type": "object"
-              },
-              "maxItems": 500,
-              "type": [
-                "array",
-                "null"
-              ]
-            },
-            "lineage": {
-              "maxLength": 30000,
-              "type": "string"
-            },
-            "method": {
-              "maxLength": 30000,
-              "type": "string"
-            },
-            "replacements": {
-              "items": {
-                "additionalProperties": false,
-                "properties": {
-                  "classId": {
-                    "maxLength": 30000,
-                    "type": "string"
-                  },
-                  "classLevel": {
-                    "maximum": 1000000,
-                    "minimum": -1000000,
-                    "type": "integer"
-                  },
-                  "in": {
-                    "maxLength": 30000,
-                    "type": "string"
-                  },
-                  "key": {
-                    "maxLength": 30000,
-                    "type": "string"
-                  },
-                  "kind": {
-                    "maxLength": 30000,
-                    "type": "string"
-                  },
-                  "origin": {
-                    "maxLength": 30000,
-                    "type": "string"
-                  },
-                  "out": {
-                    "maxLength": 30000,
-                    "type": "string"
-                  },
-                  "slot": {
-                    "maximum": 1000000,
-                    "minimum": -1000000,
-                    "type": "integer"
-                  },
-                  "source": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "id": {
-                        "maxLength": 30000,
-                        "type": "string"
-                      },
-                      "kind": {
-                        "maxLength": 30000,
-                        "type": "string"
-                      }
-                    },
-                    "required": [
-                      "kind",
-                      "id"
-                    ],
-                    "type": "object"
-                  }
-                },
-                "required": [
-                  "source",
-                  "classId",
-                  "classLevel",
-                  "kind",
-                  "key",
-                  "slot",
-                  "out",
-                  "in"
-                ],
-                "type": "object"
-              },
-              "maxItems": 500,
-              "type": [
-                "array",
-                "null"
-              ]
-            },
-            "rolls": {
-              "items": {
-                "additionalProperties": false,
-                "properties": {
-                  "ability": {
-                    "maxLength": 30000,
-                    "type": "string"
-                  },
-                  "dice": {
-                    "items": {
-                      "maximum": 1000000,
-                      "minimum": -1000000,
-                      "type": "integer"
-                    },
-                    "maxItems": 500,
-                    "type": [
-                      "array",
-                      "null"
-                    ]
-                  },
-                  "id": {
-                    "maxLength": 30000,
-                    "type": "string"
-                  },
-                  "kept": {
-                    "items": {
-                      "maximum": 1000000,
-                      "minimum": -1000000,
-                      "type": "integer"
-                    },
-                    "maxItems": 500,
-                    "type": [
-                      "array",
-                      "null"
-                    ]
-                  },
-                  "origin": {
-                    "maxLength": 30000,
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "id",
-                  "ability",
-                  "dice",
-                  "kept"
-                ],
-                "type": "object"
-              },
-              "maxItems": 500,
-              "type": [
-                "array",
-                "null"
-              ]
-            },
-            "species": {
-              "maxLength": 30000,
-              "type": "string"
-            },
-            "spells": {
-              "additionalProperties": false,
-              "properties": {
-                "acquisitions": {
-                  "items": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "at": {
-                        "maxLength": 30000,
-                        "type": "string"
-                      },
-                      "classId": {
-                        "maxLength": 30000,
-                        "type": "string"
-                      },
-                      "costGp": {
-                        "maximum": 1000000000,
-                        "minimum": -1000000000,
-                        "type": "number"
-                      },
-                      "id": {
-                        "maxLength": 30000,
-                        "type": "string"
-                      },
-                      "level": {
-                        "maximum": 1000000,
-                        "minimum": -1000000,
-                        "type": "integer"
-                      },
-                      "origin": {
-                        "maxLength": 30000,
-                        "type": "string"
-                      },
-                      "scrollId": {
-                        "maxLength": 30000,
-                        "type": "string"
-                      },
-                      "spellId": {
-                        "maxLength": 30000,
-                        "type": "string"
-                      }
-                    },
-                    "required": [
-                      "id",
-                      "classId",
-                      "spellId",
-                      "level",
-                      "at",
-                      "costGp"
-                    ],
-                    "type": "object"
-                  },
-                  "maxItems": 500,
-                  "type": [
-                    "array",
-                    "null"
-                  ]
-                },
-                "cantrips": {
-                  "additionalProperties": {
-                    "items": {
-                      "maxLength": 30000,
-                      "type": "string"
-                    },
-                    "maxItems": 500,
-                    "type": [
-                      "array",
-                      "null"
-                    ]
-                  },
-                  "maxProperties": 1000,
-                  "type": [
-                    "object",
-                    "null"
-                  ]
-                },
-                "castingAbilities": {
-                  "additionalProperties": {
-                    "maxLength": 30000,
-                    "type": "string"
-                  },
-                  "maxProperties": 1000,
-                  "type": [
-                    "object",
-                    "null"
-                  ]
-                },
-                "grantChoices": {
-                  "additionalProperties": {
-                    "items": {
-                      "maxLength": 30000,
-                      "type": "string"
-                    },
-                    "maxItems": 500,
-                    "type": [
-                      "array",
-                      "null"
-                    ]
-                  },
-                  "maxProperties": 1000,
-                  "type": [
-                    "object",
-                    "null"
-                  ]
-                },
-                "spellbook": {
-                  "additionalProperties": {
-                    "items": {
-                      "maxLength": 30000,
-                      "type": "string"
-                    },
-                    "maxItems": 500,
-                    "type": [
-                      "array",
-                      "null"
-                    ]
-                  },
-                  "maxProperties": 1000,
-                  "type": [
-                    "object",
-                    "null"
-                  ]
-                },
-                "swaps": {
-                  "items": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "classId": {
-                        "maxLength": 30000,
-                        "type": "string"
-                      },
-                      "classLevel": {
-                        "maximum": 1000000,
-                        "minimum": -1000000,
-                        "type": "integer"
-                      },
-                      "in": {
-                        "maxLength": 30000,
-                        "type": "string"
-                      },
-                      "level": {
-                        "maximum": 1000000,
-                        "minimum": -1000000,
-                        "type": "integer"
-                      },
-                      "origin": {
-                        "maxLength": 30000,
-                        "type": "string"
-                      },
-                      "out": {
-                        "maxLength": 30000,
-                        "type": "string"
-                      }
-                    },
-                    "required": [
-                      "level",
-                      "classLevel",
-                      "classId",
-                      "out",
-                      "in"
-                    ],
-                    "type": "object"
-                  },
-                  "maxItems": 500,
-                  "type": [
-                    "array",
-                    "null"
-                  ]
-                }
-              },
-              "required": [
-                "cantrips",
-                "spellbook",
-                "grantChoices",
-                "castingAbilities",
-                "swaps",
-                "acquisitions"
-              ],
-              "type": "object"
-            },
-            "subclasses": {
-              "additionalProperties": {
-                "maxLength": 30000,
-                "type": "string"
-              },
-              "maxProperties": 1000,
-              "type": [
-                "object",
-                "null"
-              ]
-            }
-          },
-          "required": [
-            "method",
-            "baseScores",
-            "rolls",
-            "species",
-            "lineage",
-            "background",
-            "levels",
-            "subclasses",
-            "choices",
-            "spells"
-          ],
-          "type": "object"
+          "$ref": "#/$defs/Build"
         },
         "grants": {
           "items": {
-            "additionalProperties": false,
-            "properties": {
-              "active": {
-                "type": "boolean"
-              },
-              "actorId": {
-                "maxLength": 30000,
-                "type": "string"
-              },
-              "condition": {
-                "maxLength": 30000,
-                "type": "string"
-              },
-              "effectiveLevel": {
-                "maximum": 1000000,
-                "minimum": -1000000,
-                "type": "integer"
-              },
-              "effects": {
-                "items": {
-                  "additionalProperties": false,
-                  "properties": {
-                    "key": {
-                      "maxLength": 30000,
-                      "type": "string"
-                    },
-                    "mode": {
-                      "maxLength": 30000,
-                      "type": "string"
-                    },
-                    "target": {
-                      "maxLength": 30000,
-                      "type": "string"
-                    },
-                    "value": {
-                      "maximum": 1000000,
-                      "minimum": -1000000,
-                      "type": "integer"
-                    }
-                  },
-                  "required": [
-                    "target",
-                    "mode",
-                    "value"
-                  ],
-                  "type": "object"
-                },
-                "maxItems": 500,
-                "type": [
-                  "array",
-                  "null"
-                ]
-              },
-              "expiresAt": {
-                "maxLength": 30000,
-                "type": "string"
-              },
-              "feat": {
-                "additionalProperties": false,
-                "properties": {
-                  "id": {
-                    "maxLength": 30000,
-                    "type": "string"
-                  },
-                  "kind": {
-                    "maxLength": 30000,
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "kind",
-                  "id"
-                ],
-                "type": "object"
-              },
-              "grantedAt": {
-                "maxLength": 30000,
-                "type": "string"
-              },
-              "id": {
-                "maxLength": 30000,
-                "type": "string"
-              },
-              "itemId": {
-                "maxLength": 30000,
-                "type": "string"
-              },
-              "name": {
-                "maxLength": 30000,
-                "type": "string"
-              },
-              "reason": {
-                "maxLength": 30000,
-                "type": "string"
-              },
-              "waivers": {
-                "items": {
-                  "maxLength": 30000,
-                  "type": "string"
-                },
-                "maxItems": 500,
-                "type": [
-                  "array",
-                  "null"
-                ]
-              }
-            },
-            "required": [
-              "id",
-              "name",
-              "reason",
-              "actorId",
-              "grantedAt",
-              "active",
-              "effectiveLevel",
-              "condition",
-              "effects",
-              "waivers"
-            ],
-            "type": "object"
+            "$ref": "#/$defs/Grant"
           },
-          "maxItems": 500,
-          "type": [
-            "array",
-            "null"
-          ]
+          "type": "array"
         },
         "play": {
-          "additionalProperties": false,
-          "properties": {
-            "activeFeatures": {
-              "additionalProperties": {
-                "type": "boolean"
-              },
-              "maxProperties": 1000,
-              "type": [
-                "object",
-                "null"
-              ]
-            },
-            "asOf": {
-              "maxLength": 30000,
-              "type": "string"
-            },
-            "coinWeight": {
-              "type": "boolean"
-            },
-            "concentration": {
-              "additionalProperties": false,
-              "properties": {
-                "ref": {
-                  "maxLength": 30000,
-                  "type": "string"
-                },
-                "saveDC": {
-                  "maximum": 1000000,
-                  "minimum": -1000000,
-                  "type": "integer"
-                }
-              },
-              "required": [
-                "ref"
-              ],
-              "type": "object"
-            },
-            "conditions": {
-              "items": {
-                "additionalProperties": false,
-                "properties": {
-                  "id": {
-                    "maxLength": 30000,
-                    "type": "string"
-                  },
-                  "level": {
-                    "maximum": 1000000,
-                    "minimum": -1000000,
-                    "type": "integer"
-                  }
-                },
-                "required": [
-                  "id",
-                  "level"
-                ],
-                "type": "object"
-              },
-              "maxItems": 500,
-              "type": [
-                "array",
-                "null"
-              ]
-            },
-            "containers": {
-              "items": {
-                "additionalProperties": false,
-                "properties": {
-                  "id": {
-                    "maxLength": 30000,
-                    "type": "string"
-                  },
-                  "itemId": {
-                    "maxLength": 30000,
-                    "type": "string"
-                  },
-                  "name": {
-                    "maxLength": 30000,
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "id",
-                  "name"
-                ],
-                "type": "object"
-              },
-              "maxItems": 500,
-              "type": [
-                "array",
-                "null"
-              ]
-            },
-            "currency": {
-              "additionalProperties": {
-                "maximum": 1000000000,
-                "minimum": -1000000000,
-                "type": "number"
-              },
-              "maxProperties": 1000,
-              "type": [
-                "object",
-                "null"
-              ]
-            },
-            "hands": {
-              "additionalProperties": false,
-              "properties": {
-                "grip": {
-                  "maxLength": 30000,
-                  "type": "string"
-                },
-                "main": {
-                  "maxLength": 30000,
-                  "type": "string"
-                },
-                "off": {
-                  "maxLength": 30000,
-                  "type": "string"
-                },
-                "suspendedOff": {
-                  "additionalProperties": false,
-                  "properties": {
-                    "bodyPlacement": {
-                      "maxLength": 30000,
-                      "type": "string"
-                    },
-                    "expectedItemSha256": {
-                      "maxLength": 30000,
-                      "type": "string"
-                    },
-                    "itemId": {
-                      "maxLength": 30000,
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "itemId",
-                    "expectedItemSha256"
-                  ],
-                  "type": "object"
-                }
-              },
-              "required": [
-                "main",
-                "off",
-                "grip"
-              ],
-              "type": "object"
-            },
-            "hp": {
-              "maximum": 1000000,
-              "minimum": -1000000,
-              "type": "integer"
-            },
-            "inspiration": {
-              "type": "boolean"
-            },
-            "inventory": {
-              "items": {
-                "additionalProperties": false,
-                "properties": {
-                  "acquisition": {
-                    "maxLength": 30000,
-                    "type": "string"
-                  },
-                  "attuned": {
-                    "type": "boolean"
-                  },
-                  "bodyPlacement": {
-                    "maxLength": 30000,
-                    "type": "string"
-                  },
-                  "containerId": {
-                    "maxLength": 30000,
-                    "type": "string"
-                  },
-                  "grantId": {
-                    "maxLength": 30000,
-                    "type": "string"
-                  },
-                  "id": {
-                    "maxLength": 30000,
-                    "type": "string"
-                  },
-                  "location": {
-                    "maxLength": 30000,
-                    "type": "string"
-                  },
-                  "name": {
-                    "maxLength": 30000,
-                    "type": "string"
-                  },
-                  "notes": {
-                    "maxLength": 30000,
-                    "type": "string"
-                  },
-                  "quantity": {
-                    "maximum": 1000000,
-                    "minimum": -1000000,
-                    "type": "integer"
-                  },
-                  "reference": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "id": {
-                        "maxLength": 30000,
-                        "type": "string"
-                      },
-                      "kind": {
-                        "maxLength": 30000,
-                        "type": "string"
-                      }
-                    },
-                    "required": [
-                      "kind",
-                      "id"
-                    ],
-                    "type": "object"
-                  },
-                  "spellId": {
-                    "maxLength": 30000,
-                    "type": "string"
-                  },
-                  "weightLb": {
-                    "maximum": 1000000000,
-                    "minimum": -1000000000,
-                    "type": "number"
-                  }
-                },
-                "required": [
-                  "id",
-                  "name",
-                  "quantity",
-                  "location",
-                  "attuned",
-                  "acquisition",
-                  "notes"
-                ],
-                "type": "object"
-              },
-              "maxItems": 500,
-              "type": [
-                "array",
-                "null"
-              ]
-            },
-            "preparedSpells": {
-              "additionalProperties": {
-                "items": {
-                  "maxLength": 30000,
-                  "type": "string"
-                },
-                "maxItems": 500,
-                "type": [
-                  "array",
-                  "null"
-                ]
-              },
-              "maxProperties": 1000,
-              "type": [
-                "object",
-                "null"
-              ]
-            },
-            "quickUse": {
-              "items": {
-                "maxLength": 30000,
-                "type": "string"
-              },
-              "maxItems": 500,
-              "type": [
-                "array",
-                "null"
-              ]
-            },
-            "resourceUses": {
-              "additionalProperties": {
-                "maximum": 1000000,
-                "minimum": -1000000,
-                "type": "integer"
-              },
-              "maxProperties": 1000,
-              "type": [
-                "object",
-                "null"
-              ]
-            },
-            "rolls": {
-              "items": {
-                "additionalProperties": false,
-                "properties": {
-                  "at": {
-                    "maxLength": 30000,
-                    "type": "string"
-                  },
-                  "die": {
-                    "maximum": 1000000,
-                    "minimum": -1000000,
-                    "type": "integer"
-                  },
-                  "id": {
-                    "maxLength": 30000,
-                    "type": "string"
-                  },
-                  "origin": {
-                    "maxLength": 30000,
-                    "type": "string"
-                  },
-                  "resource": {
-                    "maxLength": 30000,
-                    "type": "string"
-                  },
-                  "result": {
-                    "maximum": 1000000,
-                    "minimum": -1000000,
-                    "type": "integer"
-                  }
-                },
-                "required": [
-                  "id",
-                  "resource",
-                  "die",
-                  "result",
-                  "at"
-                ],
-                "type": "object"
-              },
-              "maxItems": 500,
-              "type": [
-                "array",
-                "null"
-              ]
-            },
-            "temporaryHp": {
-              "maximum": 1000000,
-              "minimum": -1000000,
-              "type": "integer"
-            }
-          },
-          "required": [
-            "rolls",
-            "hp",
-            "temporaryHp",
-            "inventory",
-            "currency",
-            "resourceUses",
-            "activeFeatures",
-            "preparedSpells",
-            "asOf"
-          ],
-          "type": "object"
+          "$ref": "#/$defs/Play"
         }
       },
       "required": [
@@ -1137,85 +2020,2588 @@
       ],
       "type": "object"
     },
+    "Issue": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "reference": {
+          "$ref": "#/$defs/Reference"
+        },
+        "severity": {
+          "enum": [
+            "blocker",
+            "info",
+            "warning"
+          ],
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "target",
+        "message",
+        "severity"
+      ],
+      "type": "object"
+    },
+    "Item": {
+      "additionalProperties": false,
+      "properties": {
+        "acquisition": {
+          "type": "string"
+        },
+        "attuned": {
+          "type": "boolean"
+        },
+        "bodyPlacement": {
+          "type": "string"
+        },
+        "containerId": {
+          "type": "string"
+        },
+        "grantId": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "location": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "notes": {
+          "type": "string"
+        },
+        "quantity": {
+          "type": "integer"
+        },
+        "reference": {
+          "$ref": "#/$defs/Reference"
+        },
+        "spellId": {
+          "type": "string"
+        },
+        "weightLb": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "quantity",
+        "location",
+        "attuned",
+        "acquisition",
+        "notes"
+      ],
+      "type": "object"
+    },
+    "ItemUse": {
+      "additionalProperties": false,
+      "properties": {
+        "canUse": {
+          "type": "boolean"
+        },
+        "reason": {
+          "enum": [
+            "",
+            "build",
+            "empty",
+            "missing",
+            "stored"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "canUse",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "Level": {
+      "additionalProperties": false,
+      "properties": {
+        "classId": {
+          "type": "string"
+        },
+        "hitPoints": {
+          "type": "integer"
+        },
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "classId"
+      ],
+      "type": "object"
+    },
+    "LevelGuidance": {
+      "additionalProperties": false,
+      "properties": {
+        "features": {
+          "items": {
+            "$ref": "#/$defs/Option"
+          },
+          "type": "array"
+        },
+        "level": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "level",
+        "features"
+      ],
+      "type": "object"
+    },
+    "MovementRow": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "enum": [
+            "burrow",
+            "climb",
+            "fly",
+            "swim"
+          ],
+          "type": "string"
+        },
+        "multiply": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/Source"
+        },
+        "value": {
+          "oneOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "const": "speed"
+            }
+          ]
+        }
+      },
+      "required": [
+        "mode",
+        "value",
+        "name",
+        "source"
+      ],
+      "type": "object"
+    },
+    "NamedValue": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/Source"
+        },
+        "value": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name",
+        "source",
+        "value"
+      ],
+      "type": "object"
+    },
+    "Option": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "labelKey": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "label"
+      ],
+      "type": "object"
+    },
+    "PactSlots": {
+      "additionalProperties": false,
+      "properties": {
+        "level": {
+          "type": "integer"
+        },
+        "slots": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "slots",
+        "level"
+      ],
+      "type": "object"
+    },
+    "Passives": {
+      "additionalProperties": false,
+      "properties": {
+        "perception": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "perception"
+      ],
+      "type": "object"
+    },
+    "PickedOption": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "slot": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "slot",
+        "label"
+      ],
+      "type": "object"
+    },
+    "PlacementRow": {
+      "additionalProperties": false,
+      "properties": {
+        "itemId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "placement": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "itemId",
+        "name",
+        "placement"
+      ],
+      "type": "object"
+    },
+    "Plan": {
+      "additionalProperties": false,
+      "properties": {
+        "abilityScoreRange": {
+          "$ref": "#/$defs/Range"
+        },
+        "baseStats": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "type": "object"
+        },
+        "classChoices": {
+          "items": {
+            "$ref": "#/$defs/PlanChoice"
+          },
+          "type": "array"
+        },
+        "classes": {
+          "items": {
+            "$ref": "#/$defs/PlanClass"
+          },
+          "type": "array"
+        },
+        "creationAbilityChoices": {
+          "items": {
+            "$ref": "#/$defs/PlanChoice"
+          },
+          "type": "array"
+        },
+        "creationChoices": {
+          "items": {
+            "$ref": "#/$defs/PlanChoice"
+          },
+          "type": "array"
+        },
+        "edition": {
+          "type": "string"
+        },
+        "pointBuy": {
+          "$ref": "#/$defs/PointBuy"
+        },
+        "schemaVersion": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "edition",
+        "baseStats",
+        "classes",
+        "pointBuy",
+        "abilityScoreRange",
+        "classChoices",
+        "creationChoices",
+        "creationAbilityChoices"
+      ],
+      "type": "object"
+    },
+    "PlanChoice": {
+      "additionalProperties": false,
+      "properties": {
+        "ability": {
+          "$ref": "#/$defs/PlanChoice"
+        },
+        "acquisition": {
+          "$ref": "#/$defs/Acquisition"
+        },
+        "budget": {
+          "type": "integer"
+        },
+        "cap": {
+          "type": "integer"
+        },
+        "categories": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "category": {
+          "type": "string"
+        },
+        "changeOn": {
+          "type": "string"
+        },
+        "choiceName": {
+          "type": "string"
+        },
+        "classId": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer"
+        },
+        "default": {
+          "type": "string"
+        },
+        "distinctAcrossAcquisitions": {
+          "type": "boolean"
+        },
+        "eligible": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "feat": {
+          "$ref": "#/$defs/FeatChoice"
+        },
+        "from": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "fromCategory": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "abilityBudget",
+            "armor",
+            "asiMode",
+            "enumerated",
+            "expertise",
+            "feat",
+            "immunities",
+            "languages",
+            "proficiencies",
+            "resistances",
+            "savingThrows",
+            "size",
+            "skillExpertise",
+            "skillUpgrade",
+            "skills",
+            "tools",
+            "weaponMastery",
+            "weapons"
+          ],
+          "type": "string"
+        },
+        "level": {
+          "type": "integer"
+        },
+        "levelReplacements": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "optionKind": {
+          "type": "string"
+        },
+        "perAbilityMax": {
+          "type": "integer"
+        },
+        "prompt": {
+          "type": "string"
+        },
+        "repeatableOptions": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "source": {
+          "$ref": "#/$defs/Source"
+        }
+      },
+      "required": [
+        "id",
+        "kind"
+      ],
+      "type": "object"
+    },
+    "PlanClass": {
+      "additionalProperties": false,
+      "properties": {
+        "classId": {
+          "type": "string"
+        },
+        "level": {
+          "type": "integer"
+        },
+        "subclass": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "classId",
+        "level",
+        "subclass"
+      ],
+      "type": "object"
+    },
+    "Play": {
+      "additionalProperties": false,
+      "properties": {
+        "activeFeatures": {
+          "additionalProperties": {
+            "type": "boolean"
+          },
+          "type": "object"
+        },
+        "asOf": {
+          "type": "string"
+        },
+        "coinWeight": {
+          "type": "boolean"
+        },
+        "concentration": {
+          "$ref": "#/$defs/Concentration"
+        },
+        "conditions": {
+          "items": {
+            "$ref": "#/$defs/Condition"
+          },
+          "type": "array"
+        },
+        "containers": {
+          "items": {
+            "$ref": "#/$defs/Container"
+          },
+          "type": "array"
+        },
+        "currency": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "type": "object"
+        },
+        "hands": {
+          "$ref": "#/$defs/Hands"
+        },
+        "hp": {
+          "type": "integer"
+        },
+        "inspiration": {
+          "type": "boolean"
+        },
+        "inventory": {
+          "items": {
+            "$ref": "#/$defs/Item"
+          },
+          "type": "array"
+        },
+        "preparedSpells": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "type": "object"
+        },
+        "quickUse": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "resourceUses": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "type": "object"
+        },
+        "rolls": {
+          "items": {
+            "$ref": "#/$defs/PlayRoll"
+          },
+          "type": "array"
+        },
+        "temporaryHp": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "rolls",
+        "hp",
+        "temporaryHp",
+        "inventory",
+        "currency",
+        "resourceUses",
+        "activeFeatures",
+        "preparedSpells",
+        "asOf"
+      ],
+      "type": "object"
+    },
+    "PlayRoll": {
+      "additionalProperties": false,
+      "properties": {
+        "at": {
+          "type": "string"
+        },
+        "die": {
+          "type": "integer"
+        },
+        "id": {
+          "type": "string"
+        },
+        "origin": {
+          "type": "string"
+        },
+        "resource": {
+          "type": "string"
+        },
+        "result": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "resource",
+        "die",
+        "result",
+        "at"
+      ],
+      "type": "object"
+    },
+    "PointBuy": {
+      "additionalProperties": false,
+      "properties": {
+        "budget": {
+          "type": "integer"
+        },
+        "cost": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "type": "object"
+        },
+        "max": {
+          "type": "integer"
+        },
+        "min": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "budget",
+        "min",
+        "max",
+        "cost"
+      ],
+      "type": "object"
+    },
+    "Preparation": {
+      "additionalProperties": false,
+      "properties": {
+        "count": {
+          "oneOf": [
+            {
+              "const": "all"
+            },
+            {
+              "type": "integer"
+            }
+          ]
+        },
+        "on": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "on",
+        "count"
+      ],
+      "type": "object"
+    },
+    "Proficiencies": {
+      "additionalProperties": false,
+      "properties": {
+        "armor": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "languages": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "saves": {
+          "additionalProperties": {
+            "type": "boolean"
+          },
+          "type": "object"
+        },
+        "skills": {
+          "additionalProperties": {
+            "enum": [
+              "expertise",
+              "none",
+              "proficient"
+            ],
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "tools": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "weapons": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "saves",
+        "skills",
+        "armor",
+        "weapons",
+        "tools",
+        "languages"
+      ],
+      "type": "object"
+    },
+    "QuickUsePin": {
+      "additionalProperties": false,
+      "properties": {
+        "available": {
+          "type": "boolean"
+        },
+        "itemId": {
+          "type": "string"
+        },
+        "location": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "quantity": {
+          "type": "integer"
+        },
+        "reason": {
+          "enum": [
+            "",
+            "build",
+            "empty",
+            "missing",
+            "stored"
+          ],
+          "type": "string"
+        },
+        "reference": {
+          "$ref": "#/$defs/Reference"
+        }
+      },
+      "required": [
+        "itemId",
+        "available",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "Range": {
+      "additionalProperties": false,
+      "properties": {
+        "max": {
+          "type": "integer"
+        },
+        "min": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "min",
+        "max"
+      ],
+      "type": "object"
+    },
+    "Recharge": {
+      "additionalProperties": false,
+      "properties": {
+        "amount": {
+          "oneOf": [
+            {
+              "enum": [
+                "full",
+                "halfLevel"
+              ]
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "abilityMod": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "abilityMod"
+              ],
+              "type": "object"
+            }
+          ]
+        },
+        "on": {
+          "enum": [
+            "long",
+            "short",
+            "shortOrLong"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "on",
+        "amount"
+      ],
+      "type": "object"
+    },
+    "RecordIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "book": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind"
+      ],
+      "type": "object"
+    },
+    "Reference": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "id"
+      ],
+      "type": "object"
+    },
+    "ReplacementGuidance": {
+      "additionalProperties": false,
+      "properties": {
+        "classId": {
+          "type": "string"
+        },
+        "classLevel": {
+          "type": "integer"
+        },
+        "key": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "feat",
+            "spell"
+          ],
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "options": {
+          "items": {
+            "$ref": "#/$defs/Option"
+          },
+          "type": "array"
+        },
+        "picked": {
+          "items": {
+            "$ref": "#/$defs/PickedOption"
+          },
+          "type": "array"
+        },
+        "remaining": {
+          "type": "integer"
+        },
+        "source": {
+          "$ref": "#/$defs/Reference"
+        }
+      },
+      "required": [
+        "kind",
+        "key",
+        "classId",
+        "classLevel",
+        "source",
+        "name",
+        "remaining",
+        "picked",
+        "options"
+      ],
+      "type": "object"
+    },
+    "Resource": {
+      "additionalProperties": false,
+      "properties": {
+        "active": {
+          "type": "boolean"
+        },
+        "die": {
+          "type": "string"
+        },
+        "key": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "charge",
+            "hitdice",
+            "pool",
+            "slot"
+          ],
+          "type": "string"
+        },
+        "level": {
+          "type": "integer"
+        },
+        "max": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "recharge": {
+          "items": {
+            "$ref": "#/$defs/Recharge"
+          },
+          "type": "array"
+        },
+        "remaining": {
+          "type": "integer"
+        },
+        "restriction": {
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/Source"
+        },
+        "spent": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "key",
+        "name",
+        "max",
+        "kind",
+        "recharge",
+        "source",
+        "spent",
+        "remaining"
+      ],
+      "type": "object"
+    },
+    "Roll": {
+      "additionalProperties": false,
+      "properties": {
+        "ability": {
+          "type": "string"
+        },
+        "dice": {
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "id": {
+          "type": "string"
+        },
+        "kept": {
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "origin": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "ability",
+        "dice",
+        "kept"
+      ],
+      "type": "object"
+    },
+    "RollEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "abilities": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "mode": {
+          "enum": [
+            "advantage",
+            "disadvantage"
+          ],
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "on": {
+          "enum": [
+            "attack",
+            "check",
+            "concentration",
+            "deathSave",
+            "initiative",
+            "save"
+          ],
+          "type": "string"
+        },
+        "skills": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "source": {
+          "$ref": "#/$defs/Source"
+        },
+        "when": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "on",
+        "name",
+        "source"
+      ],
+      "type": "object"
+    },
+    "SaveDC": {
+      "additionalProperties": false,
+      "properties": {
+        "ability": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/Source"
+        },
+        "value": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name",
+        "ability",
+        "value",
+        "source"
+      ],
+      "type": "object"
+    },
+    "SaveRow": {
+      "additionalProperties": false,
+      "properties": {
+        "advantage": {
+          "type": "boolean"
+        },
+        "bonuses": {
+          "items": {
+            "$ref": "#/$defs/NamedValue"
+          },
+          "type": "array"
+        },
+        "disadvantage": {
+          "type": "boolean"
+        },
+        "mod": {
+          "type": "integer"
+        },
+        "proficient": {
+          "type": "boolean"
+        },
+        "total": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "mod",
+        "proficient",
+        "total"
+      ],
+      "type": "object"
+    },
+    "Selection": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "labelArgs": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "labelKey": {
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/Source"
+        },
+        "values": {
+          "items": {
+            "$ref": "#/$defs/SelectionValue"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "labelKey",
+        "labelArgs",
+        "source",
+        "values"
+      ],
+      "type": "object"
+    },
+    "SelectionValue": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "label"
+      ],
+      "type": "object"
+    },
+    "Sheet": {
+      "additionalProperties": false,
+      "properties": {
+        "abilities": {
+          "additionalProperties": {
+            "$ref": "#/$defs/AbilityScore"
+          },
+          "type": "object"
+        },
+        "ac": {
+          "$ref": "#/$defs/ArmorClass"
+        },
+        "activations": {
+          "items": {
+            "$ref": "#/$defs/Activation"
+          },
+          "type": "array"
+        },
+        "activeItems": {
+          "items": {
+            "$ref": "#/$defs/ActiveItem"
+          },
+          "type": "array"
+        },
+        "advantages": {
+          "items": {
+            "$ref": "#/$defs/RollEntry"
+          },
+          "type": "array"
+        },
+        "armorRestrictions": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/ArmorRestrictions"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "attackAdvantage": {
+          "type": "boolean"
+        },
+        "attackDisadvantage": {
+          "type": "boolean"
+        },
+        "attunement": {
+          "$ref": "#/$defs/Attunement"
+        },
+        "bodyPlacement": {
+          "items": {
+            "$ref": "#/$defs/PlacementRow"
+          },
+          "type": "array"
+        },
+        "burrowSpeed": {
+          "type": "integer"
+        },
+        "carrying": {
+          "$ref": "#/$defs/Carrying"
+        },
+        "class": {
+          "$ref": "#/$defs/RecordIdentity"
+        },
+        "classValues": {
+          "items": {
+            "$ref": "#/$defs/ClassValue"
+          },
+          "type": "array"
+        },
+        "classes": {
+          "items": {
+            "$ref": "#/$defs/SheetClass"
+          },
+          "type": "array"
+        },
+        "climbSpeed": {
+          "type": "integer"
+        },
+        "concentration": {
+          "$ref": "#/$defs/SheetConcentration"
+        },
+        "concentrationAdvantage": {
+          "type": "boolean"
+        },
+        "concentrationDisadvantage": {
+          "type": "boolean"
+        },
+        "concentrationSaveBonus": {
+          "type": "integer"
+        },
+        "conditionEffects": {
+          "$ref": "#/$defs/ConditionEffects"
+        },
+        "conditionImmunities": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "conditions": {
+          "items": {
+            "$ref": "#/$defs/SheetCondition"
+          },
+          "type": "array"
+        },
+        "currencyWorth": {
+          "$ref": "#/$defs/CurrencyWorth"
+        },
+        "damageImmunities": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "deathSaveAdvantage": {
+          "type": "boolean"
+        },
+        "deathSaveDisadvantage": {
+          "type": "boolean"
+        },
+        "derived": {
+          "$ref": "#/$defs/Derived"
+        },
+        "equipment": {
+          "additionalProperties": {
+            "$ref": "#/$defs/EquipmentFacts"
+          },
+          "type": "object"
+        },
+        "featIdentities": {
+          "items": {
+            "$ref": "#/$defs/FeatIdentity"
+          },
+          "type": "array"
+        },
+        "feats": {
+          "items": {
+            "$ref": "#/$defs/SheetFeat"
+          },
+          "type": "array"
+        },
+        "features": {
+          "items": {
+            "$ref": "#/$defs/SheetFeature"
+          },
+          "type": "array"
+        },
+        "flySpeed": {
+          "type": "integer"
+        },
+        "hands": {
+          "$ref": "#/$defs/SheetHands"
+        },
+        "hp": {
+          "$ref": "#/$defs/HitPoints"
+        },
+        "initiativeAdvantage": {
+          "type": "boolean"
+        },
+        "initiativeBonuses": {
+          "items": {
+            "$ref": "#/$defs/NamedValue"
+          },
+          "type": "array"
+        },
+        "initiativeDisadvantage": {
+          "type": "boolean"
+        },
+        "inspiration": {
+          "type": "boolean"
+        },
+        "languages": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "movement": {
+          "items": {
+            "$ref": "#/$defs/MovementRow"
+          },
+          "type": "array"
+        },
+        "passives": {
+          "$ref": "#/$defs/Passives"
+        },
+        "proficiencies": {
+          "$ref": "#/$defs/Proficiencies"
+        },
+        "quickUse": {
+          "items": {
+            "$ref": "#/$defs/QuickUsePin"
+          },
+          "type": "array"
+        },
+        "resistances": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "resources": {
+          "items": {
+            "$ref": "#/$defs/Resource"
+          },
+          "type": "array"
+        },
+        "saveDCs": {
+          "items": {
+            "$ref": "#/$defs/SaveDC"
+          },
+          "type": "array"
+        },
+        "saves": {
+          "additionalProperties": {
+            "$ref": "#/$defs/SaveRow"
+          },
+          "type": "object"
+        },
+        "selections": {
+          "items": {
+            "$ref": "#/$defs/Selection"
+          },
+          "type": "array"
+        },
+        "senses": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "type": "object"
+        },
+        "skills": {
+          "additionalProperties": {
+            "$ref": "#/$defs/SkillRow"
+          },
+          "type": "object"
+        },
+        "species": {
+          "$ref": "#/$defs/RecordIdentity"
+        },
+        "speed": {
+          "type": "integer"
+        },
+        "speedBonuses": {
+          "items": {
+            "$ref": "#/$defs/ConditionalBonus"
+          },
+          "type": "array"
+        },
+        "spellcasting": {
+          "$ref": "#/$defs/Spellcasting"
+        },
+        "status": {
+          "enum": [
+            "calculated",
+            "needs-choices"
+          ],
+          "type": "string"
+        },
+        "storage": {
+          "$ref": "#/$defs/SheetStorage"
+        },
+        "swimSpeed": {
+          "type": "integer"
+        },
+        "totalLevel": {
+          "type": "integer"
+        },
+        "weaponMastery": {
+          "$ref": "#/$defs/WeaponMastery"
+        },
+        "weapons": {
+          "items": {
+            "$ref": "#/$defs/Attack"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "status",
+        "inspiration",
+        "hands",
+        "quickUse",
+        "activeItems",
+        "storage",
+        "bodyPlacement",
+        "conditions",
+        "conditionEffects",
+        "equipment"
+      ],
+      "type": "object"
+    },
+    "SheetClass": {
+      "additionalProperties": false,
+      "properties": {
+        "classId": {
+          "type": "string"
+        },
+        "hitDie": {
+          "type": "string"
+        },
+        "level": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "subclass": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "classId",
+        "name",
+        "level",
+        "subclass",
+        "hitDie"
+      ],
+      "type": "object"
+    },
+    "SheetConcentration": {
+      "additionalProperties": false,
+      "properties": {
+        "endedBy": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "ref": {
+          "type": "string"
+        },
+        "saveAbility": {
+          "type": "string"
+        },
+        "saveBonus": {
+          "type": "integer"
+        },
+        "saveDC": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "ref",
+        "name"
+      ],
+      "type": "object"
+    },
+    "SheetCondition": {
+      "additionalProperties": false,
+      "properties": {
+        "endsConcentration": {
+          "type": "boolean"
+        },
+        "granted": {
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string"
+        },
+        "labelKey": {
+          "type": "string"
+        },
+        "level": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "reference": {
+          "$ref": "#/$defs/Reference"
+        },
+        "sources": {
+          "items": {
+            "$ref": "#/$defs/Source"
+          },
+          "type": "array"
+        },
+        "status": {
+          "enum": [
+            "active",
+            "immune",
+            "unavailable"
+          ],
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "terminal": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "level",
+        "name",
+        "summary",
+        "status"
+      ],
+      "type": "object"
+    },
+    "SheetFeat": {
+      "additionalProperties": false,
+      "properties": {
+        "count": {
+          "type": "integer"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "count"
+      ],
+      "type": "object"
+    },
+    "SheetFeature": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer"
+        },
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/Source"
+        }
+      },
+      "required": [
+        "id",
+        "source"
+      ],
+      "type": "object"
+    },
+    "SheetHands": {
+      "additionalProperties": false,
+      "properties": {
+        "grip": {
+          "enum": [
+            "one",
+            "two"
+          ],
+          "type": "string"
+        },
+        "main": {
+          "$ref": "#/$defs/HandSlot"
+        },
+        "off": {
+          "$ref": "#/$defs/HandSlot"
+        },
+        "restoreReason": {
+          "enum": [
+            "",
+            "changed",
+            "empty",
+            "ineligible",
+            "missing",
+            "occupied"
+          ],
+          "type": "string"
+        },
+        "suspendedOff": {
+          "$ref": "#/$defs/HandSlot"
+        },
+        "unrestoredItem": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "main",
+        "off",
+        "grip"
+      ],
+      "type": "object"
+    },
+    "SheetStorage": {
+      "additionalProperties": false,
+      "properties": {
+        "containers": {
+          "items": {
+            "$ref": "#/$defs/StorageContainer"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "containers"
+      ],
+      "type": "object"
+    },
+    "SkillRow": {
+      "additionalProperties": false,
+      "properties": {
+        "ability": {
+          "type": "string"
+        },
+        "advantage": {
+          "type": "boolean"
+        },
+        "bonuses": {
+          "items": {
+            "$ref": "#/$defs/NamedValue"
+          },
+          "type": "array"
+        },
+        "disadvantage": {
+          "type": "boolean"
+        },
+        "expertise": {
+          "type": "boolean"
+        },
+        "mod": {
+          "type": "integer"
+        },
+        "proficient": {
+          "type": "boolean"
+        },
+        "total": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "ability",
+        "mod",
+        "proficient",
+        "expertise",
+        "total"
+      ],
+      "type": "object"
+    },
+    "SlotOption": {
+      "additionalProperties": false,
+      "properties": {
+        "current": {
+          "type": "integer"
+        },
+        "key": {
+          "type": "string"
+        },
+        "max": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "name",
+        "max",
+        "current"
+      ],
+      "type": "object"
+    },
+    "Source": {
+      "additionalProperties": false,
+      "properties": {
+        "acquisition": {
+          "$ref": "#/$defs/Acquisition"
+        },
+        "classId": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "level": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "ref": {
+          "$ref": "#/$defs/Reference"
+        },
+        "type": {
+          "enum": [
+            "ability",
+            "armor",
+            "asi",
+            "background",
+            "class",
+            "condition",
+            "feat",
+            "feature",
+            "item",
+            "pactMagic",
+            "species",
+            "spell",
+            "spellcasting",
+            "subclass"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    },
+    "SpellAcquisition": {
+      "additionalProperties": false,
+      "properties": {
+        "at": {
+          "type": "string"
+        },
+        "classId": {
+          "type": "string"
+        },
+        "costGp": {
+          "type": "number"
+        },
+        "id": {
+          "type": "string"
+        },
+        "level": {
+          "type": "integer"
+        },
+        "origin": {
+          "type": "string"
+        },
+        "scrollId": {
+          "type": "string"
+        },
+        "spellId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "classId",
+        "spellId",
+        "level",
+        "at",
+        "costGp"
+      ],
+      "type": "object"
+    },
+    "SpellChoice": {
+      "additionalProperties": false,
+      "properties": {
+        "acquiredAt": {
+          "type": "integer"
+        },
+        "alwaysPrepared": {
+          "type": "boolean"
+        },
+        "choose": {
+          "type": "integer"
+        },
+        "default": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "free": {
+          "type": "string"
+        },
+        "from": {
+          "$ref": "#/$defs/SpellFilter"
+        },
+        "key": {
+          "type": "string"
+        },
+        "levelReplacements": {
+          "type": "integer"
+        },
+        "maxSpellLevel": {
+          "oneOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "picked": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "source": {
+          "$ref": "#/$defs/Source"
+        },
+        "spellLevel": {
+          "oneOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "key",
+        "source",
+        "choose",
+        "spellLevel",
+        "maxSpellLevel",
+        "from",
+        "default",
+        "alwaysPrepared",
+        "picked"
+      ],
+      "type": "object"
+    },
+    "SpellChoiceOptions": {
+      "additionalProperties": false,
+      "properties": {
+        "acquiredAt": {
+          "type": "integer"
+        },
+        "alwaysPrepared": {
+          "type": "boolean"
+        },
+        "choose": {
+          "type": "integer"
+        },
+        "default": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "eligibleSpellIds": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "free": {
+          "type": "string"
+        },
+        "from": {
+          "$ref": "#/$defs/SpellFilter"
+        },
+        "key": {
+          "type": "string"
+        },
+        "levelReplacements": {
+          "type": "integer"
+        },
+        "maxSpellLevel": {
+          "oneOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "picked": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "source": {
+          "$ref": "#/$defs/Source"
+        },
+        "spellLevel": {
+          "oneOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "key",
+        "source",
+        "choose",
+        "spellLevel",
+        "maxSpellLevel",
+        "from",
+        "default",
+        "alwaysPrepared",
+        "picked",
+        "eligibleSpellIds"
+      ],
+      "type": "object"
+    },
+    "SpellDecisions": {
+      "additionalProperties": false,
+      "properties": {
+        "acquisitions": {
+          "items": {
+            "$ref": "#/$defs/SpellAcquisition"
+          },
+          "type": "array"
+        },
+        "cantrips": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "type": "object"
+        },
+        "castingAbilities": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "grantChoices": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "type": "object"
+        },
+        "spellbook": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "type": "object"
+        },
+        "swaps": {
+          "items": {
+            "$ref": "#/$defs/SpellSwap"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "cantrips",
+        "spellbook",
+        "grantChoices",
+        "castingAbilities",
+        "swaps",
+        "acquisitions"
+      ],
+      "type": "object"
+    },
+    "SpellFilter": {
+      "additionalProperties": false,
+      "properties": {
+        "castingTime": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "class": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "ids": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "ritual": {
+          "type": "boolean"
+        },
+        "school": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "SpellGrant": {
+      "additionalProperties": false,
+      "properties": {
+        "alwaysPrepared": {
+          "type": "boolean"
+        },
+        "atWill": {
+          "type": "boolean"
+        },
+        "castAtLevel": {
+          "oneOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "castResource": {
+          "type": "string"
+        },
+        "castResourceCost": {
+          "type": "integer"
+        },
+        "castingAbility": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "free": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "level": {
+          "oneOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "ref": {
+          "type": "string"
+        },
+        "resourceKey": {
+          "type": "string"
+        },
+        "ritualOnly": {
+          "type": "boolean"
+        },
+        "school": {
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/Source"
+        }
+      },
+      "required": [
+        "ref",
+        "name",
+        "level",
+        "school",
+        "source",
+        "alwaysPrepared",
+        "free",
+        "castingAbility",
+        "castAtLevel"
+      ],
+      "type": "object"
+    },
+    "SpellGrantOptions": {
+      "additionalProperties": false,
+      "properties": {
+        "alwaysPrepared": {
+          "type": "boolean"
+        },
+        "atWill": {
+          "type": "boolean"
+        },
+        "castAtLevel": {
+          "oneOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "castResource": {
+          "type": "string"
+        },
+        "castResourceCost": {
+          "type": "integer"
+        },
+        "castingAbility": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "free": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "key": {
+          "type": "string"
+        },
+        "level": {
+          "oneOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "ref": {
+          "type": "string"
+        },
+        "resourceKey": {
+          "type": "string"
+        },
+        "ritualOnly": {
+          "type": "boolean"
+        },
+        "school": {
+          "type": "string"
+        },
+        "slots": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "source": {
+          "$ref": "#/$defs/Source"
+        }
+      },
+      "required": [
+        "ref",
+        "name",
+        "level",
+        "school",
+        "source",
+        "alwaysPrepared",
+        "free",
+        "castingAbility",
+        "castAtLevel",
+        "key",
+        "slots"
+      ],
+      "type": "object"
+    },
+    "SpellOptions": {
+      "additionalProperties": false,
+      "properties": {
+        "acquisitionLevels": {
+          "items": {
+            "$ref": "#/$defs/AcquisitionLevel"
+          },
+          "type": "array"
+        },
+        "castingAbilityChoices": {
+          "items": {
+            "$ref": "#/$defs/CastingAbilityChoice"
+          },
+          "type": "array"
+        },
+        "classes": {
+          "items": {
+            "$ref": "#/$defs/CasterOptions"
+          },
+          "type": "array"
+        },
+        "granted": {
+          "items": {
+            "$ref": "#/$defs/SpellGrantOptions"
+          },
+          "type": "array"
+        },
+        "pendingChoices": {
+          "items": {
+            "$ref": "#/$defs/SpellChoiceOptions"
+          },
+          "type": "array"
+        },
+        "slots": {
+          "items": {
+            "$ref": "#/$defs/SlotOption"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "classes",
+        "pendingChoices",
+        "castingAbilityChoices",
+        "granted",
+        "slots",
+        "acquisitionLevels"
+      ],
+      "type": "object"
+    },
+    "SpellSwap": {
+      "additionalProperties": false,
+      "properties": {
+        "classId": {
+          "type": "string"
+        },
+        "classLevel": {
+          "type": "integer"
+        },
+        "in": {
+          "type": "string"
+        },
+        "level": {
+          "type": "integer"
+        },
+        "origin": {
+          "type": "string"
+        },
+        "out": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "level",
+        "classLevel",
+        "classId",
+        "out",
+        "in"
+      ],
+      "type": "object"
+    },
+    "SpellbookBonusSource": {
+      "additionalProperties": false,
+      "properties": {
+        "count": {
+          "type": "integer"
+        },
+        "school": {
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/Source"
+        }
+      },
+      "required": [
+        "source",
+        "count"
+      ],
+      "type": "object"
+    },
+    "Spellcasting": {
+      "additionalProperties": false,
+      "properties": {
+        "casterLevel": {
+          "type": "integer"
+        },
+        "castingAbilityChoices": {
+          "items": {
+            "$ref": "#/$defs/CastingAbilityChoice"
+          },
+          "type": "array"
+        },
+        "granted": {
+          "items": {
+            "$ref": "#/$defs/SpellGrant"
+          },
+          "type": "array"
+        },
+        "pendingChoices": {
+          "items": {
+            "$ref": "#/$defs/SpellChoice"
+          },
+          "type": "array"
+        },
+        "perClass": {
+          "items": {
+            "$ref": "#/$defs/Caster"
+          },
+          "type": "array"
+        },
+        "slots": {
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "perClass",
+        "casterLevel",
+        "slots",
+        "granted",
+        "pendingChoices",
+        "castingAbilityChoices"
+      ],
+      "type": "object"
+    },
+    "StorageContainer": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "itemIds": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "itemIds"
+      ],
+      "type": "object"
+    },
+    "StorageGuidance": {
+      "additionalProperties": false,
+      "properties": {
+        "containerItems": {
+          "items": {
+            "$ref": "#/$defs/ContainerItem"
+          },
+          "type": "array"
+        },
+        "maximumContainers": {
+          "type": "integer"
+        },
+        "maximumNameLength": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "maximumContainers",
+        "maximumNameLength",
+        "containerItems"
+      ],
+      "type": "object"
+    },
+    "SuspendedHand": {
+      "additionalProperties": false,
+      "properties": {
+        "bodyPlacement": {
+          "type": "string"
+        },
+        "expectedItemSha256": {
+          "type": "string"
+        },
+        "itemId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "itemId",
+        "expectedItemSha256"
+      ],
+      "type": "object"
+    },
+    "Term": {
+      "additionalProperties": false,
+      "properties": {
+        "grantId": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/Reference"
+        },
+        "status": {
+          "type": "string"
+        },
+        "value": {}
+      },
+      "required": [
+        "label",
+        "value"
+      ],
+      "type": "object"
+    },
+    "WeaponMastery": {
+      "additionalProperties": false,
+      "properties": {
+        "chosen": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "slots": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "slots",
+        "chosen"
+      ],
+      "type": "object"
+    },
+    "WeaponRange": {
+      "additionalProperties": false,
+      "properties": {
+        "long": {
+          "type": "integer"
+        },
+        "normal": {
+          "type": "integer"
+        },
+        "thrown": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "normal",
+        "long"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "contractVersion": {
+      "type": "string"
+    },
+    "evidence": {
+      "items": {
+        "$ref": "#/$defs/Evidence"
+      },
+      "type": "array"
+    },
+    "explanations": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Explanation"
+      },
+      "type": "object"
+    },
+    "guidance": {
+      "$ref": "#/$defs/Guidance"
+    },
+    "inputs": {
+      "$ref": "#/$defs/Inputs"
+    },
     "issues": {
       "items": {
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "maxLength": 30000,
-            "type": "string"
-          },
-          "message": {
-            "maxLength": 30000,
-            "type": "string"
-          },
-          "reference": {
-            "additionalProperties": false,
-            "properties": {
-              "id": {
-                "maxLength": 30000,
-                "type": "string"
-              },
-              "kind": {
-                "maxLength": 30000,
-                "type": "string"
-              }
-            },
-            "required": [
-              "kind",
-              "id"
-            ],
-            "type": "object"
-          },
-          "severity": {
-            "maxLength": 30000,
-            "type": "string"
-          },
-          "target": {
-            "maxLength": 30000,
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "target",
-          "message",
-          "severity"
-        ],
-        "type": "object"
+        "$ref": "#/$defs/Issue"
       },
-      "maxItems": 500,
-      "type": [
-        "array",
-        "null"
-      ]
+      "type": "array"
     },
     "plan": {
-      "additionalProperties": {},
-      "maxProperties": 1000,
-      "type": [
-        "object",
-        "null"
-      ]
+      "$ref": "#/$defs/Plan"
     },
     "ready": {
       "type": "boolean"
     },
     "sheet": {
-      "additionalProperties": {},
-      "maxProperties": 1000,
-      "type": [
-        "object",
-        "null"
-      ]
+      "$ref": "#/$defs/Sheet"
     },
     "spellOptions": {
-      "additionalProperties": {},
-      "maxProperties": 1000,
-      "type": [
-        "object",
-        "null"
-      ]
+      "$ref": "#/$defs/SpellOptions"
     }
   },
   "required": [

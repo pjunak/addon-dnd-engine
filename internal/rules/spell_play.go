@@ -6,20 +6,25 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/pjunak/addon-dnd-engine/character"
 )
 
 // SpellOptions describes available controls without changing the authored sheet.
 // Hydration's existing shape stays stable for consumers that only need stats.
-func SpellOptions(decisions, sheet Object, records Records, profile Ruleset) Object {
-	casting := object(sheet["spellcasting"])
-	classes, choices, grants, slots := []any{}, []any{}, []any{}, []any{}
+func SpellOptions(decisions Object, sheet *character.Calculation, records Records, profile Ruleset) character.SpellOptions {
+	casting := sheet.Spellcasting
+	options := character.SpellOptions{
+		Classes: []character.CasterOptions{}, PendingChoices: []character.SpellChoiceOptions{}, Granted: []character.SpellGrantOptions{},
+		Slots: []character.SlotOption{}, CastingAbilityChoices: append([]character.CastingAbilityChoice{}, casting.CastingAbilityChoices...),
+	}
 	// The shared catalog is read-only; sort a copy of its entries.
 	spells := slices.Clone(recordCatalog(records, "spell"))
 	sort.Slice(spells, func(i, j int) bool { return text(spells[i]["id"]) < text(spells[j]["id"]) })
-	for _, caster := range objects(casting["perClass"]) {
-		classID := text(caster["classId"])
+	for index := range casting.PerClass {
+		caster := &casting.PerClass[index]
 		ids, rituals := []string{}, []string{}
-		costs, castSlots := Object{}, Object{}
+		costs, castSlots := map[string]float64{}, map[string][]string{}
 		for _, spell := range spells {
 			ref := text(spell["id"])
 			if classSpellEligible(spell, caster) {
@@ -28,254 +33,253 @@ func SpellOptions(decisions, sheet Object, records Records, profile Ruleset) Obj
 			if canCastRitual(decisions, caster, spell) {
 				rituals = append(rituals, ref)
 			}
-			if text(caster["prepares"]) == "spellbook" && classSpellEligible(spell, caster) && integer(spell["level"], 0) > 0 {
+			if caster.Prepares == "spellbook" && classSpellEligible(spell, caster) && integer(spell["level"], 0) > 0 {
 				costs[ref] = ScrollCopyCost(number(spell["level"], 0), profile)
 			}
-			if contains(stringsOf(object(decisions["preparedSpells"])[classID]), ref) || contains(stringsOf(object(decisions["cantrips"])[classID]), ref) {
-				castSlots[ref] = anyStrings(spellSlotKeys(decisions, sheet, records, ref, integer(spell["level"], 0)))
+			if contains(stringsOf(object(decisions["preparedSpells"])[caster.ClassID]), ref) || contains(stringsOf(object(decisions["cantrips"])[caster.ClassID]), ref) {
+				castSlots[ref] = spellSlotKeys(decisions, sheet, records, ref, integer(spell["level"], 0))
 			}
 		}
-		classes = append(classes, Object{"classId": classID, "spellIds": anyStrings(ids), "ritualIds": anyStrings(rituals), "copyCosts": costs, "castSlots": castSlots, "canSwap": text(caster["prepares"]) != "spellbook"})
+		options.Classes = append(options.Classes, character.CasterOptions{ClassID: caster.ClassID, SpellIDs: ids, RitualIDs: rituals, CopyCosts: costs, CastSlots: castSlots, CanSwap: caster.Prepares != "spellbook"})
 	}
-	for _, choice := range objects(casting["pendingChoices"]) {
-		entry := cloneObjectDeep(choice)
+	for _, choice := range casting.PendingChoices {
 		eligible := []string{}
 		for _, spell := range spells {
 			if grantSpellEligible(spell, choice) {
 				eligible = append(eligible, text(spell["id"]))
 			}
 		}
-		entry["eligibleSpellIds"] = anyStrings(eligible)
-		choices = append(choices, entry)
+		options.PendingChoices = append(options.PendingChoices, character.SpellChoiceOptions{SpellChoice: choice, EligibleSpellIDs: eligible})
 	}
-	for _, grant := range objects(casting["granted"]) {
-		entry := cloneObjectDeep(grant)
-		ref := text(grant["ref"])
-		entry["key"] = spellGrantKey(grant)
+	for _, grant := range casting.Granted {
+		entry := character.SpellGrantOptions{SpellGrant: grant, Key: spellGrantKey(grant)}
 		if itemSpell(grant) {
-			entry["slots"] = anyStrings(itemSpellCasts(grant, casting))
-			grants = append(grants, entry)
+			entry.Slots = itemSpellCasts(grant, casting)
+			options.Granted = append(options.Granted, entry)
 			continue
 		}
-		keys := spellSlotKeys(decisions, sheet, records, ref, integer(grant["level"], 0))
-		if truth(grant["ritualOnly"]) {
+		level := 0
+		if grant.Level != nil {
+			level = *grant.Level
+		}
+		keys := spellSlotKeys(decisions, sheet, records, grant.Ref, level)
+		if grant.RitualOnly {
 			keys = []string{""}
-		} else if truth(grant["atWill"]) && (len(keys) == 0 || keys[0] != "") {
+		} else if grant.AtWill && (len(keys) == 0 || keys[0] != "") {
 			keys = append([]string{""}, keys...)
 		}
-		if key := text(grant["castResource"]); key != "" && findPlayResource(sheet, key) != nil {
+		if key := grant.CastResource; key != "" && findPlayResource(sheet, key) != nil {
 			keys = append([]string{key}, keys...)
 		}
-		if text(grant["free"]) != "" && findPlayResource(sheet, grantFreeResourceKey(grant)) != nil {
+		if grant.Free != nil && *grant.Free != "" && findPlayResource(sheet, grantFreeResourceKey(grant)) != nil {
 			keys = append([]string{grantFreeResourceKey(grant)}, keys...)
 		}
-		entry["slots"] = anyStrings(keys)
-		grants = append(grants, entry)
+		entry.Slots = keys
+		options.Granted = append(options.Granted, entry)
 	}
-	for _, resource := range objects(sheet["resources"]) {
-		if !contains([]string{"slot", "charge"}, text(resource["kind"])) {
+	for index := range sheet.Resources {
+		resource := &sheet.Resources[index]
+		if resource.Kind != character.ResourceSlot && resource.Kind != character.ResourceCharge {
 			continue
 		}
-		slots = append(slots, Object{"key": resource["key"], "name": resource["name"], "max": resource["max"], "current": remainingResource(decisions, resource)})
+		options.Slots = append(options.Slots, character.SlotOption{Key: resource.Key, Name: resource.Name, Max: resource.Max, Current: remainingResource(decisions, resource)})
 	}
-	return Object{"classes": classes, "pendingChoices": choices, "castingAbilityChoices": cloneValue(casting["castingAbilityChoices"]), "granted": grants, "slots": slots}
+	return options
 }
 
-func classSpellEligible(spell, caster Object) bool {
-	if spell == nil || caster == nil || integer(spell["level"], 0) > integer(caster["maxSpellLevel"], 0) {
+func classSpellEligible(spell Object, caster *character.Caster) bool {
+	if spell == nil || caster == nil || integer(spell["level"], 0) > caster.MaxSpellLevel {
 		return false
 	}
-	for _, list := range append([]string{text(caster["spellListClassId"])}, stringsOf(caster["spellLists"])...) {
+	for _, list := range append([]string{caster.SpellListClassID}, caster.SpellLists...) {
 		if contains(stringsOf(spell["classes"]), list) {
 			return true
 		}
 	}
-	return contains(stringsOf(caster["expandedSpellIds"]), text(spell["id"]))
+	return contains(caster.ExpandedSpellIDs, text(spell["id"]))
 }
 
-func grantSpellEligible(spell, choice Object) bool {
-	if spell == nil || choice == nil {
+func grantSpellEligible(spell Object, choice character.SpellChoice) bool {
+	if spell == nil {
 		return false
 	}
 	level := integer(spell["level"], 0)
-	if choice["spellLevel"] != nil && level != integer(choice["spellLevel"], 0) || choice["maxSpellLevel"] != nil && level > integer(choice["maxSpellLevel"], 0) {
+	if choice.SpellLevel != nil && level != *choice.SpellLevel || choice.MaxSpellLevel != nil && level > *choice.MaxSpellLevel {
 		return false
 	}
-	from := object(choice["from"])
-	classes, schools, ids := stringsOf(from["class"]), stringsOf(from["school"]), stringsOf(from["ids"])
-	eligible := len(classes)+len(schools)+len(ids) == 0 || contains(ids, text(spell["id"]))
-	for _, classID := range classes {
+	from := choice.From
+	eligible := len(from.Class)+len(from.School)+len(from.IDs) == 0 || contains(from.IDs, text(spell["id"]))
+	for _, classID := range from.Class {
 		eligible = eligible || contains(stringsOf(spell["classes"]), classID)
 	}
-	for _, school := range schools {
+	for _, school := range from.School {
 		eligible = eligible || strings.EqualFold(school, text(spell["school"]))
 	}
-	if times := stringsOf(from["castingTime"]); len(times) > 0 {
+	if len(from.CastingTime) > 0 {
 		match := false
-		for _, value := range times {
+		for _, value := range from.CastingTime {
 			match = match || strings.EqualFold(value, text(spell["castingTime"]))
 		}
 		eligible = eligible && match
 	}
-	if time := text(from["castingTime"]); time != "" {
-		eligible = eligible && strings.EqualFold(time, text(spell["castingTime"]))
-	}
-	if truth(from["ritual"]) {
+	if from.Ritual {
 		eligible = eligible && truth(spell["ritual"])
 	}
 	return eligible
 }
 
-func selectGrantSpell(decisions, sheet, change Object, records Records) error {
-	key, ref := text(change["key"]), text(change["ref"])
-	var choice Object
-	for _, candidate := range objects(object(sheet["spellcasting"])["pendingChoices"]) {
-		if text(candidate["key"]) == key {
-			choice = candidate
+func selectGrantSpell(decisions Object, sheet *character.Calculation, command character.PlayCommand, records Records) error {
+	var choice *character.SpellChoice
+	for index := range sheet.Spellcasting.PendingChoices {
+		if sheet.Spellcasting.PendingChoices[index].Key == command.Key {
+			choice = &sheet.Spellcasting.PendingChoices[index]
 			break
 		}
 	}
 	if choice == nil {
 		return fmt.Errorf("This spell choice is no longer available.")
 	}
-	current := unique(stringsOf(choice["picked"]))
-	if truth(change["selected"]) {
-		if !grantSpellEligible(recordByID(records, "spell", ref), choice) {
+	current := unique(choice.Picked)
+	if command.Selected {
+		if !grantSpellEligible(recordByID(records, "spell", command.Ref), *choice) {
 			return fmt.Errorf("This spell does not meet the grant's requirements.")
 		}
-		if contains(current, ref) {
+		if contains(current, command.Ref) {
 			return nil
 		}
-		if len(current) >= integer(choice["choose"], 0) {
+		if len(current) >= choice.Choose {
 			return fmt.Errorf("Remove a selected spell before choosing another.")
 		}
-		current = append(current, ref)
+		current = append(current, command.Ref)
 	} else {
 		filtered := []string{}
 		for _, item := range current {
-			if item != ref {
+			if item != command.Ref {
 				filtered = append(filtered, item)
 			}
 		}
 		current = filtered
 	}
-	playMap(decisions, "grantChoices")[key] = anyStrings(current)
+	playMap(decisions, "grantChoices")[command.Key] = anyStrings(current)
 	return nil
 }
 
-func selectCastingAbility(decisions, sheet, change Object) error {
-	key, ability := text(change["key"]), text(change["ability"])
-	for _, choice := range objects(object(sheet["spellcasting"])["castingAbilityChoices"]) {
-		if text(choice["key"]) != key {
+func selectCastingAbility(decisions Object, sheet *character.Calculation, command character.PlayCommand) error {
+	for _, choice := range sheet.Spellcasting.CastingAbilityChoices {
+		if choice.Key != command.Key {
 			continue
 		}
-		if !contains(stringsOf(choice["options"]), ability) {
+		if !contains(choice.Options, command.Ability) {
 			return fmt.Errorf("Choose an available spellcasting ability.")
 		}
-		playMap(decisions, "grantCastingAbilities")[key] = ability
+		playMap(decisions, "grantCastingAbilities")[command.Key] = command.Ability
 		return nil
 	}
 	return fmt.Errorf("This spellcasting ability choice is no longer available.")
 }
 
-func spellGrantKey(grant Object) string {
-	source := object(grant["source"])
-	return grantOwner(source) + ":" + text(grant["ref"])
+func spellGrantKey(grant character.SpellGrant) string {
+	return grantOwner(grant.Source) + ":" + grant.Ref
 }
 
-func castGrantedSpell(decisions, sheet, change Object, records Records) error {
-	for _, grant := range objects(object(sheet["spellcasting"])["granted"]) {
-		if spellGrantKey(grant) != text(change["key"]) {
+func castGrantedSpell(decisions Object, sheet *character.Calculation, command character.PlayCommand, records Records) error {
+	for _, grant := range sheet.Spellcasting.Granted {
+		if spellGrantKey(grant) != command.Key {
 			continue
 		}
-		ref, slot := text(grant["ref"]), text(change["slot"])
-		if recordByID(records, "spell", ref) == nil {
+		slot := command.Slot
+		if recordByID(records, "spell", grant.Ref) == nil {
 			return fmt.Errorf("This granted spell is unavailable in the selected rules data.")
 		}
 		if itemSpell(grant) {
-			if itemCastingAbilityPending(grant, object(sheet["spellcasting"])) {
+			if itemCastingAbilityPending(grant, sheet.Spellcasting) {
 				return fmt.Errorf("Choose the item's spellcasting ability before casting its spells.")
 			}
-			if !contains(itemSpellCasts(grant, object(sheet["spellcasting"])), slot) {
+			if !contains(itemSpellCasts(grant, sheet.Spellcasting), slot) {
 				return fmt.Errorf("Cast this item spell with the item's own uses; item spells never use spell slots.")
 			}
 			if slot == "" {
 				return nil
 			}
-			return spendResourceUses(decisions, findPlayResource(sheet, slot), max(1, integer(grant["castResourceCost"], 1)))
+			return spendResourceUses(decisions, findPlayResource(sheet, slot), max(1, grant.CastResourceCost))
 		}
-		if slot == grantFreeResourceKey(grant) && text(grant["free"]) != "" {
+		if slot == grantFreeResourceKey(grant) && grant.Free != nil && *grant.Free != "" {
 			return spendResource(decisions, findPlayResource(sheet, slot))
 		}
-		if key := text(grant["castResource"]); key != "" && slot == key {
-			return spendResourceUses(decisions, findPlayResource(sheet, key), max(1, integer(grant["castResourceCost"], 1)))
+		if key := grant.CastResource; key != "" && slot == key {
+			return spendResourceUses(decisions, findPlayResource(sheet, key), max(1, grant.CastResourceCost))
 		}
 		// At-will and ritual-only grants cast without a slot or resource.
-		if slot == "" && (truth(grant["atWill"]) || truth(grant["ritualOnly"])) {
+		if slot == "" && (grant.AtWill || grant.RitualOnly) {
 			return nil
 		}
-		if truth(grant["ritualOnly"]) {
+		if grant.RitualOnly {
 			return fmt.Errorf("This spell can only be cast as a ritual.")
 		}
-		return spendSpellSlot(decisions, sheet, records, ref, integer(grant["level"], 0), slot)
+		level := 0
+		if grant.Level != nil {
+			level = *grant.Level
+		}
+		return spendSpellSlot(decisions, sheet, records, grant.Ref, level, slot)
 	}
 	return fmt.Errorf("This spell is not granted by the current build.")
 }
 
-func itemSpell(grant Object) bool {
-	return text(object(grant["source"])["type"]) == "item"
+func itemSpell(grant character.SpellGrant) bool {
+	return grant.Source.Type == character.SourceItem
 }
 
 // itemSpellCasts lists how an item spell can be cast: with the item's own use,
 // or with nothing for at-will spells and cantrips, never with spell slots. It
 // lists nothing while the item's casting ability is still to be picked.
-func itemSpellCasts(grant, spellcasting Object) []string {
+func itemSpellCasts(grant character.SpellGrant, spellcasting character.Spellcasting) []string {
 	casts := []string{}
 	if itemCastingAbilityPending(grant, spellcasting) {
 		return casts
 	}
-	if key := text(grant["castResource"]); key != "" {
-		casts = append(casts, key)
+	if grant.CastResource != "" {
+		casts = append(casts, grant.CastResource)
 	}
-	if truth(grant["atWill"]) || grant["level"] != nil && integer(grant["level"], 0) == 0 {
+	if grant.AtWill || grant.Level != nil && *grant.Level == 0 {
 		casts = append(casts, "")
 	}
 	return casts
 }
 
-func itemCastingAbilityPending(grant, spellcasting Object) bool {
-	owner := grantOwner(object(grant["source"]))
-	for _, choice := range objects(spellcasting["castingAbilityChoices"]) {
-		if grantOwner(object(choice["source"])) == owner && text(choice["selected"]) == "" {
+func itemCastingAbilityPending(grant character.SpellGrant, spellcasting character.Spellcasting) bool {
+	owner := grantOwner(grant.Source)
+	for _, choice := range spellcasting.CastingAbilityChoices {
+		if grantOwner(choice.Source) == owner && choice.Selected == nil {
 			return true
 		}
 	}
 	return false
 }
 
-func spellSlotKeys(decisions, sheet Object, records Records, ref string, level int) []string {
+func spellSlotKeys(decisions Object, sheet *character.Calculation, records Records, ref string, level int) []string {
 	if level == 0 {
 		return []string{""}
 	}
 	result := []string{}
-	for _, resource := range objects(sheet["resources"]) {
-		if text(resource["kind"]) != "slot" {
+	for _, resource := range sheet.Resources {
+		if resource.Kind != character.ResourceSlot {
 			continue
 		}
-		key := text(resource["key"])
-		slotLevel := integer(resource["level"], 0)
-		if strings.HasPrefix(key, "slot-") {
-			slotLevel, _ = strconv.Atoi(strings.TrimPrefix(key, "slot-"))
+		slotLevel := resource.Level
+		if strings.HasPrefix(resource.Key, "slot-") {
+			slotLevel, _ = strconv.Atoi(strings.TrimPrefix(resource.Key, "slot-"))
 		}
-		if key == "pact-slot" {
-			for _, caster := range objects(object(sheet["spellcasting"])["perClass"]) {
-				slotLevel = max(slotLevel, integer(object(caster["pact"])["level"], 0))
+		if resource.Key == "pact-slot" {
+			for _, caster := range sheet.Spellcasting.PerClass {
+				if caster.Pact != nil {
+					slotLevel = max(slotLevel, caster.Pact.Level)
+				}
 			}
 		}
 		if slotLevel < level {
 			continue
 		}
-		if restriction := text(resource["restriction"]); restriction != "" {
+		if restriction := resource.Restriction; restriction != "" {
 			allowed := false
 			for _, feat := range selectedFeats(decisions, records) {
 				if text(feat["category"]) == restriction && contains(stringsOf(object(feat["grants"])["spellList"]), ref) {
@@ -286,12 +290,12 @@ func spellSlotKeys(decisions, sheet Object, records Records, ref string, level i
 				continue
 			}
 		}
-		result = append(result, key)
+		result = append(result, resource.Key)
 	}
 	return unique(result)
 }
 
-func spendSpellSlot(decisions, sheet Object, records Records, ref string, level int, slot string) error {
+func spendSpellSlot(decisions Object, sheet *character.Calculation, records Records, ref string, level int, slot string) error {
 	if !contains(spellSlotKeys(decisions, sheet, records, ref, level), slot) {
 		return fmt.Errorf("Choose an eligible spell slot of this spell's level or higher.")
 	}
@@ -301,19 +305,19 @@ func spendSpellSlot(decisions, sheet Object, records Records, ref string, level 
 	return spendResource(decisions, findPlayResource(sheet, slot))
 }
 
-func canCastRitual(decisions, caster, spell Object) bool {
-	if caster == nil || spell == nil || !truth(caster["ritual"]) || !truth(spell["ritual"]) {
+func canCastRitual(decisions Object, caster *character.Caster, spell Object) bool {
+	if caster == nil || spell == nil || !caster.Ritual || !truth(spell["ritual"]) {
 		return false
 	}
 	key := "preparedSpells"
-	if text(caster["prepares"]) == "spellbook" {
+	if caster.Prepares == "spellbook" {
 		key = "spellbook"
 	}
-	return contains(stringsOf(object(decisions[key])[text(caster["classId"])]), text(spell["id"]))
+	return contains(stringsOf(object(decisions[key])[caster.ClassID]), text(spell["id"]))
 }
 
-func copyPlaySpell(decisions, sheet, change Object, records Records, profile Ruleset) error {
-	classID, ref, scrollID := text(change["classId"]), text(change["ref"]), text(change["scrollId"])
+func copyPlaySpell(decisions Object, sheet *character.Calculation, command character.PlayCommand, records Records, profile Ruleset) error {
+	classID, ref, scrollID := command.ClassID, command.Ref, command.ScrollID
 	if contains(stringsOf(object(decisions["spellbook"])[classID]), ref) {
 		return fmt.Errorf("This spell is already in the spellbook.")
 	}
@@ -344,7 +348,7 @@ func copyPlaySpell(decisions, sheet, change Object, records Records, profile Rul
 			return fmt.Errorf("The selected scroll is no longer in the inventory.")
 		}
 	}
-	if err := selectPlaySpell(decisions, sheet, Object{"classId": classID, "ref": ref, "selection": "spellbook", "selected": true}, records); err != nil {
+	if err := selectPlaySpell(decisions, sheet, classID, ref, character.ListSpellbook, true, records); err != nil {
 		return err
 	}
 	currency["gp"] = number(currency["gp"], 0) - cost
@@ -364,19 +368,19 @@ func copyPlaySpell(decisions, sheet, change Object, records Records, profile Rul
 	return nil
 }
 
-func swapPlaySpell(decisions, sheet, change Object, records Records) error {
-	classID, previous, next := text(change["classId"]), text(change["out"]), text(change["ref"])
+func swapPlaySpell(decisions Object, sheet *character.Calculation, command character.PlayCommand, records Records) error {
+	classID, previous, next := command.ClassID, command.Out, command.Ref
 	caster := playCaster(sheet, classID)
 	selected := stringsOf(object(decisions["preparedSpells"])[classID])
-	if caster == nil || text(caster["prepares"]) == "spellbook" || !contains(selected, previous) || contains(selected, next) {
+	if caster == nil || caster.Prepares == "spellbook" || !contains(selected, previous) || contains(selected, next) {
 		return fmt.Errorf("Choose a known spell to replace and a different eligible spell.")
 	}
-	if err := selectPlaySpell(decisions, sheet, Object{"classId": classID, "ref": previous, "selection": "preparedSpells", "selected": false}, records); err != nil {
+	if err := selectPlaySpell(decisions, sheet, classID, previous, character.ListPrepared, false, records); err != nil {
 		return err
 	}
-	if err := selectPlaySpell(decisions, sheet, Object{"classId": classID, "ref": next, "selection": "preparedSpells", "selected": true}, records); err != nil {
+	if err := selectPlaySpell(decisions, sheet, classID, next, character.ListPrepared, true, records); err != nil {
 		return err
 	}
-	decisions["spellSwaps"] = append(values(decisions["spellSwaps"]), Object{"level": sheet["totalLevel"], "classLevel": caster["level"], "classId": classID, "out": previous, "in": next})
+	decisions["spellSwaps"] = append(values(decisions["spellSwaps"]), Object{"level": sheet.TotalLevel, "classLevel": caster.Level, "classId": classID, "out": previous, "in": next})
 	return nil
 }

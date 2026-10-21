@@ -9,12 +9,15 @@ import (
 )
 
 func validateCharacterSpells(input character.Inputs, records Records, result *character.Result) {
-	block := func(id, message string) { addCharacterIssue(result, id, "spells", message, "blocker", nil) }
-	casters := map[string]Object{}
-	for _, caster := range objects(object(result.Sheet["spellcasting"])["perClass"]) {
-		casters[text(caster["classId"])] = caster
+	block := func(id, message string) {
+		addCharacterIssue(result, id, "spells", message, character.SeverityBlocker, nil)
 	}
-	choices := map[string]Object{}
+	sheet := result.Sheet.Calculation
+	casters := map[string]*character.Caster{}
+	for index := range sheet.Spellcasting.PerClass {
+		casters[sheet.Spellcasting.PerClass[index].ClassID] = &sheet.Spellcasting.PerClass[index]
+	}
+	choices := map[string]*character.SpellChoiceOptions{}
 	copies := map[string]map[string]bool{}
 	acquisitionIDs := map[string]bool{}
 	for _, swap := range input.Build.Spells.Swaps {
@@ -33,8 +36,8 @@ func validateCharacterSpells(input character.Inputs, records Records, result *ch
 		acquisitionIDs[acquisition.ID] = true
 		copies[acquisition.ClassID][acquisition.SpellID] = true
 	}
-	for _, choice := range objects(result.SpellOptions["pendingChoices"]) {
-		choices[text(choice["key"])] = choice
+	for index := range result.SpellOptions.PendingChoices {
+		choices[result.SpellOptions.PendingChoices[index].Key] = &result.SpellOptions.PendingChoices[index]
 	}
 	for _, selection := range []struct {
 		name   string
@@ -52,12 +55,12 @@ func validateCharacterSpells(input character.Inputs, records Records, result *ch
 				}
 				continue
 			}
-			limit := integer(caster["preparedLimit"], 0)
+			limit := caster.PreparedLimit
 			if selection.name == "cantrips" {
-				limit = integer(caster["cantripsKnown"], 0)
+				limit = caster.CantripsKnown
 			}
 			if selection.name == "spellbook" {
-				limit = integer(caster["spellbookCapacity"], 0)
+				limit = caster.SpellbookCapacity
 			}
 			if len(ids) > limit {
 				block("spell-count:"+selection.name+":"+classID, "The selected spells exceed the currently granted capacity.")
@@ -72,9 +75,9 @@ func validateCharacterSpells(input character.Inputs, records Records, result *ch
 					valid = valid && integer(spell["level"], 0) > 0
 				}
 				if selection.name == "spellbook" {
-					valid = valid && text(caster["prepares"]) == "spellbook"
+					valid = valid && caster.Prepares == "spellbook"
 				}
-				if selection.name == "prepared" && text(caster["prepares"]) == "spellbook" {
+				if selection.name == "prepared" && caster.Prepares == "spellbook" {
 					valid = valid && contains(input.Build.Spells.Spellbook[classID], id)
 				}
 				if !valid {
@@ -85,14 +88,14 @@ func validateCharacterSpells(input character.Inputs, records Records, result *ch
 	}
 	for _, classID := range sortedKeys(casters) {
 		caster := casters[classID]
-		if len(input.Build.Spells.Cantrips[classID]) != integer(caster["cantripsKnown"], 0) {
+		if len(input.Build.Spells.Cantrips[classID]) != caster.CantripsKnown {
 			block("cantrip-count:"+classID, "Choose the cantrips granted by this class level.")
 		}
-		if text(caster["prepares"]) == "spellbook" && len(input.Build.Spells.Spellbook[classID]) < integer(caster["spellbookKnown"], 0) {
+		if caster.Prepares == "spellbook" && len(input.Build.Spells.Spellbook[classID]) < caster.SpellbookKnown {
 			block("spellbook-count:"+classID, "Choose the spellbook spells granted by the recorded class levels.")
 		}
-		for _, short := range spellbookSchoolShortfalls(caster, input.Build.Spells.Spellbook[classID], records) {
-			addCharacterIssue(result, "spellbook-school:"+classID+":"+strings.ToLower(short.school), "spells", "Choose the free spellbook spells from the school their feature names.", "blocker", &character.Reference{Kind: text(short.source["type"]), ID: text(short.source["id"])})
+		for _, short := range spellbookSchoolShortfalls(*caster, input.Build.Spells.Spellbook[classID], records) {
+			addCharacterIssue(result, "spellbook-school:"+classID+":"+strings.ToLower(short.school), "spells", "Choose the free spellbook spells from the school their feature names.", character.SeverityBlocker, &character.Reference{Kind: string(short.source.Type), ID: short.source.ID})
 		}
 	}
 	// An owned item that is not in effect keeps its picks and toggles for when
@@ -108,35 +111,39 @@ func validateCharacterSpells(input character.Inputs, records Records, result *ch
 		}
 		ids := input.Build.Spells.GrantChoices[key]
 		choice := choices[key]
+		if choice == nil {
+			choice = &character.SpellChoiceOptions{}
+			if len(ids) > 0 {
+				block("spell-grant:"+key, "This spell choice no longer fits its granting source.")
+			}
+		}
 		seen := map[string]bool{}
-		if choice == nil && len(ids) > 0 || len(ids) > integer(choice["choose"], 0) {
+		if len(ids) > choice.Choose {
 			block("spell-grant:"+key, "This spell choice no longer fits its granting source.")
 		}
 		for _, id := range ids {
-			if seen[id] || !contains(stringsOf(choice["eligibleSpellIds"]), id) {
+			if seen[id] || !contains(choice.EligibleSpellIDs, id) {
 				block("spell-grant:"+key+":"+id, "This spell is not eligible for its granting source.")
 			}
 			seen[id] = true
 		}
 	}
-	abilityChoices := map[string]Object{}
-	for _, choice := range objects(result.SpellOptions["castingAbilityChoices"]) {
-		abilityChoices[text(choice["key"])] = choice
+	abilityChoices := map[string]character.CastingAbilityChoice{}
+	for _, choice := range result.SpellOptions.CastingAbilityChoices {
+		abilityChoices[choice.Key] = choice
 	}
 	for _, key := range sortedKeys(input.Build.Spells.CastingAbilities) {
 		if inactiveItem(key) {
 			continue
 		}
 		ability := input.Build.Spells.CastingAbilities[key]
-		choice := abilityChoices[key]
-		eligible := stringsOf(choice["options"])
-		if !contains(eligible, ability) {
+		if !contains(abilityChoices[key].Options, ability) {
 			block("casting-ability:"+key, "The casting ability is no longer granted by this source.")
 		}
 	}
-	activations := map[string]Object{}
-	for _, activation := range objects(result.Sheet["activations"]) {
-		activations[text(activation["key"])] = activation
+	activations := map[string]character.Activation{}
+	for _, activation := range sheet.Activations {
+		activations[activation.Key] = activation
 	}
 	groups := map[string]string{}
 	for _, key := range sortedKeys(input.Play.ActiveFeatures) {
@@ -144,15 +151,15 @@ func validateCharacterSpells(input character.Inputs, records Records, result *ch
 		if !enabled || inactiveItem(key) {
 			continue
 		}
-		activation := activations[key]
-		if activation == nil || !truth(activation["available"]) {
+		activation, exists := activations[key]
+		if !exists || !activation.Available {
 			block("activation:"+key, "An active feature is unavailable with the current build or equipment.")
 		}
-		if group := text(activation["exclusiveGroup"]); group != "" {
-			if groups[group] != "" {
-				block("activation-group:"+group, "Choose one active feature in this exclusive group.")
+		if group := activation.ExclusiveGroup; group != nil && *group != "" {
+			if groups[*group] != "" {
+				block("activation-group:"+*group, "Choose one active feature in this exclusive group.")
 			}
-			groups[group] = key
+			groups[*group] = key
 		}
 	}
 }
@@ -162,25 +169,25 @@ func validateCharacterSpells(input character.Inputs, records Records, result *ch
 type spellbookSchoolNeed struct {
 	school string
 	count  int
-	source Object
+	source character.Source
 }
 
 // spellbookSchoolShortfalls lists the schools the class's spellbook holds too
 // few spells of. Any assignment works once enough are present, because the
 // remaining level-granted spells have no school.
-func spellbookSchoolShortfalls(caster Object, spellbook []string, records Records) []spellbookSchoolNeed {
+func spellbookSchoolShortfalls(caster character.Caster, spellbook []string, records Records) []spellbookSchoolNeed {
 	needs := []spellbookSchoolNeed{}
-	for _, row := range objects(caster["spellbookBonusSources"]) {
-		school := text(row["school"])
+	for _, row := range caster.SpellbookBonusSources {
+		school := row.School
 		if school == "" {
 			continue
 		}
 		index := slices.IndexFunc(needs, func(need spellbookSchoolNeed) bool { return strings.EqualFold(need.school, school) })
 		if index < 0 {
 			index = len(needs)
-			needs = append(needs, spellbookSchoolNeed{school: school, source: object(row["source"])})
+			needs = append(needs, spellbookSchoolNeed{school: school, source: row.Source})
 		}
-		needs[index].count += integer(row["count"], 0)
+		needs[index].count += row.Count
 	}
 	shortfalls := []spellbookSchoolNeed{}
 	for _, need := range needs {
@@ -210,7 +217,7 @@ func validateCharacterSpellProgression(input character.Inputs, records Records, 
 	}
 	used := map[string]int{}
 	levels := map[string]int{}
-	decisions := []any{}
+	decisions := []character.AcquisitionLevel{}
 	for index, level := range input.Build.Levels {
 		levels[level.ClassID]++
 		selected := input.Build.Spells.Spellbook[level.ClassID]
@@ -221,9 +228,10 @@ func validateCharacterSpellProgression(input character.Inputs, records Records, 
 		prefix.Build.Levels = prefix.Build.Levels[:index+1]
 		detached := character.Result{Issues: []character.Issue{}}
 		normalized := NormalizeBuilderDecisions(characterDecisions(prefix, records, profile, &detached), records, profile)
-		sheet := Hydrate(normalized, records, &profile).Sheet
-		for _, caster := range objects(object(sheet["spellcasting"])["perClass"]) {
-			if text(caster["classId"]) != level.ClassID || text(caster["prepares"]) != "spellbook" {
+		sheet := Hydrate(normalized, records, profile).Sheet
+		for casterIndex := range sheet.Spellcasting.PerClass {
+			caster := &sheet.Spellcasting.PerClass[casterIndex]
+			if caster.ClassID != level.ClassID || caster.Prepares != "spellbook" {
 				continue
 			}
 			ordinary := []string{}
@@ -232,18 +240,18 @@ func validateCharacterSpellProgression(input character.Inputs, records Records, 
 					ordinary = append(ordinary, id)
 				}
 			}
-			limit := min(integer(caster["spellbookKnown"], 0), len(ordinary))
+			limit := min(caster.SpellbookKnown, len(ordinary))
 			for slot := used[level.ClassID]; slot < limit; slot++ {
 				id := ordinary[slot]
-				decisions = append(decisions, Object{"id": id, "classId": level.ClassID, "level": index + 1, "classLevel": levels[level.ClassID], "source": Object{"kind": "class", "id": level.ClassID}})
+				decisions = append(decisions, character.AcquisitionLevel{ID: id, ClassID: level.ClassID, Level: index + 1, ClassLevel: levels[level.ClassID], Source: character.Reference{Kind: "class", ID: level.ClassID}})
 				if !classSpellEligible(recordByID(records, "spell", id), caster) {
-					addCharacterIssue(result, "spell-acquired-level:"+level.ClassID+":"+id, "spells", fmt.Sprintf("Spell %s is not eligible at its recorded gain at character level %d. Reorder level-granted spellbook choices or replace it.", id, index+1), "blocker", &character.Reference{Kind: "spell", ID: id})
+					addCharacterIssue(result, "spell-acquired-level:"+level.ClassID+":"+id, "spells", fmt.Sprintf("Spell %s is not eligible at its recorded gain at character level %d. Reorder level-granted spellbook choices or replace it.", id, index+1), character.SeverityBlocker, &character.Reference{Kind: "spell", ID: id})
 				}
 			}
 			used[level.ClassID] = limit
 		}
 	}
-	result.SpellOptions["acquisitionLevels"] = decisions
+	result.SpellOptions.AcquisitionLevels = decisions
 }
 
 // Source data declares replacement allowances. The current level's ledger is

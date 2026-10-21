@@ -1,12 +1,15 @@
 package engine
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/santhosh-tekuri/jsonschema/v6"
 
 	"github.com/pjunak/addon-dnd-engine/character"
 	"github.com/pjunak/addon-dnd-engine/internal/provider"
@@ -30,6 +33,7 @@ func TestHandlerExposesContextAndRecords(t *testing.T) {
 	if !current.Available || current.Identity.ProviderAddonID != "synthetic-provider" || current.Errors == nil {
 		t.Fatalf("context = %+v", current)
 	}
+	matchesSchema(t, "context.response.schema.json", current)
 
 	recordValue, err := handler.HandleRPC(context.Background(), rpcRequest("get-record", `{
 		"contractVersion":"rules-engine-get.v1","kind":"class","id":"wizard"
@@ -41,6 +45,7 @@ func TestHandlerExposesContextAndRecords(t *testing.T) {
 	if record.Record.Kind != "class" || record.Record.ID != "wizard" || data.getCalls != 1 {
 		t.Fatalf("record = %+v, calls = %d", record, data.getCalls)
 	}
+	matchesSchema(t, "get-record.response.schema.json", record)
 
 	queryValue, err := handler.HandleRPC(context.Background(), rpcRequest("query-records", `{
 		"contractVersion":"rules-engine-query.v1","kind":"class","limit":20
@@ -51,6 +56,47 @@ func TestHandlerExposesContextAndRecords(t *testing.T) {
 	page := queryValue.(queryResponse)
 	if len(page.Records) != 1 || page.Records[0].ID != "wizard" || data.queryCalls != 1 {
 		t.Fatalf("query = %+v, calls = %d", page, data.queryCalls)
+	}
+	matchesSchema(t, "query-records.response.schema.json", page)
+}
+
+// matchesSchema validates a response against its packaged schema, as the host
+// does before a consumer sees it.
+func matchesSchema(t *testing.T, name string, response any) {
+	t.Helper()
+	compiler := jsonschema.NewCompiler()
+	compiler.DefaultDraft(jsonschema.Draft2020)
+	files, err := filepath.Glob(filepath.Join("..", "..", "contracts", "*.json"))
+	if err != nil || len(files) == 0 {
+		t.Fatalf("contracts: %v", err)
+	}
+	for _, file := range files {
+		body, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		document, err := jsonschema.UnmarshalJSON(bytes.NewReader(body))
+		if err != nil {
+			t.Fatalf("%s: %v", file, err)
+		}
+		if err := compiler.AddResource("file:///addon/contracts/"+filepath.Base(file), document); err != nil {
+			t.Fatal(err)
+		}
+	}
+	schema, err := compiler.Compile("file:///addon/contracts/" + name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := json.Marshal(response)
+	if err != nil {
+		t.Fatal(err)
+	}
+	value, err := jsonschema.UnmarshalJSON(bytes.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := schema.Validate(value); err != nil {
+		t.Errorf("response does not match contracts/%s: %v", name, err)
 	}
 }
 

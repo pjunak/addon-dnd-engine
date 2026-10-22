@@ -20,12 +20,16 @@ func itemContainer(record Object) (capacity float64, weightless, declared bool) 
 }
 
 // itemWeight is one unit's weight: the authored weight, else the rules
-// record's weightLb. Unknown weights report false.
-func itemWeight(item character.Item, record Object) (float64, bool) {
+// record's weightLb, else a magic weapon or armor's base weight. Unknown
+// weights report false.
+func itemWeight(item character.Item, record, base Object) (float64, bool) {
 	if item.WeightLb != nil {
 		return *item.WeightLb, true
 	}
-	value, ok := record["weightLb"].(float64)
+	if value, ok := record["weightLb"].(float64); ok {
+		return value, true
+	}
+	value, ok := base["weightLb"].(float64)
 	return value, ok
 }
 
@@ -67,7 +71,7 @@ func characterCarrying(input character.Inputs, records Records, profile Ruleset,
 	carried, storedLb, weightlessLb := 0.0, 0.0, 0.0
 	unknown := []string{}
 	for _, item := range input.Play.Inventory {
-		each, known := itemWeight(item, itemRecords[item.ID])
+		each, known := itemWeight(item, itemRecords[item.ID], equipmentRecord(item, records))
 		if !known {
 			unknown = append(unknown, item.ID)
 			continue

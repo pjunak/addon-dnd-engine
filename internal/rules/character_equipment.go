@@ -90,7 +90,8 @@ func characterEquipmentOptions(input character.Inputs, records Records, profile 
 }
 
 func equipmentOption(input character.Inputs, index int, item character.Item, record Object, records Records, profile Ruleset, sheet *character.Calculation) character.EquipmentGuidance {
-	entry := character.EquipmentGuidance{Slot: characterEquipmentSlot(record), BodyPlacements: characterBodyPlacements(item, record, input)}
+	entry := character.EquipmentGuidance{Slot: characterItemSlot(item, records), BodyPlacements: characterBodyPlacements(item, record, input, records)}
+	baseItemGuidance(item, records, &entry)
 	if item.Quantity < 1 {
 		entry.EquipReason, entry.AttuneReason = "empty", "empty"
 		return entry

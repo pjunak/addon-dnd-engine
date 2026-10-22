@@ -7,12 +7,19 @@ import (
 // These are display groups, not anatomy rules or mechanical occupancy limits.
 var bodyPlacements = []string{"head", "body", "wrists", "legs", "feet", "face", "neck", "shoulders", "waist", "gloves", "other"}
 
-func characterBodyPlacements(item character.Item, record Object, input character.Inputs) []string {
+// characterBodyPlacements lists the groups an instance's source declares. A
+// magic weapon or armor without its own list uses its base record's.
+func characterBodyPlacements(item character.Item, record Object, input character.Inputs, records Records) []string {
 	if item.Reference == nil {
 		if characterItemHasGrant(item, input) {
 			return append([]string{}, bodyPlacements...)
 		}
 		return []string{}
+	}
+	if _, declares := record["bodyPlacements"]; !declares {
+		if base := equipmentRecord(item, records); base != nil {
+			record = base
+		}
 	}
 	declared := stringsOf(record["bodyPlacements"])
 	if len(declared) == 0 || len(declared) != len(values(record["bodyPlacements"])) {
@@ -40,7 +47,7 @@ func validateCharacterPlacement(input character.Inputs, records Records, result 
 		if item.Reference != nil {
 			record = recordByID(records, item.Reference.Kind, item.Reference.ID)
 		}
-		if !contains(characterBodyPlacements(item, record, input), item.BodyPlacement) {
+		if !contains(characterBodyPlacements(item, record, input, records), item.BodyPlacement) {
 			addCharacterIssue(result, "placement-source:"+item.ID, "inventory", "This body placement is not supported by the item's current source or active DM mechanics. Choose an available placement or clear it.", "blocker", item.Reference)
 		}
 	}

@@ -351,8 +351,14 @@
         "attuned": {
           "type": "boolean"
         },
+        "baseItemId": {
+          "type": "string"
+        },
         "bodyPlacement": {
           "type": "string"
+        },
+        "bonus": {
+          "type": "integer"
         },
         "containerId": {
           "type": "string"

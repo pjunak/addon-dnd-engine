@@ -1350,9 +1350,21 @@
         "attuneReason": {
           "type": "string"
         },
+        "baseItems": {
+          "items": {
+            "$ref": "#/$defs/Option"
+          },
+          "type": "array"
+        },
         "bodyPlacements": {
           "items": {
             "type": "string"
+          },
+          "type": "array"
+        },
+        "bonuses": {
+          "items": {
+            "type": "integer"
           },
           "type": "array"
         },
@@ -2061,8 +2073,14 @@
         "attuned": {
           "type": "boolean"
         },
+        "baseItemId": {
+          "type": "string"
+        },
         "bodyPlacement": {
           "type": "string"
+        },
+        "bonus": {
+          "type": "integer"
         },
         "containerId": {
           "type": "string"

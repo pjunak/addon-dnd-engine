@@ -25,7 +25,7 @@ func handGrips(item *character.Item, records Records) []character.Grip {
 	if item == nil || item.Reference == nil {
 		return []character.Grip{}
 	}
-	record := recordByID(records, item.Reference.Kind, item.Reference.ID)
+	record := equipmentRecord(*item, records)
 	if text(record["armorType"]) == "shield" {
 		return []character.Grip{character.GripOne}
 	}
@@ -85,15 +85,15 @@ func handRestoreReason(input character.Inputs, records Records) character.HandRe
 		return character.HandOccupied
 	}
 	record := recordByID(records, item.Reference.Kind, item.Reference.ID)
-	slot := characterEquipmentSlot(record)
+	slot := characterItemSlot(*item, records)
 	if slot != "worn" {
 		for _, other := range input.Play.Inventory {
-			if other.ID != item.ID && other.Quantity > 0 && other.Location == "equipped" && other.Reference != nil && characterEquipmentSlot(recordByID(records, other.Reference.Kind, other.Reference.ID)) == slot {
+			if other.ID != item.ID && other.Quantity > 0 && other.Location == "equipped" && other.Reference != nil && characterItemSlot(other, records) == slot {
 				return character.HandOccupied
 			}
 		}
 	}
-	if suspended.BodyPlacement != "" && !contains(characterBodyPlacements(*item, record, input), suspended.BodyPlacement) {
+	if suspended.BodyPlacement != "" && !contains(characterBodyPlacements(*item, record, input, records), suspended.BodyPlacement) {
 		return character.HandIneligible
 	}
 	return character.HandUsable

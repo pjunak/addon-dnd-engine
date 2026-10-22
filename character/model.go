@@ -106,6 +106,10 @@ type Item struct {
 	// WeightLb is an authored weight for one unit, used instead of the rules
 	// record's weight (custom items, or items whose weight the rules omit).
 	WeightLb *float64 `json:"weightLb,omitempty"`
+	// BaseItemID and Bonus are the owner's picks for a magic weapon or armor
+	// whose record's baseItem offers several base records or bonuses.
+	BaseItemID string `json:"baseItemId,omitempty"`
+	Bonus      int    `json:"bonus,omitempty"`
 }
 type Container struct {
 	ID   string `json:"id"`

@@ -262,8 +262,10 @@ func hydrateArmorClass(
 	activeModifiers []activeModifier,
 	ruleset Ruleset,
 ) {
-	var bodyArmor Object
-	var shield Object
+	var bodyArmor, shield Object
+	// worn are the inventory entries of the body armor and shield, whose magic
+	// bonuses add to AC.
+	worn := []Object{}
 	for _, item := range objects(decisions["inventory"]) {
 		if text(item["location"]) != "equipped" {
 			continue
@@ -273,10 +275,12 @@ func hydrateArmorClass(
 		case "shield":
 			if shield == nil {
 				shield = armor
+				worn = append(worn, item)
 			}
 		case "light", "medium", "heavy":
 			if bodyArmor == nil {
 				bodyArmor = armor
+				worn = append(worn, item)
 			}
 		}
 	}
@@ -342,6 +346,12 @@ func hydrateArmorClass(
 		}
 	}
 	bonuses, passiveBonus := armorGrantBonuses(sources, bodyArmor)
+	for _, item := range worn {
+		if bonus := integer(item["gearBonus"], 0); bonus != 0 {
+			bonuses = append(bonuses, character.ConditionalBonus{Name: firstText(item["name"], item["ref"]), Source: inventorySource(item), Value: bonus, Status: character.BonusApplied})
+			passiveBonus += bonus
+		}
+	}
 	value := best.Value + shieldBonus + speciesBonus + activeBonus + passiveBonus
 	sheet.AC = character.ArmorClass{
 		Value: value, Base: best.Label, Shield: shieldBonus, Candidates: candidates,
@@ -785,9 +795,14 @@ func hydrateWeaponsAndAttunement(
 		if record == nil {
 			continue
 		}
-		attack := attackRow(attackSubject{record: record}, context)
+		subject := attackSubject{record: record}
+		if text(item["baseRef"]) != "" {
+			subject.item = &attackItem{name: firstText(item["name"], record["name"]), bonus: integer(item["gearBonus"], 0), source: inventorySource(item)}
+		}
+		attack := attackRow(subject, context)
+		attack.ItemID = text(item["id"])
 		if grip := text(item["handGrip"]); grip != "" {
-			attack.ItemID, attack.Grip = text(item["id"]), character.Grip(grip)
+			attack.Grip = character.Grip(grip)
 			if grip == "two" && attack.VersatileDamage != nil {
 				attack.Damage = *attack.VersatileDamage
 			}
@@ -942,7 +957,15 @@ func initiative(decisions Object, records Records, dexterity, proficiency int) i
 	return result
 }
 
+// inventoryRecord is the weapon or armor record an inventory entry is used as:
+// a magic item's resolved base, else its own record.
 func inventoryRecord(item Object, records Records, kind string) Object {
+	if base := text(item["baseRef"]); base != "" {
+		if text(item["baseKind"]) != kind {
+			return nil
+		}
+		return recordByID(records, kind, base)
+	}
 	if declared := text(item["kind"]); kind == "armor" && declared != "" {
 		record := recordByID(records, declared, text(item["ref"]))
 		if contains([]string{"light", "medium", "heavy", "shield"}, text(record["armorType"])) {

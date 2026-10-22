@@ -512,7 +512,9 @@ exact-retry boundary.
 ## Equipment eligibility
 
 `guidance.equipment` is keyed by inventory instance ID. Each entry exposes
-`slot` (`armor`, `shield` or `worn`), `canEquip` and `canAttune`.
+`slot` (`armor`, `shield` or `worn`), `canEquip` and `canAttune`, and for a
+magic weapon or armor its `baseItems` and `bonuses` to pick from. A magic
+armor whose base is still to be picked takes the slot all its options share.
 A rejected action includes `equipReason` or `attuneReason`: `empty`,
 `source`, `mechanics`, `not-required`, `build`, `capacity`, `duplicate`
 or `prerequisite`. These are stable translation codes, not instructions to
@@ -595,8 +597,9 @@ properties are suppressed deterministically and explained; the profile can
 also prohibit attuning multiple copies of the same item definition.
 
 An equipped/attuned magic item requires `characterMechanics: "complete"`
-with supported typed effects and/or [item grants](#item-grants), an explicitly
-narrative declaration (which declares neither), or linked DM adjudication.
+with supported typed effects, [item grants](#item-grants) and/or a
+[weapon or armor bonus](#magic-weapons-and-armor), an explicitly narrative
+declaration (which declares none of them), or linked DM adjudication.
 Reusable homebrew belongs in a compatible versioned source package.
 
 The engine evaluates grant facts but cannot authenticate their origin. The
@@ -688,6 +691,61 @@ inventory order, whatever its `characterMechanics`, so a sheet can show its
 text without re-deriving the active rule. Older Engines ignore `grants`: such
 items stay valid but have no effect.
 
+### Magic weapons and armor
+
+A `magic-item` record may declare `baseItem`, the weapon or armor it is:
+
+```jsonc
+"baseItem": {
+  "kind": "weapon",                     // "weapon" or "armor": the base record kind
+  "categories": ["simple", "martial"],  // or "ids": ["longsword"]
+  "bonus": [1, 2, 3]                    // optional: one number, or a list to pick from
+}
+```
+
+The base records are either the listed `ids` (at most 50, distinct) or every
+record of the kind that matches all the given filters: weapon `categories`
+(`simple`, `martial`), `ranges` (`melee`, `ranged`) and `properties` (the
+weapon has every one), armor `armorTypes` (`light`, `medium`, `heavy`,
+`shield`), and `except` (IDs left out). `ids` take no filters; neither means
+any record of the kind. Armor matches only with one of those armor types.
+Records come from every provider, so a homebrew item may name the
+Compendium's `longsword`. `bonus` is a whole number from 1 to 10, or a list
+of distinct ones; on a weapon it adds to attack and damage rolls, on armor or
+a shield to Armor Class. The object is read all or nothing: any other key,
+value or a filter of the wrong kind makes the item no weapon or armor and,
+while it is equipped or attuned, raises the `item-effects:<instance>`
+blocker.
+
+An inventory instance picks its base and bonus when the record offers
+several: `inputs.play.inventory[].baseItemId` and `bonus`. A single option
+needs no pick. `guidance.equipment[<instance>]` lists the options as
+`baseItems` (`{id, label}`, by name) and `bonuses` whenever the record
+declares `baseItem`. While the item is equipped or attuned, a missing pick
+is the warning `item-base:<instance>` or `item-bonus:<instance>` (as is a
+base no loaded record matches), and the item has no base, or no bonus, until
+it is picked; a pick the record does not offer, or a pick on an item without
+`baseItem`, is a blocker with the same ID. Picks on an item that is not in
+use are not checked.
+
+Once its base is known, the instance is that record for its slot, hands and
+grips, attack row (proficiency, mastery, reach, range and the versatile die
+come from the base, `ref` is the base ID and `name` the item's), Armor Class
+(the body armor's formula and restrictions or the shield's `acBonus`) and
+every armor requirement. Its weight is its own, else its record's, else the
+base's; its body placements are its record's, else the base's. Any magic item
+may declare `baseItem`, including a narrative one or one with linked DM
+adjudication, because it says what the item is. Only a complete item's
+`bonus` applies, and a narrative item that declares one raises the
+narrative blocker. The bonus applies while the item is equipped (or ready,
+for a weapon), not suspended, and attuned when its record requires it. Copies
+of one record each keep their own bonus; `sheet.activeItems` still names only
+the first. A weapon's bonus is an entry in its row's `modifiers` and an
+armor's or shield's an applied row in `ac.bonuses`, both with the source
+`{type: "item", id: <instance>, name, ref: {kind: "magic-item", id}}`.
+Records without `baseItem`, including magic items that declare `armorType`
+themselves, keep their own fields.
+
 ### Passive source bonuses
 
 Selected grant sources share `hpPerLevel`, `hpBonus`, `speedBonus` and
@@ -778,7 +836,9 @@ makes it proficient.
 
 ### Attacks
 
-`sheet.weapons` lists one row per equipped or ready weapon, plus an unarmed
+`sheet.weapons` lists one row per equipped or ready weapon, including a magic
+item's [base weapon](#magic-weapons-and-armor), each with its inventory
+`itemId` (and `grip` while it is held), plus an unarmed
 strike when the ruleset declares `constants.unarmedStrike` (`{name, damage,
 damageType}`; everyone is proficient). Each row names the `ability` used.
 `grants.attackModifiers`, and activation modifiers with `target: "attack"`,

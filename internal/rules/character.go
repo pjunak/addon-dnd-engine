@@ -250,6 +250,14 @@ func characterDecisions(input character.Inputs, records Records, profile Ruleset
 			entry["itemRef"] = item.Reference.ID
 			entry["catalogId"] = item.Reference.ID
 		}
+		// A magic weapon or armor is resolved once here, so every calculation
+		// reads its base record and already-gated bonus from the entry.
+		if form := characterItemForm(item, records); form != nil && form.base != nil {
+			entry["baseKind"], entry["baseRef"] = form.decl.kind, text(form.base["id"])
+			if bonus := form.appliedBonus(item); bonus != 0 {
+				entry["gearBonus"] = bonus
+			}
+		}
 		decisions["inventory"] = append(values(decisions["inventory"]), entry)
 	}
 	decisions["itemGrants"] = characterItemGrantSources(input, records)

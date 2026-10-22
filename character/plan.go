@@ -187,6 +187,10 @@ type EquipmentGuidance struct {
 	CanAttune      bool     `json:"canAttune"`
 	EquipReason    string   `json:"equipReason,omitempty"`
 	AttuneReason   string   `json:"attuneReason,omitempty"`
+	// BaseItems and Bonuses are what a magic weapon or armor may be, from its
+	// record's baseItem, by name; with several, the owner picks one.
+	BaseItems []Option `json:"baseItems,omitempty"`
+	Bonuses   []int    `json:"bonuses,omitempty"`
 }
 
 type HandsGuidance struct {

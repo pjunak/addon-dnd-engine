@@ -146,9 +146,17 @@ func validateCharacterItemMechanics(item character.Item, record Object, input ch
 	if item.Reference.Kind != "magic-item" || item.Quantity < 1 || item.Location != "equipped" && !item.Attuned {
 		return
 	}
+	// What an item is (its base weapon or armor) is checked whatever its
+	// mechanics status; only its bonus is a mechanical effect.
+	base, baseValid := magicBaseItem(record)
+	if !baseValid {
+		addCharacterIssue(result, "item-effects:"+item.ID, "inventory", "This item declares an unsupported effect; its source needs correction.", "blocker", item.Reference)
+	} else {
+		validateCharacterItemForm(item, records, result)
+	}
 	status := text(record["characterMechanics"])
 	if status == "complete" || status == "narrative" {
-		if status == "narrative" && (len(values(record["characterEffects"])) > 0 || record["grants"] != nil) {
+		if status == "narrative" && (len(values(record["characterEffects"])) > 0 || record["grants"] != nil || base != nil && len(base.bonuses) > 0) {
 			addCharacterIssue(result, "item-effects:"+item.ID, "inventory", "A narrative-only item cannot declare mechanical effects.", "blocker", item.Reference)
 		}
 		if status == "complete" {

@@ -3,6 +3,7 @@ package rules
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"strconv"
 
 	"github.com/pjunak/addon-dnd-engine/character"
@@ -59,6 +60,15 @@ type attackSubject struct {
 	unarmed   bool
 	featureID string
 	source    *character.Source
+	item      *attackItem
+}
+
+// attackItem is the magic item an attack with a base weapon is made with: the
+// row takes its name, and its bonus adds to attack and damage rolls.
+type attackItem struct {
+	name   string
+	bonus  int
+	source character.Source
 }
 
 // attackFilterMatches tests one match entry; every listed condition must hold.
@@ -236,7 +246,12 @@ func attackRow(subject attackSubject, context attackContext) character.Attack {
 	die, versatile := text(weapon["damage"]), text(weapon["versatileDamage"])
 	attackBonus, damageBonus := 0, 0
 	applied := make([]character.AttackApplied, 0)
-	for _, current := range context.rules {
+	// A magic weapon's bonus is a rule of this row only.
+	rules := context.rules
+	if item := subject.item; item != nil && item.bonus != 0 {
+		rules = append(slices.Clip(rules), attackRule{Object{"attackBonus": item.bonus, "damageBonus": item.bonus}, item.name, item.source})
+	}
+	for _, current := range rules {
 		if !attackRuleApplies(current.rule, subject, abilityName, context.armor) {
 			continue
 		}
@@ -276,8 +291,12 @@ func attackRow(subject attackSubject, context attackContext) character.Attack {
 		versatileDamage = &damage
 	}
 	_, mastered := context.mastery[id]
+	name := text(weapon["name"])
+	if subject.item != nil {
+		name = subject.item.name
+	}
 	row := character.Attack{
-		Ref: id, Name: text(weapon["name"]), AttackBonus: attack,
+		Ref: id, Name: name, AttackBonus: attack,
 		Ability: abilityName, Damage: withModifier(die, ability+damageBonus), VersatileDamage: versatileDamage,
 		DamageType: text(weapon["damageType"]), Properties: properties,
 		Mastery: text(weapon["mastery"]), MasteryActive: mastered, Proficient: proficient,

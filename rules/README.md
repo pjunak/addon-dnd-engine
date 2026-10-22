@@ -47,6 +47,16 @@ still restore; its saved picks and toggles wait without blocking, and using its
 last unit clears them. Item picks are warnings rather than blockers, and an
 item-granted condition's level counts the active items granting it.
 
+A magic item's `baseItem` makes it a weapon or armor of a base type
+([magic weapons and armor](../contract/README.md#magic-weapons-and-armor)).
+Each inventory instance is resolved once per evaluation, from the record and
+its own base and bonus picks, so its slot, grips, attack row, Armor Class,
+armor requirements, weight and placements read the base record. Only a
+complete item adds its bonus, only to its own attacks or AC and only while
+attuned when required; copies do not suppress each other's bonus. Option
+lists come from catalog scans and are not evidence; the base a calculation
+reads is.
+
 Progression checks each acquired class/feat against its earlier state. Normalized
 feat references retain their IDs through these checks and option filtering. A feat
 cannot qualify itself using its own ability increase. Source-declared conditional

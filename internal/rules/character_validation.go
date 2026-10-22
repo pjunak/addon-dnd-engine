@@ -173,8 +173,7 @@ func validateCharacter(input character.Inputs, decisions Object, records Records
 		if item.Reference == nil || item.Location != "equipped" || item.Quantity < 1 {
 			continue
 		}
-		record := recordByID(records, item.Reference.Kind, item.Reference.ID)
-		slot := characterEquipmentSlot(record)
+		slot := characterItemSlot(item, records)
 		if slot != "worn" {
 			if equipped[slot] != "" {
 				block("equipped:"+slot, "inventory", "Only one item may occupy the "+slot+" slot.")

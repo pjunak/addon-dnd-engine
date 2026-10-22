@@ -1,7 +1,7 @@
 # D&D Rules Engine add-on
 
 The headless `dnd-engine` add-on for TTRPG Codex. A native Go worker that
-provides `dnd5e.rules-engine` v5 and consumes any compatible `dnd5e.rules-data`
+provides `dnd5e.rules-engine` v6 and consumes any compatible `dnd5e.rules-data`
 v3 provider. It has no UI and stores nothing. The add-on ID and service
 identities are permanent.
 

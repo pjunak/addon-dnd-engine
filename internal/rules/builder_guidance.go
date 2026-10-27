@@ -130,10 +130,10 @@ func builderGuidance(decisions Object, plan character.Plan, records Records, pro
 		}
 	}
 	for _, choice := range casting.PendingChoices {
-		itemPick(add(2, len(unique(choice.Picked)) >= max(1, choice.Choose), choice.Key, "Choose spells: {0}", "spells", 0, grantSourceLabel(choice.Source)), choice.Source)
+		itemPick(add(2, len(unique(choice.Picked)) >= max(1, choice.Choose), choice.Key, "Choose spells: {0}", "spells", 0, grantSourceLabel(choice.Source, records)), choice.Source)
 	}
 	for _, choice := range casting.CastingAbilityChoices {
-		itemPick(add(2, choice.Selected != nil, choice.Key, "Choose casting ability: {0}", "spells", 0, grantSourceLabel(choice.Source)), choice.Source)
+		itemPick(add(2, choice.Selected != nil, choice.Key, "Choose casting ability: {0}", "spells", 0, grantSourceLabel(choice.Source, records)), choice.Source)
 	}
 	total, complete := 0, 0
 	for _, section := range sections {
@@ -178,7 +178,7 @@ func builderChoiceGuidance(decisions Object, choice character.PlanChoice, sheet 
 	}
 	if choice.Kind == character.ChoiceASIMode {
 		label = "{0} level {1} advancement"
-		args = []any{guidanceLabel(choice.ClassID), max(1, choice.Level)}
+		args = []any{firstText(recordView(records, "class", choice.ClassID)["name"], guidanceLabel(choice.ClassID)), max(1, choice.Level)}
 	}
 	if choice.Kind == character.ChoiceAbilityBudget {
 		label = "Assign origin ability points"
@@ -323,8 +323,7 @@ func choiceHeading(choice character.PlanChoice, records Records) (string, []any)
 	if choice.Source != nil {
 		source = *choice.Source
 	}
-	ref := grantSourceReference(source)
-	sourceName := firstText(recordByID(records, ref.Kind, ref.ID)["name"], guidanceLabel(source.ID))
+	sourceName := grantSourceLabel(source, records)
 	if sourceName == "" {
 		return guidanceLabel(id), []any{}
 	}

@@ -122,6 +122,7 @@ func TestBuilderChoiceHeadingsNameWhatIsChosenAndItsSource(t *testing.T) {
 		{"kind": "class", "id": "ranger", "name": "Ranger"},
 		{"kind": "species", "id": "elf", "name": "Elf"},
 		{"kind": "feature", "id": "ranger-weapon-mastery", "name": "Weapon Mastery"},
+		{"kind": "class", "id": "hb.knight", "name": "Sworn Knight"},
 	})
 	for _, test := range []struct {
 		choice Object
@@ -133,10 +134,45 @@ func TestBuilderChoiceHeadingsNameWhatIsChosenAndItsSource(t *testing.T) {
 		{Object{"id": "species:elf:size", "kind": "size", "prompt": "Size", "source": Object{"type": "species", "id": "elf"}}, "Size"},
 		{Object{"id": "study", "kind": "enumerated"}, "Study"},
 		{Object{"id": "ranger-weapon-mastery-weapons", "kind": "weaponMastery", "classId": "ranger", "source": Object{"type": "feature", "id": "ranger-weapon-mastery"}}, "Weapon Mastery · Ranger"},
+		{Object{"id": "asi:hb.knight:4", "kind": "asiMode", "classId": "hb.knight", "level": 4, "feat": Object{"id": "asi:hb.knight:4:feat"}}, "Sworn Knight level 4 advancement"},
 	} {
 		entry := builderChoiceGuidance(Object{}, decodeAs[character.PlanChoice](test.choice), &character.Calculation{}, records, []character.Option{})
 		if entry.Label != test.label {
 			t.Errorf("%s heading = %q, want %q", text(test.choice["id"]), entry.Label, test.label)
 		}
+	}
+}
+
+// Provider IDs need not read as names: homebrew records are "hb.<id>".
+func TestGrantGuidanceNamesSourcesByTheirRecords(t *testing.T) {
+	records, profile := syntheticRecords(), syntheticRuleset(t)
+	records.byKind["species"]["hb.emberkin"] = mustJSON(Object{"kind": "species", "id": "hb.emberkin", "name": "Emberkin", "lineages": []any{Object{"id": "ember", "grants": Object{
+		"castingAbility": Object{"id": "ember-casting", "choose": []any{"INT", "WIS", "CHA"}},
+		"spells":         []any{Object{"ids": []any{"fire-bolt"}}},
+	}}}})
+	records.byKind["feat"]["hb.fire-touched"] = mustJSON(Object{"kind": "feat", "id": "hb.fire-touched", "name": "Fire-Touched", "grants": Object{
+		"castingAbility": Object{"choose": []any{"INT", "CHA"}},
+		"spells":         []any{Object{"id": "touched-spell", "choose": 1, "spellLevel": 1, "from": Object{"school": []any{"Abjuration"}}, "free": "1/long"}},
+	}})
+	state := Object{"classes": []any{Object{"classId": "wizard", "level": 1}}, "species": "hb.emberkin", "lineage": "ember", "feats": []any{Object{"featId": "hb.fire-touched"}}}
+	labels := map[string]string{}
+	for _, issue := range objects(objects(view(BuilderGuidance(state, BuilderPlan(state, records, profile), records, profile))["sections"])[2]["issues"]) {
+		labels[text(issue["id"])] = text(issue["label"])
+	}
+	for key, want := range map[string]string{
+		"species:hb.emberkin:ember-casting":    "Choose casting ability: Emberkin",
+		"feat:hb.fire-touched:casting-ability": "Choose casting ability: Fire-Touched",
+		"feat:hb.fire-touched:touched-spell":   "Choose spells: Fire-Touched",
+	} {
+		if labels[key] != want {
+			t.Errorf("%s label = %q, want %q", key, labels[key], want)
+		}
+	}
+	found := false
+	for _, resource := range Hydrate(NormalizeBuilderDecisions(state, records, profile), records, profile).Sheet.Resources {
+		found = found || resource.Key == "charge:feat:hb.fire-touched:touched-spell" && resource.Name == "Fire-Touched (free cast)"
+	}
+	if !found {
+		t.Fatal("free cast is not named by its feat")
 	}
 }

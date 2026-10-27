@@ -152,7 +152,7 @@ func hydrateResources(
 			continue
 		}
 		maximum, rests := parseFrequency(choice.Free)
-		resources = append(resources, character.Resource{Key: key, Name: grantSourceLabel(choice.Source) + " (free cast)", Max: maximum, Kind: character.ResourceCharge, Recharge: fullRecharge(rests...), Source: choice.Source})
+		resources = append(resources, character.Resource{Key: key, Name: grantSourceLabel(choice.Source, records) + " (free cast)", Max: maximum, Kind: character.ResourceCharge, Recharge: fullRecharge(rests...), Source: choice.Source})
 	}
 	sheet.Resources = resources
 }

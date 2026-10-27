@@ -45,13 +45,16 @@ func grantSourceReference(source character.Source) character.Reference {
 	return character.Reference{Kind: string(source.Type), ID: source.ID}
 }
 
-// grantSourceLabel names a grant source in guidance. An item's ID is an
-// inventory instance, so it is named by the item instead.
-func grantSourceLabel(source character.Source) string {
+// grantSourceLabel names a grant source in guidance by its record's name, or
+// its titled ID without the record. Provider IDs need not read as names
+// ("hb.emberkin"). An item's ID is an inventory instance, so it is named by the
+// item instead.
+func grantSourceLabel(source character.Source, records Records) string {
 	if source.Type == character.SourceItem {
 		return firstText(source.Name, guidanceLabel(source.ID))
 	}
-	return guidanceLabel(source.ID)
+	ref := grantSourceReference(source)
+	return firstText(recordView(records, ref.Kind, ref.ID)["name"], guidanceLabel(source.ID))
 }
 
 // An activation's resource is a resource key, or {key, cost} when one use

@@ -62,12 +62,17 @@ const (
 	TargetSense           EffectTarget = "sense"
 	TargetResourceMax     EffectTarget = "resourceMax"
 	TargetProficiency     EffectTarget = "proficiency"
+	// TargetSpellAttack and TargetSpellSaveDC change one class's spell attack
+	// bonus and spell save DC (key: its class ID) or every class's (no key).
+	TargetSpellAttack EffectTarget = "spellAttack"
+	TargetSpellSaveDC EffectTarget = "spellSaveDC"
 )
 
 var effectTargets = map[EffectTarget]bool{
 	TargetAbilityScore: true, TargetAbilityCap: true, TargetSavingThrow: true, TargetArmorClass: true,
 	TargetInitiative: true, TargetSpeed: true, TargetMaxHP: true, TargetAttunementLimit: true,
 	TargetSense: true, TargetResourceMax: true, TargetProficiency: true,
+	TargetSpellAttack: true, TargetSpellSaveDC: true,
 }
 
 func (EffectTarget) EnumValues() []string { return sortedValues(effectTargets) }

@@ -470,3 +470,56 @@ func TestCharacterExplainsWeaponRangeAndCurrencyWorth(t *testing.T) {
 		t.Fatalf("worth = %+v", worth)
 	}
 }
+
+// A spellcasting focus raises every class's spell attack or only its own
+// class's spells, and only while it is in effect.
+func TestCharacterItemsRaiseSpellAttackAndSaveDC(t *testing.T) {
+	input, source, profile := characterFixture(t)
+	records := source.(memoryRecords)
+	extra := newMemoryRecords([]Object{
+		{"kind": "class", "id": "wizard", "name": "Wizard", "hitDie": "d6", "spellcasting": Object{"type": "full", "ability": "INT", "prepares": "list"}},
+		{"kind": "class", "id": "warlock", "name": "Warlock", "hitDie": "d8", "spellcasting": Object{"type": "pact", "ability": "CHA", "prepares": "list"}},
+		{"kind": "magic-item", "id": "pact-rod", "name": "Pact rod", "attunement": true, "characterMechanics": "complete", "characterEffects": []any{
+			Object{"target": "spellAttack", "mode": "add", "value": 1},
+			Object{"target": "spellSaveDC", "key": "warlock", "mode": "add", "value": 2},
+		}},
+	})
+	records.byKind["class"]["wizard"] = extra.byKind["class"]["wizard"]
+	records.byKind["class"]["warlock"] = extra.byKind["class"]["warlock"]
+	records.byKind["magic-item"] = extra.byKind["magic-item"]
+	input.Build.Levels = []character.Level{{ID: "level-one", ClassID: "wizard"}, {ID: "level-two", ClassID: "warlock"}}
+	casters := func(result character.Result) []character.Caster {
+		t.Helper()
+		if result.Sheet.Calculation == nil || len(result.Sheet.Calculation.Spellcasting.PerClass) != 2 {
+			t.Fatalf("casters: %+v", result.Issues)
+		}
+		return result.Sheet.Calculation.Spellcasting.PerClass
+	}
+	base := casters(EvaluateCharacter(input, records, profile))
+	input.Play.Inventory = []character.Item{{ID: "rod", Reference: &character.Reference{Kind: "magic-item", ID: "pact-rod"}, Name: "Rod", Quantity: 1, Location: "equipped", Attuned: true}}
+	result := EvaluateCharacter(input, records, profile)
+	held := casters(result)
+	for index, caster := range held {
+		dc := base[index].SaveDC
+		if caster.ClassID == "warlock" {
+			dc += 2
+		}
+		if caster.SpellAttack != base[index].SpellAttack+1 || caster.SaveDC != dc {
+			t.Fatalf("%s: attack %d DC %d, base %+v", caster.ClassID, caster.SpellAttack, caster.SaveDC, base[index])
+		}
+	}
+	for index, caster := range held {
+		terms := result.Explanations[fmtIndex("spellcasting.perClass", index)+".saveDC"].Terms
+		named := len(terms) > 0 && terms[len(terms)-1].Source != nil && terms[len(terms)-1].Status == "applied"
+		if named != (caster.ClassID == "warlock") {
+			t.Fatalf("%s save DC explanation: %+v", caster.ClassID, terms)
+		}
+		if terms := result.Explanations[fmtIndex("spellcasting.perClass", index)+".spellAttack"].Terms; terms[len(terms)-1].Source == nil {
+			t.Fatalf("%s spell attack explanation: %+v", caster.ClassID, terms)
+		}
+	}
+	input.Play.Inventory[0].Attuned = false
+	if unattuned := casters(EvaluateCharacter(input, records, profile)); !reflect.DeepEqual(unattuned, base) {
+		t.Fatalf("unattuned rod still applies: %+v", unattuned)
+	}
+}

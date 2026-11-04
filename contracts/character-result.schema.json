@@ -1310,7 +1310,9 @@
             "resourceMax",
             "savingThrow",
             "sense",
-            "speed"
+            "speed",
+            "spellAttack",
+            "spellSaveDC"
           ],
           "type": "string"
         },

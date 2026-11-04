@@ -15,10 +15,13 @@ const (
 	keyNone effectKey = iota
 	keyAbility
 	keyAny
+	// keyClass is a class ID, or none for every spellcasting class.
+	keyClass
 )
 
 // effectTargetSpec is how one effect target is keyed and which explanation
-// path it adjusts.
+// path it adjusts. A class-keyed target's path is the field it adjusts on
+// every caster its key matches.
 type effectTargetSpec struct {
 	key  effectKey
 	path func(key string) string
@@ -44,6 +47,8 @@ var effectTargets = map[character.EffectTarget]effectTargetSpec{
 		}
 		return "skills." + key + ".total"
 	}},
+	character.TargetSpellAttack: {keyClass, fixedPath("spellAttack")},
+	character.TargetSpellSaveDC: {keyClass, fixedPath("saveDC")},
 }
 
 func validCharacterEffect(effect character.Effect) bool {
@@ -58,8 +63,31 @@ func validCharacterEffect(effect character.Effect) bool {
 		return effect.Key == ""
 	case keyAny:
 		return effect.Key != ""
+	case keyClass:
+		return true
 	}
 	return false
+}
+
+// casterEffectMatches reports whether a spellcasting effect's key, a class ID
+// or none, applies to the caster of that class.
+func casterEffectMatches(key, classID string) bool { return key == "" || key == classID }
+
+// effectPaths lists the explanation paths an effect adjusts on this sheet.
+func effectPaths(spec effectTargetSpec, key string, sheet *character.Calculation) []string {
+	if spec.key != keyClass {
+		return []string{spec.path(key)}
+	}
+	paths := []string{}
+	if sheet == nil {
+		return paths
+	}
+	for index, caster := range sheet.Spellcasting.PerClass {
+		if casterEffectMatches(key, caster.ClassID) {
+			paths = append(paths, fmtIndex("spellcasting.perClass", index)+"."+spec.path(key))
+		}
+	}
+	return paths
 }
 
 func characterGrantActive(grant character.Grant, input character.Inputs) bool {
@@ -104,6 +132,12 @@ func activeCharacterGrants(input character.Inputs) []character.Grant {
 }
 
 func effectNumber(base int, target character.EffectTarget, key string, sources []characterEffectSource, result *character.Result) int {
+	return effectNumberMatching(base, target, key, func(effectKey string) bool { return effectKey == key }, sources, result)
+}
+
+// effectNumberMatching combines the active effects on a target whose key
+// matches; key names the value in issues.
+func effectNumberMatching(base int, target character.EffectTarget, key string, matches func(string) bool, sources []characterEffectSource, result *character.Result) int {
 	value, addition, minimum, maximum := base, 0, -1_000_000, 1_000_000
 	setBy := ""
 	for _, grant := range sources {
@@ -111,7 +145,7 @@ func effectNumber(base int, target character.EffectTarget, key string, sources [
 			continue
 		}
 		for _, effect := range grant.Effects {
-			if effect.Target != target || effect.Key != key {
+			if effect.Target != target || !matches(effect.Key) {
 				continue
 			}
 			switch effect.Mode {
@@ -231,6 +265,12 @@ func applyCharacterEffects(input character.Inputs, sheet *character.Calculation,
 		row.Total = effectNumber(row.Total, character.TargetSavingThrow, ability, sources, result)
 		sheet.Saves[ability] = row
 	}
+	for index := range sheet.Spellcasting.PerClass {
+		caster := &sheet.Spellcasting.PerClass[index]
+		matches := func(key string) bool { return casterEffectMatches(key, caster.ClassID) }
+		caster.SpellAttack = effectNumberMatching(caster.SpellAttack, character.TargetSpellAttack, caster.ClassID, matches, sources, result)
+		caster.SaveDC = effectNumberMatching(caster.SaveDC, character.TargetSpellSaveDC, caster.ClassID, matches, sources, result)
+	}
 	attunement := &sheet.Attunement
 	attunement.Limit = effectNumber(attunement.Limit, character.TargetAttunementLimit, "", sources, result)
 	attunement.Over = attunement.Count > attunement.Limit
@@ -319,24 +359,25 @@ func appendEffectExplanations(input character.Inputs, result *character.Result, 
 			if !known {
 				continue
 			}
-			path := spec.path(effect.Key)
-			explanation, exists := result.Explanations[path]
-			if !exists {
-				continue
+			for _, path := range effectPaths(spec, effect.Key, result.Sheet.Calculation) {
+				explanation, exists := result.Explanations[path]
+				if !exists {
+					continue
+				}
+				status := "inactive"
+				if grant.Active {
+					status = "applied"
+				}
+				name := grant.Name
+				if grant.GrantID != "" {
+					name = "DM given: " + name
+				}
+				explanation.Terms = append(explanation.Terms, character.Term{Label: name + " (" + string(effect.Mode) + ")", Value: effect.Value, GrantID: grant.GrantID, Source: grant.Reference, Status: status})
+				if grant.Reference != nil {
+					explanation.Sources = uniqueCharacterReferences(append(explanation.Sources, *grant.Reference))
+				}
+				result.Explanations[path] = explanation
 			}
-			status := "inactive"
-			if grant.Active {
-				status = "applied"
-			}
-			name := grant.Name
-			if grant.GrantID != "" {
-				name = "DM given: " + name
-			}
-			explanation.Terms = append(explanation.Terms, character.Term{Label: name + " (" + string(effect.Mode) + ")", Value: effect.Value, GrantID: grant.GrantID, Source: grant.Reference, Status: status})
-			if grant.Reference != nil {
-				explanation.Sources = uniqueCharacterReferences(append(explanation.Sources, *grant.Reference))
-			}
-			result.Explanations[path] = explanation
 		}
 	}
 }

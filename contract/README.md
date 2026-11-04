@@ -589,7 +589,11 @@ consume that level's allowance and remain in the ledger across rests.
 
 DM and versioned item effects share the typed target/mode vocabulary. Supported
 targets are ability score/cap, AC, saving throw, initiative, movement, maximum
-HP, attunement capacity, sense range, resource capacity and proficiency.
+HP, attunement capacity, sense range, resource capacity, proficiency, and spell
+attack bonus and spell save DC (`spellAttack`, `spellSaveDC`). A spell target's
+`key` is a class ID for that class's spells only, or absent for every
+spellcasting class; its explanation terms land on each matching
+`spellcasting.perClass.<n>` value.
 Conditions are always/equipped/attuned with optional effective level and expiry.
 Conflicting absolute replacements, impossible bounds and unknown resources
 block activation. Inventory IDs identify individual items. Duplicate magic-item

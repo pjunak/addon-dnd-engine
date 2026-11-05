@@ -156,13 +156,18 @@ const (
 	formMissing formIssue = "missing" // no rules record matches
 )
 
-// itemForm is what one inventory instance of a magic weapon or armor is: its
-// record's baseItem resolved with the instance's picks. The records are shared
-// and read-only.
+// itemForm is what one inventory instance of a magic weapon, armor or
+// spellcasting focus is: its record's baseItem and spellcastingFocus resolved
+// with the instance's picks. The records are shared and read-only.
 type itemForm struct {
-	record  Object
+	record Object
+	// decl is nil for a spellcasting focus that is no weapon or armor, and
+	// focus is nil for an item that is no valid focus.
 	decl    *baseItemDecl
+	focus   *focusDecl
 	options []Object
+	// bonuses are what the record offers: its baseItem's, else its focus's.
+	bonuses []int
 	// base and bonus are set once each is fixed by the record or picked.
 	base                  Object
 	bonus                 int
@@ -170,41 +175,53 @@ type itemForm struct {
 }
 
 // characterItemForm resolves an instance whose magic-item record declares a
-// valid baseItem. Any other instance returns nil.
+// valid baseItem or spellcastingFocus. Any other instance returns nil.
 func characterItemForm(item character.Item, records Records) *itemForm {
 	if item.Reference == nil || item.Reference.Kind != "magic-item" {
 		return nil
 	}
 	record := recordByID(records, item.Reference.Kind, item.Reference.ID)
 	decl, valid := magicBaseItem(record)
-	if decl == nil || !valid {
+	focus, focusValid := spellcastingFocus(record)
+	if !focusValid {
+		focus = nil
+	}
+	if !valid || decl == nil && focus == nil {
 		return nil
 	}
-	form := &itemForm{record: record, decl: decl, options: decl.options(records)}
-	switch {
-	case item.BaseItemID != "":
-		form.baseIssue = formInvalid
-		for _, option := range form.options {
-			if text(option["id"]) == item.BaseItemID {
-				form.base, form.baseIssue = option, formKnown
-			}
+	form := &itemForm{record: record, decl: decl, focus: focus}
+	if decl == nil {
+		form.bonuses = focus.bonuses
+		if item.BaseItemID != "" {
+			form.baseIssue = formInvalid
 		}
-	case len(form.options) == 1:
-		form.base = form.options[0]
-	case len(form.options) == 0:
-		form.baseIssue = formMissing
-	default:
-		form.baseIssue = formChoose
+	} else {
+		form.options, form.bonuses = decl.options(records), decl.bonuses
+		switch {
+		case item.BaseItemID != "":
+			form.baseIssue = formInvalid
+			for _, option := range form.options {
+				if text(option["id"]) == item.BaseItemID {
+					form.base, form.baseIssue = option, formKnown
+				}
+			}
+		case len(form.options) == 1:
+			form.base = form.options[0]
+		case len(form.options) == 0:
+			form.baseIssue = formMissing
+		default:
+			form.baseIssue = formChoose
+		}
 	}
 	switch {
 	case item.Bonus != 0:
 		form.bonusIssue = formInvalid
-		if slices.Contains(decl.bonuses, item.Bonus) {
+		if slices.Contains(form.bonuses, item.Bonus) {
 			form.bonus, form.bonusIssue = item.Bonus, formKnown
 		}
-	case len(decl.bonuses) == 1:
-		form.bonus = decl.bonuses[0]
-	case len(decl.bonuses) > 1:
+	case len(form.bonuses) == 1:
+		form.bonus = form.bonuses[0]
+	case len(form.bonuses) > 1:
 		form.bonusIssue = formChoose
 	}
 	return form
@@ -257,29 +274,32 @@ func baseItemGuidance(item character.Item, records Records, entry *character.Equ
 	for _, option := range form.options {
 		entry.BaseItems = append(entry.BaseItems, character.Option{ID: text(option["id"]), Label: firstText(option["name"], option["id"])})
 	}
-	entry.Bonuses = append([]int(nil), form.decl.bonuses...)
+	entry.Bonuses = append([]int(nil), form.bonuses...)
 }
 
-// validateCharacterItemForm reports a magic weapon or armor's missing picks as
-// warnings, so equipping it never stops play, and picks its record does not
-// offer as blockers. Callers check only equipped or attuned items.
+// validateCharacterItemForm reports a magic weapon, armor or spellcasting
+// focus's missing picks as warnings, so equipping it never stops play, and
+// picks its record does not offer as blockers. Callers check only equipped or
+// attuned items.
 func validateCharacterItemForm(item character.Item, records Records, result *character.Result) {
 	form := characterItemForm(item, records)
 	if form == nil {
 		if item.BaseItemID != "" || item.Bonus != 0 {
-			addCharacterIssue(result, "item-base:"+item.ID, "inventory", item.Name+" has no base weapon or armor to choose; clear its base and bonus.", character.SeverityBlocker, item.Reference)
+			addCharacterIssue(result, "item-base:"+item.ID, "inventory", item.Name+" has no base weapon or armor or bonus to choose; clear its base and bonus.", character.SeverityBlocker, item.Reference)
 		}
 		return
 	}
-	name, kind := characterItemName(item, form.record), form.decl.kind
-	switch form.baseIssue {
-	case formKnown:
-	case formChoose:
-		addCharacterIssue(result, "item-base:"+item.ID, "inventory", "Choose which "+kind+" "+name+" is.", character.SeverityWarning, item.Reference)
-	case formMissing:
-		addCharacterIssue(result, "item-base:"+item.ID, "inventory", "No "+kind+" in the rules data can be "+name+".", character.SeverityWarning, item.Reference)
-	case formInvalid:
-		addCharacterIssue(result, "item-base:"+item.ID, "inventory", name+" cannot be that "+kind+"; choose one of its options.", character.SeverityBlocker, item.Reference)
+	name := characterItemName(item, form.record)
+	switch {
+	case form.baseIssue == formKnown:
+	case form.decl == nil:
+		addCharacterIssue(result, "item-base:"+item.ID, "inventory", name+" has no base weapon or armor to choose; clear its base.", character.SeverityBlocker, item.Reference)
+	case form.baseIssue == formChoose:
+		addCharacterIssue(result, "item-base:"+item.ID, "inventory", "Choose which "+form.decl.kind+" "+name+" is.", character.SeverityWarning, item.Reference)
+	case form.baseIssue == formMissing:
+		addCharacterIssue(result, "item-base:"+item.ID, "inventory", "No "+form.decl.kind+" in the rules data can be "+name+".", character.SeverityWarning, item.Reference)
+	case form.baseIssue == formInvalid:
+		addCharacterIssue(result, "item-base:"+item.ID, "inventory", name+" cannot be that "+form.decl.kind+"; choose one of its options.", character.SeverityBlocker, item.Reference)
 	}
 	switch form.bonusIssue {
 	case formKnown, formMissing:

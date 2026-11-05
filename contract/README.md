@@ -513,7 +513,8 @@ exact-retry boundary.
 
 `guidance.equipment` is keyed by inventory instance ID. Each entry exposes
 `slot` (`armor`, `shield` or `worn`), `canEquip` and `canAttune`, and for a
-magic weapon or armor its `baseItems` and `bonuses` to pick from. A magic
+magic weapon, armor or spellcasting focus its `baseItems` and `bonuses` to
+pick from. A magic
 armor whose base is still to be picked takes the slot all its options share.
 A rejected action includes `equipReason` or `attuneReason`: `empty`,
 `source`, `mechanics`, `not-required`, `build`, `capacity`, `duplicate`
@@ -601,8 +602,9 @@ properties are suppressed deterministically and explained; the profile can
 also prohibit attuning multiple copies of the same item definition.
 
 An equipped/attuned magic item requires `characterMechanics: "complete"`
-with supported typed effects, [item grants](#item-grants) and/or a
-[weapon or armor bonus](#magic-weapons-and-armor), an explicitly narrative
+with supported typed effects, [item grants](#item-grants), a
+[weapon or armor bonus](#magic-weapons-and-armor) and/or a
+[spellcasting focus](#spellcasting-foci), an explicitly narrative
 declaration (which declares none of them), or linked DM adjudication.
 Reusable homebrew belongs in a compatible versioned source package.
 
@@ -749,6 +751,40 @@ armor's or shield's an applied row in `ac.bonuses`, both with the source
 `{type: "item", id: <instance>, name, ref: {kind: "magic-item", id}}`.
 Records without `baseItem`, including magic items that declare `armorType`
 themselves, keep their own fields.
+
+### Spellcasting foci
+
+A `magic-item` record may declare `spellcastingFocus`: its magic bonus also
+raises spell attack rolls, spell save DCs or both.
+
+```jsonc
+"spellcastingFocus": {
+  "appliesTo": ["spellAttack", "spellSaveDC"], // one or both, each once
+  "classes": ["warlock"],                      // optional: only these classes' spells
+  "bonus": [1, 2, 3]                           // only without baseItem
+}
+```
+
+The bonus comes from exactly one place. A record that declares `baseItem`
+shares its `baseItem.bonus`, which it must declare, so a staff that is both a
++2 quarterstaff and a +2 focus has one pick; `spellcastingFocus.bonus` is then
+refused. Any other focus declares its own `bonus`, read like `baseItem.bonus`
+(a whole number from 1 to 10, or a list of distinct ones). `classes` are 1 to
+50 distinct class IDs; without them every spellcasting class gains. The object
+is read all or nothing, with its `baseItem`: any other key or value raises the
+`item-effects:<instance>` blocker while the item is equipped or attuned, and a
+narrative item that declares one raises the narrative blocker.
+
+The instance's bonus is picked as for a magic weapon or armor
+(`inputs.play.inventory[].bonus`, offered as `guidance.equipment[<instance>].bonuses`,
+with the same `item-bonus:<instance>` warning and blocker); a `baseItemId` on a
+focus without `baseItem` is the `item-base:<instance>` blocker. Once the bonus
+is known, a complete item adds it as `add` effects: one per listed target,
+keyed by each listed class or by none. They follow the item effect rules, so
+they apply while the item is in effect (equipped, not suspended, attuned when
+required, the first copy of its record) and their explanation terms name the
+item on each matching `spellcasting.perClass.<n>` value. Older Engines ignore
+`spellcastingFocus`: such items stay valid but raise no spells.
 
 ### Passive source bonuses
 

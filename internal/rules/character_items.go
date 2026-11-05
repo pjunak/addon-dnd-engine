@@ -61,6 +61,7 @@ func characterEffectSources(input character.Inputs, records Records) []character
 		if json.Unmarshal(body, &effects) != nil {
 			continue
 		}
+		effects = append(effects, focusEffects(item, records)...)
 		sources = append(sources, characterEffectSource{ID: item.ID, Name: item.Name, Reference: item.Reference, Effects: effects, Active: active[item.ID]})
 	}
 	sort.Slice(sources, func(i, j int) bool { return sources[i].ID < sources[j].ID })
@@ -147,16 +148,17 @@ func validateCharacterItemMechanics(item character.Item, record Object, input ch
 		return
 	}
 	// What an item is (its base weapon or armor) is checked whatever its
-	// mechanics status; only its bonus is a mechanical effect.
+	// mechanics status; only its bonus and focus are mechanical effects.
 	base, baseValid := magicBaseItem(record)
-	if !baseValid {
+	focus, focusValid := spellcastingFocus(record)
+	if !baseValid || !focusValid {
 		addCharacterIssue(result, "item-effects:"+item.ID, "inventory", "This item declares an unsupported effect; its source needs correction.", "blocker", item.Reference)
 	} else {
 		validateCharacterItemForm(item, records, result)
 	}
 	status := text(record["characterMechanics"])
 	if status == "complete" || status == "narrative" {
-		if status == "narrative" && (len(values(record["characterEffects"])) > 0 || record["grants"] != nil || base != nil && len(base.bonuses) > 0) {
+		if status == "narrative" && (len(values(record["characterEffects"])) > 0 || record["grants"] != nil || base != nil && len(base.bonuses) > 0 || focus != nil) {
 			addCharacterIssue(result, "item-effects:"+item.ID, "inventory", "A narrative-only item cannot declare mechanical effects.", "blocker", item.Reference)
 		}
 		if status == "complete" {

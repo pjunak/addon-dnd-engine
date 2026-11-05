@@ -57,6 +57,12 @@ attuned when required; copies do not suppress each other's bonus. Option
 lists come from catalog scans and are not evidence; the base a calculation
 reads is.
 
+A `spellcastingFocus` ([spellcasting foci](../contract/README.md#spellcasting-foci))
+reuses that resolution for its bonus: its `baseItem`'s, or its own when it is
+no weapon or armor. The picked bonus becomes ordinary spell attack and save DC
+effects on the item's effect source, so the active-item rule decides when it
+applies and identical foci do not stack.
+
 Progression checks each acquired class/feat against its earlier state. Normalized
 feat references retain their IDs through these checks and option filtering. A feat
 cannot qualify itself using its own ability increase. Source-declared conditional

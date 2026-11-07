@@ -1,0 +1,10 @@
+{
+  "contractVersion": "message-catalog.v1",
+  "locale": "cs",
+  "sections": {
+    "manifest": {
+      "manifest.name": "Pravidla D&D 5e",
+      "manifest.description": "Výpočet pravidel D&D na pozadí pro doplňky s deníky postav, nezávislý na zdroji pravidel."
+    }
+  }
+}

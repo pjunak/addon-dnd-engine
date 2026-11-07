@@ -1,6 +1,6 @@
 module github.com/pjunak/addon-dnd-engine/tools
 
-go 1.27.2
+go 1.27.3
 
 tool (
 	github.com/nishanths/exhaustive/cmd/exhaustive
@@ -21,7 +21,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.21 // indirect
 	github.com/mattn/go-shellwords v1.0.12 // indirect
 	github.com/nishanths/exhaustive v0.16.1 // indirect
-	github.com/pjunak/ttrpg-codex v0.0.0-20261004203802-55a115888be5 // indirect
+	github.com/pjunak/ttrpg-codex v0.0.0-20261107002505-3cce2048bf35 // indirect
 	github.com/rhysd/actionlint v1.7.12 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3 // indirect

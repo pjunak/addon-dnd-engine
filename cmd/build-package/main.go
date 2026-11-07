@@ -42,7 +42,7 @@ var targets = []target{
 	{goos: "linux", goarch: "arm64", path: "worker/linux-arm64/dnd-engine"},
 }
 
-var packageEntries = []string{"addon.json", "contracts", "LICENSE", "README.md", "worker"}
+var packageEntries = []string{"addon.json", "contracts", "LICENSE", "locales", "README.md", "worker"}
 
 func main() {
 	if err := run(); err != nil {

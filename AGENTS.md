@@ -36,6 +36,7 @@ contracts/          public JSON Schemas of the service
 internal/engine/    service boundary
 internal/provider/  rules-data client
 internal/rules/     pure, deterministic rules computation
+locales/            message catalogs: Czech manifest strings only; workers write English
 ```
 
 ## Rules

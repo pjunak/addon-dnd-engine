@@ -152,28 +152,28 @@ func validateCharacterItemMechanics(item character.Item, record Object, input ch
 	base, baseValid := magicBaseItem(record)
 	focus, focusValid := spellcastingFocus(record)
 	if !baseValid || !focusValid {
-		addCharacterIssue(result, "item-effects:"+item.ID, "inventory", "This item declares an unsupported effect; its source needs correction.", "blocker", item.Reference)
+		addCharacterIssue(result, "item-effects:"+item.ID, "inventory", engineText("This item declares an unsupported effect; its source needs correction."), "blocker", item.Reference)
 	} else {
 		validateCharacterItemForm(item, records, result)
 	}
 	status := text(record["characterMechanics"])
 	if status == "complete" || status == "narrative" {
 		if status == "narrative" && (len(values(record["characterEffects"])) > 0 || record["grants"] != nil || base != nil && len(base.bonuses) > 0 || focus != nil) {
-			addCharacterIssue(result, "item-effects:"+item.ID, "inventory", "A narrative-only item cannot declare mechanical effects.", "blocker", item.Reference)
+			addCharacterIssue(result, "item-effects:"+item.ID, "inventory", engineText("A narrative-only item cannot declare mechanical effects."), "blocker", item.Reference)
 		}
 		if status == "complete" {
 			var effects []character.Effect
 			body, _ := json.Marshal(record["characterEffects"])
 			if json.Unmarshal(body, &effects) != nil {
-				addCharacterIssue(result, "item-effects:"+item.ID, "inventory", "The item declares malformed character effects.", "blocker", item.Reference)
+				addCharacterIssue(result, "item-effects:"+item.ID, "inventory", engineText("The item declares malformed character effects."), "blocker", item.Reference)
 			}
 			for _, effect := range effects {
 				if !validCharacterEffect(effect) {
-					addCharacterIssue(result, "item-effects:"+item.ID, "inventory", "This item declares an unsupported effect; its source needs correction.", "blocker", item.Reference)
+					addCharacterIssue(result, "item-effects:"+item.ID, "inventory", engineText("This item declares an unsupported effect; its source needs correction."), "blocker", item.Reference)
 				}
 			}
 			if _, valid := characterItemGrants(record, records); !valid {
-				addCharacterIssue(result, "item-effects:"+item.ID, "inventory", "This item declares an unsupported effect; its source needs correction.", "blocker", item.Reference)
+				addCharacterIssue(result, "item-effects:"+item.ID, "inventory", engineText("This item declares an unsupported effect; its source needs correction."), "blocker", item.Reference)
 			}
 		}
 		return
@@ -183,7 +183,7 @@ func validateCharacterItemMechanics(item character.Item, record Object, input ch
 			return
 		}
 	}
-	addCharacterIssue(result, "item-mechanics:"+item.ID, "inventory", "This item's character mechanics are not structured. A versioned source definition or explicit typed DM adjustment is required before use.", "blocker", item.Reference)
+	addCharacterIssue(result, "item-mechanics:"+item.ID, "inventory", engineText("This item's character mechanics are not structured. A versioned source definition or explicit typed DM adjustment is required before use."), "blocker", item.Reference)
 }
 
 // itemGrantLimit bounds every list an item's grants declare.

@@ -100,8 +100,9 @@ type Guidance struct {
 	AuthoredPlay      AuthoredPlay                 `json:"authoredPlay"`
 }
 
-// Text is Engine wording: the English Label, plus a LabelKey template and
-// LabelArgs that clients may translate instead.
+// Text is Engine wording: the English Label, plus its LabelKey template in the
+// Engine's message catalog and the LabelArgs that fill it, which clients may
+// translate instead.
 type Text struct {
 	Label     string   `json:"label"`
 	LabelKey  string   `json:"labelKey"`

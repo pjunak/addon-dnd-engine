@@ -397,7 +397,7 @@ func reportRulesData(result *character.Result) {
 		}
 		for _, problem := range problems {
 			ref := entry.Reference
-			addCharacterIssue(result, "rules-data:"+ref.Kind+":"+ref.ID, "rules", fmt.Sprintf("%s's grants do not follow the rules vocabulary (%v); the rules data needs correction.", entry.Name, problem), character.SeverityWarning, &ref)
+			addCharacterIssue(result, "rules-data:"+ref.Kind+":"+ref.ID, "rules", engineText("{0}'s grants do not follow the rules vocabulary ({1}); the rules data needs correction.", entry.Name, problem), character.SeverityWarning, &ref)
 		}
 	}
 }

@@ -20,11 +20,11 @@ func characterEditorGuidance(input character.Inputs, decisions Object, records R
 	}
 	sort.Strings(unknown)
 	for _, ability := range unknown {
-		saveIssues = append(saveIssues, character.Issue{ID: "unknown-ability:" + ability, Target: "abilities", Message: "Choose a supported base ability.", Severity: character.SeverityBlocker})
+		saveIssues = append(saveIssues, newIssue("unknown-ability:"+ability, "abilities", engineText("Choose a supported base ability."), character.SeverityBlocker, nil))
 	}
 	for _, origin := range []struct{ kind, id string }{{"species", input.Build.Species}, {"background", input.Build.Background}} {
 		if origin.id != "" && recordByID(records, origin.kind, origin.id) == nil {
-			saveIssues = append(saveIssues, character.Issue{ID: "unavailable-" + origin.kind, Target: origin.kind, Message: "Choose an available " + origin.kind + ".", Severity: character.SeverityBlocker})
+			saveIssues = append(saveIssues, newIssue("unavailable-"+origin.kind, origin.kind, engineText("Choose an available "+origin.kind+"."), character.SeverityBlocker, nil))
 		}
 	}
 	for _, issue := range result.Issues {

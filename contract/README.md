@@ -29,6 +29,21 @@ carrying, concentration) is always present. Every `source` has the shared
 values are display values; `evidence[].facts` is the provider record without
 its prose.
 
+### Translatable wording
+
+The Engine writes English. Text it words itself also carries its key in the
+Engine's message catalog (`locales/*.json`, `message-catalog.v1`): the
+English wording with `{0}`-style placeholders, plus the ordered string values
+that fill them. Issues carry `messageKey`/`messageArgs`, explanations
+`labelKey`/`labelArgs` and `formulaKey`/`formulaArgs`, and terms
+`labelKey`/`labelArgs`; all are optional. Guidance `Text`, `Selection` and
+size `Option` labels use the same catalog. Record names, rules-data prose and
+raw property names have no key. A client translates a text with the host's
+`i18n.message({text, key, args: {"0": …}, addon: <engine add-on ID>})` and
+otherwise shows the English text. A refused play command answers
+`INVALID_REQUEST` whose details carry the same wording as `issue`,
+`issueKey` and `issueArgs` (`workerrpc.IssueDetails`).
+
 Each closed set is a named string type with its values listed once:
 play operations, effect targets and modes, grant conditions, source types,
 choice kinds, resource kinds, rests, roll kinds and modes, movement modes,
@@ -245,9 +260,10 @@ Builder sections count required decisions, including the first class and class
 cantrips/spellbook selections. Their issues carry a stable `id` target and `tab`.
 Invalid existing foundation/advancement choices have `repair: true` and do not
 count as complete. This does not remove the input or make a rejected choice
-saveable. Labels retain readable `label` text; additive `labelKey` templates
-and ordered string `labelArgs` let clients translate Engine UI wording while preserving
-authored record names. Clients may fall back to `label`.
+saveable. Labels retain readable `label` text; `labelKey` templates in the
+Engine's catalog and ordered string `labelArgs` let clients translate Engine
+UI wording while preserving authored record names ([translatable
+wording](#translatable-wording)). Clients may fall back to `label`.
 
 Choice validation issues use `<kind>:<choice ID>#<slot>` identities. In particular,
 `unavailable-choice`, `invalid-option` and `choice-count` identify the exact

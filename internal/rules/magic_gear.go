@@ -285,7 +285,7 @@ func validateCharacterItemForm(item character.Item, records Records, result *cha
 	form := characterItemForm(item, records)
 	if form == nil {
 		if item.BaseItemID != "" || item.Bonus != 0 {
-			addCharacterIssue(result, "item-base:"+item.ID, "inventory", item.Name+" has no base weapon or armor or bonus to choose; clear its base and bonus.", character.SeverityBlocker, item.Reference)
+			addCharacterIssue(result, "item-base:"+item.ID, "inventory", engineText("{0} has no base weapon or armor or bonus to choose; clear its base and bonus.", item.Name), character.SeverityBlocker, item.Reference)
 		}
 		return
 	}
@@ -293,20 +293,20 @@ func validateCharacterItemForm(item character.Item, records Records, result *cha
 	switch {
 	case form.baseIssue == formKnown:
 	case form.decl == nil:
-		addCharacterIssue(result, "item-base:"+item.ID, "inventory", name+" has no base weapon or armor to choose; clear its base.", character.SeverityBlocker, item.Reference)
+		addCharacterIssue(result, "item-base:"+item.ID, "inventory", engineText("{0} has no base weapon or armor to choose; clear its base.", name), character.SeverityBlocker, item.Reference)
 	case form.baseIssue == formChoose:
-		addCharacterIssue(result, "item-base:"+item.ID, "inventory", "Choose which "+form.decl.kind+" "+name+" is.", character.SeverityWarning, item.Reference)
+		addCharacterIssue(result, "item-base:"+item.ID, "inventory", engineText("Choose which "+form.decl.kind+" {0} is.", name), character.SeverityWarning, item.Reference)
 	case form.baseIssue == formMissing:
-		addCharacterIssue(result, "item-base:"+item.ID, "inventory", "No "+form.decl.kind+" in the rules data can be "+name+".", character.SeverityWarning, item.Reference)
+		addCharacterIssue(result, "item-base:"+item.ID, "inventory", engineText("No "+form.decl.kind+" in the rules data can be {0}.", name), character.SeverityWarning, item.Reference)
 	case form.baseIssue == formInvalid:
-		addCharacterIssue(result, "item-base:"+item.ID, "inventory", name+" cannot be that "+form.decl.kind+"; choose one of its options.", character.SeverityBlocker, item.Reference)
+		addCharacterIssue(result, "item-base:"+item.ID, "inventory", engineText("{0} cannot be that "+form.decl.kind+"; choose one of its options.", name), character.SeverityBlocker, item.Reference)
 	}
 	switch form.bonusIssue {
 	case formKnown, formMissing:
 	case formChoose:
-		addCharacterIssue(result, "item-bonus:"+item.ID, "inventory", "Choose the bonus of "+name+".", character.SeverityWarning, item.Reference)
+		addCharacterIssue(result, "item-bonus:"+item.ID, "inventory", engineText("Choose the bonus of {0}.", name), character.SeverityWarning, item.Reference)
 	case formInvalid:
-		addCharacterIssue(result, "item-bonus:"+item.ID, "inventory", name+" does not offer that bonus; choose one of its options.", character.SeverityBlocker, item.Reference)
+		addCharacterIssue(result, "item-bonus:"+item.ID, "inventory", engineText("{0} does not offer that bonus; choose one of its options.", name), character.SeverityBlocker, item.Reference)
 	}
 }
 

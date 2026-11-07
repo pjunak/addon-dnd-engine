@@ -1,8 +1,6 @@
 package rules
 
 import (
-	"fmt"
-
 	"github.com/pjunak/addon-dnd-engine/character"
 )
 
@@ -16,7 +14,7 @@ func characterConcentration(input character.Inputs, records Records, profile Rul
 	}
 	spell := recordByID(records, "spell", saved.Ref)
 	if spell == nil {
-		addCharacterIssue(result, "concentration-spell", "concentration", "The spell being concentrated on is unavailable in the selected rules data.", character.SeverityWarning, nil)
+		addCharacterIssue(result, "concentration-spell", "concentration", engineText("The spell being concentrated on is unavailable in the selected rules data."), character.SeverityWarning, nil)
 	}
 	row := character.SheetConcentration{Ref: saved.Ref, Name: firstText(spell["name"], saved.Ref), SaveDC: max(0, saved.SaveDC)}
 	terms := []character.Term{}
@@ -27,9 +25,9 @@ func characterConcentration(input character.Inputs, records Records, profile Rul
 		}
 		total := save + bonus
 		row.SaveAbility, row.SaveBonus = policy.SaveAbility, &total
-		terms = append(terms, character.Term{Label: policy.SaveAbility + " saving throw", Value: save})
+		terms = append(terms, term(engineText(policy.SaveAbility+" saving throw"), save))
 		if bonus != 0 {
-			terms = append(terms, character.Term{Label: "Concentration bonus", Value: bonus})
+			terms = append(terms, term(engineText("Concentration bonus"), bonus))
 		}
 	}
 	for _, condition := range result.Sheet.Conditions {
@@ -39,7 +37,7 @@ func characterConcentration(input character.Inputs, records Records, profile Rul
 		}
 	}
 	result.Sheet.Concentration = &row
-	result.Explanations["concentration"] = character.Explanation{Label: "Concentration", Formula: "Authored play state. Casting a Concentration spell replaces it; damage records the save DC; keeping or ending it is an explicit command.", Value: row, Terms: terms, Sources: []character.Reference{}}
+	result.Explanations["concentration"] = explanation(engineText("Concentration"), engineText("Authored play state. Casting a Concentration spell replaces it; damage records the save DC; keeping or ending it is an explicit command."), row, terms, []character.Reference{})
 }
 
 // concentrationAfterDamage records the save DC for damage taken while
@@ -56,7 +54,7 @@ func concentrationAfterDamage(input *character.Inputs, damage int, profile Rules
 func applyConcentrationCommand(input character.Inputs, records Records, profile Ruleset, change func(*character.Inputs)) (character.Result, error) {
 	input = cloneCharacter(input)
 	if input.Play.Concentration == nil {
-		return EvaluateCharacter(input, records, profile), fmt.Errorf("The character is not concentrating on a spell.")
+		return EvaluateCharacter(input, records, profile), refuse("The character is not concentrating on a spell.")
 	}
 	change(&input)
 	return EvaluateCharacter(input, records, profile), nil

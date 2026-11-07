@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/pjunak/addon-dnd-engine/character"
 	"github.com/pjunak/addon-dnd-engine/internal/provider"
@@ -109,7 +110,7 @@ func (handler *Handler) HandleRPC(ctx context.Context, request workerrpc.Request
 		if play {
 			decoded, err := character.DecodePlayCommand(input.Change)
 			if err != nil {
-				return nil, invalidRequest(err.Error())
+				return nil, refused(err)
 			}
 			command = decoded
 		}
@@ -121,7 +122,7 @@ func (handler *Handler) HandleRPC(ctx context.Context, request workerrpc.Request
 		if play {
 			result, err = rules.ApplyCharacterPlay(input.Inputs, command, records, profile)
 			if err != nil {
-				return nil, invalidRequest(err.Error())
+				return nil, refused(err)
 			}
 		} else {
 			result = rules.EvaluateCharacter(input.Inputs, records, profile)
@@ -171,6 +172,21 @@ func (handler *Handler) HandleRPC(ctx context.Context, request workerrpc.Request
 		return nil, workerrpc.NewRPCError(workerrpc.JSONRPCMethodNotFound, workerrpc.KindNotFound,
 			"The rules engine method was not found.", false, nil)
 	}
+}
+
+// refused reports a play change the rules refuse; a refusal in Engine wording
+// carries its catalog key so the calling browser can translate it.
+func refused(err error) error {
+	var refusal character.Refusal
+	if !errors.As(err, &refusal) {
+		return invalidRequest(err.Error())
+	}
+	text, args := refusal.Text, map[string]any{}
+	for index, value := range text.LabelArgs {
+		args[strconv.Itoa(index)] = value
+	}
+	return workerrpc.NewRPCError(workerrpc.JSONRPCInvalidParams, workerrpc.KindInvalidRequest,
+		text.Label, false, workerrpc.IssueDetails(workerrpc.Localized(text.LabelKey, text.Label, args)))
 }
 
 func invalidRequest(message string) error {

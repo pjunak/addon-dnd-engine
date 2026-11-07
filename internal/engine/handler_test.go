@@ -112,6 +112,12 @@ func TestHandlerRejectsMissingInputsAndUnknownMethods(t *testing.T) {
 	if !errors.As(err, &failure) || failure.Message != "Choose a short or long rest." {
 		t.Fatalf("malformed play command = %v", err)
 	}
+	// The refusal carries its catalog key so the calling browser can translate it.
+	var details map[string]any
+	if failure.Data == nil || json.Unmarshal(failure.Data.Details, &details) != nil ||
+		details["issue"] != "Choose a short or long rest." || details["issueKey"] != "Choose a short or long rest." {
+		t.Fatalf("refusal details = %s", failure.Data.Details)
+	}
 	_, err = handler.HandleRPC(context.Background(), rpcRequest("derive", `{}`))
 	assertRPCError(t, err, workerrpc.KindNotFound)
 	_, err = handler.HandleRPC(context.Background(), rpcRequest("unknown", `{}`))

@@ -20,7 +20,7 @@ func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset)
 	result = character.Result{ContractVersion: character.ContractVersion, Inputs: input, Sheet: character.Sheet{Status: character.SheetNeedsChoices}, Explanations: map[string]character.Explanation{}, Evidence: []character.Evidence{}, Issues: []character.Issue{}}
 	defer finishResult(&result)
 	if profile.Constants.Character == nil {
-		addCharacterIssue(&result, "character-policy", "rules", "The rules profile does not define character creation policy.", character.SeverityBlocker, nil)
+		addCharacterIssue(&result, "character-policy", "rules", engineText("The rules profile does not define character creation policy."), character.SeverityBlocker, nil)
 		return result
 	}
 	needsChoices := len(input.Build.BaseScores) != 6 || len(input.Build.Levels) == 0 || input.Build.Species == "" || input.Build.Background == ""
@@ -77,16 +77,16 @@ func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset)
 			if severity == "" {
 				severity = character.SeverityBlocker
 			}
-			addCharacterIssue(&result, "choice:"+issue.ID, issue.ID, issue.Label, severity, nil)
+			addCharacterIssue(&result, "choice:"+issue.ID, issue.ID, issue.Text, severity, nil)
 		}
 	}
-	for _, warning := range hydrated.Warnings {
+	for _, warning := range hydrated.warningTexts {
 		// Character validation checks final capacity after authorized item/DM effects.
 		// The lower-level hydration warning only knows the unmodified class limit.
-		if warning == baseAttunementWarning {
+		if warning.Label == baseAttunementWarning.Label {
 			continue
 		}
-		addCharacterIssue(&result, "rules-warning:"+warning, "build", warning, character.SeverityWarning, nil)
+		addCharacterIssue(&result, "rules-warning:"+warning.Label, "build", warning, character.SeverityWarning, nil)
 	}
 	captureCharacterSources(sheet, tracked)
 	// Retain learned spell facts for offline reading without attaching every
@@ -116,7 +116,7 @@ func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset)
 	result.Ready = !characterHasBlocker(result)
 	if needsChoices {
 		result.Sheet = character.Sheet{Status: character.SheetNeedsChoices}
-		result.Explanations = map[string]character.Explanation{"status": {Label: "Calculated values need choices", Formula: "Choose base abilities, species, background and the first class level to calculate the character.", Value: nil, Terms: []character.Term{}, Sources: []character.Reference{}}}
+		result.Explanations = map[string]character.Explanation{"status": explanation(engineText("Calculated values need choices"), engineText("Choose base abilities, species, background and the first class level to calculate the character."), nil, []character.Term{}, []character.Reference{})}
 	}
 	characterEditorGuidance(input, decisions, records, profile, &result)
 	inspiration := input.Play.Inspiration != nil && *input.Play.Inspiration
@@ -136,7 +136,7 @@ func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset)
 	characterPlacement(input, &result)
 	reportRulesData(&result)
 	result.Guidance.ClassReplacements = classReplacementOptions(input, records, profile, &result)
-	result.Explanations["inspiration"] = character.Explanation{Label: "Inspiration", Formula: "Authored play state. Awarding and spending Inspiration are explicit edits; calculation and rest do not change it.", Value: inspiration, Terms: []character.Term{}, Sources: []character.Reference{}}
+	result.Explanations["inspiration"] = explanation(engineText("Inspiration"), engineText("Authored play state. Awarding and spending Inspiration are explicit edits; calculation and rest do not change it."), inspiration, []character.Term{}, []character.Reference{})
 	return result
 }
 
@@ -201,7 +201,7 @@ func characterDecisions(input character.Inputs, records Records, profile Ruleset
 		for _, choice := range choices {
 			var value any
 			if json.Unmarshal(choice.Value, &value) != nil {
-				addCharacterIssue(result, "invalid-choice:"+choice.ID, choice.ID, "Choice value is invalid.", character.SeverityBlocker, nil)
+				addCharacterIssue(result, "invalid-choice:"+choice.ID, choice.ID, engineText("Choice value is invalid."), character.SeverityBlocker, nil)
 				continue
 			}
 			descriptor := findCharacterChoice(plan, choice.ID, decisions, records)
@@ -302,13 +302,13 @@ func decodeInto[T any](value any, target *T) {
 		*target = replacement
 	}
 }
-func addCharacterIssue(result *character.Result, id, target, message string, severity character.IssueSeverity, reference *character.Reference) {
+func addCharacterIssue(result *character.Result, id, target string, message character.Text, severity character.IssueSeverity, reference *character.Reference) {
 	for _, issue := range result.Issues {
 		if issue.ID == id {
 			return
 		}
 	}
-	result.Issues = append(result.Issues, character.Issue{ID: id, Target: target, Message: message, Severity: severity, Reference: reference})
+	result.Issues = append(result.Issues, newIssue(id, target, message, severity, reference))
 }
 func characterChoiceKey(choice character.Choice) string {
 	return choice.ID + "#" + strconv.Itoa(choice.Slot)

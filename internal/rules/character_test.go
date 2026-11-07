@@ -2,9 +2,11 @@ package rules
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/pjunak/addon-dnd-engine/character"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -521,5 +523,34 @@ func TestCharacterItemsRaiseSpellAttackAndSaveDC(t *testing.T) {
 	input.Play.Inventory[0].Attuned = false
 	if unattuned := casters(EvaluateCharacter(input, records, profile)); !reflect.DeepEqual(unattuned, base) {
 		t.Fatalf("unattuned rod still applies: %+v", unattuned)
+	}
+}
+
+// Engine wording reaches clients with its catalog key and arguments, and
+// saves are labelled by ability rather than spelled out letter by letter.
+func TestCharacterTextsCarryCatalogKeys(t *testing.T) {
+	input, records, profile := characterFixture(t)
+	_, err := applyPlay(input, Object{"operation": "set-hp", "amount": float64(99)}, records, profile)
+	var refusal character.Refusal
+	if !errors.As(err, &refusal) || refusal.Text.LabelKey != "Current HP cannot exceed the effective maximum ({0})." ||
+		len(refusal.Text.LabelArgs) != 1 || err.Error() != strings.Replace(refusal.Text.LabelKey, "{0}", refusal.Text.LabelArgs[0], 1) {
+		t.Fatalf("HP refusal = %#v", err)
+	}
+	input.Play.HP = -1
+	result := EvaluateCharacter(input, records, profile)
+	var bounds *character.Issue
+	for index := range result.Issues {
+		if result.Issues[index].ID == "hp-bounds" {
+			bounds = &result.Issues[index]
+		}
+	}
+	if bounds == nil || bounds.MessageKey != "Current HP must be between 0 and {0}; review the required correction." ||
+		len(bounds.MessageArgs) != 1 || bounds.Message != strings.Replace(bounds.MessageKey, "{0}", bounds.MessageArgs[0], 1) {
+		t.Fatalf("hp-bounds issue = %+v", bounds)
+	}
+	save := result.Explanations["saves.STR.total"]
+	if save.Label != "STR saving throw" || save.LabelKey != save.Label || save.LabelArgs != nil ||
+		save.FormulaKey != save.Formula || save.Terms[0].LabelKey != "Ability modifier" {
+		t.Fatalf("save explanation = %+v", save)
 	}
 }

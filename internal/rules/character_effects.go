@@ -1,7 +1,6 @@
 package rules
 
 import (
-	"fmt"
 	"sort"
 	"time"
 
@@ -153,7 +152,7 @@ func effectNumberMatching(base int, target character.EffectTarget, key string, m
 				addition += effect.Value
 			case character.ModeSet:
 				if setBy != "" {
-					addCharacterIssue(result, "effect-conflict:"+string(target)+":"+key, string(target), "Conflicting DM replacement values: "+setBy+" and "+grant.Name, character.SeverityBlocker, nil)
+					addCharacterIssue(result, "effect-conflict:"+string(target)+":"+key, string(target), engineText("Conflicting DM replacement values: {0} and {1}", setBy, grant.Name), character.SeverityBlocker, nil)
 				}
 				setBy = grant.Name
 				value = effect.Value
@@ -162,12 +161,12 @@ func effectNumberMatching(base int, target character.EffectTarget, key string, m
 			case character.ModeMaximum:
 				maximum = min(maximum, effect.Value)
 			default:
-				addCharacterIssue(result, "effect-mode:"+grant.ID, grant.ID, "Unsupported DM effect mode.", character.SeverityBlocker, nil)
+				addCharacterIssue(result, "effect-mode:"+grant.ID, grant.ID, engineText("Unsupported DM effect mode."), character.SeverityBlocker, nil)
 			}
 		}
 	}
 	if minimum > maximum {
-		addCharacterIssue(result, "effect-bounds:"+string(target)+":"+key, string(target), "DM effect minimum exceeds maximum.", character.SeverityBlocker, nil)
+		addCharacterIssue(result, "effect-bounds:"+string(target)+":"+key, string(target), engineText("DM effect minimum exceeds maximum."), character.SeverityBlocker, nil)
 	}
 	return min(maximum, max(minimum, value+addition))
 }
@@ -218,7 +217,7 @@ func applyCharacterAbilityEffects(input character.Inputs, decisions Object, resu
 			caps[ability] = min(profile.Constants.AbilityCapHard, floor)
 		}
 		if score < 1 || integer(caps[ability], 0) < 1 {
-			addCharacterIssue(result, "ability-bound:"+ability, "abilities", ability+" must have a positive score and cap.", character.SeverityBlocker, nil)
+			addCharacterIssue(result, "ability-bound:"+ability, "abilities", engineText(ability+" must have a positive score and cap."), character.SeverityBlocker, nil)
 		}
 		scores[ability] = score - bonus
 	}
@@ -233,7 +232,7 @@ func applyCharacterAbilityEffects(input character.Inputs, decisions Object, resu
 				continue
 			}
 			if effect.Mode != character.ModeSet || effect.Value != 1 {
-				addCharacterIssue(result, "proficiency-effect:"+grant.ID, grant.ID, "Proficiency grants must set the selected proficiency to 1.", character.SeverityBlocker, nil)
+				addCharacterIssue(result, "proficiency-effect:"+grant.ID, grant.ID, engineText("Proficiency grants must set the selected proficiency to 1."), character.SeverityBlocker, nil)
 				continue
 			}
 			if _, ok := SkillAbility[effect.Key]; ok {
@@ -241,7 +240,7 @@ func applyCharacterAbilityEffects(input character.Inputs, decisions Object, resu
 			} else if contains(Abilities[:], effect.Key) {
 				decisions["saveProficiencies"] = append(values(decisions["saveProficiencies"]), effect.Key)
 			} else {
-				addCharacterIssue(result, "proficiency-kind:"+grant.ID, grant.ID, "Choose a supported skill or saving throw.", character.SeverityBlocker, nil)
+				addCharacterIssue(result, "proficiency-kind:"+grant.ID, grant.ID, engineText("Choose a supported skill or saving throw."), character.SeverityBlocker, nil)
 			}
 		}
 	}
@@ -279,11 +278,11 @@ func applyCharacterEffects(input character.Inputs, sheet *character.Calculation,
 		value  int
 	}{{"armorClass", derived.ArmorClass}, {"speed", derived.Speed}, {"maxHp", derived.MaxHP}} {
 		if effective.value < 0 {
-			addCharacterIssue(result, "negative:"+effective.target, effective.target, "The effective value cannot be negative.", character.SeverityBlocker, nil)
+			addCharacterIssue(result, "negative:"+effective.target, effective.target, engineText("The effective value cannot be negative."), character.SeverityBlocker, nil)
 		}
 	}
 	if attunement.Limit < 0 {
-		addCharacterIssue(result, "negative:attunement", "inventory", "Attunement capacity cannot be negative.", character.SeverityBlocker, nil)
+		addCharacterIssue(result, "negative:attunement", "inventory", engineText("Attunement capacity cannot be negative."), character.SeverityBlocker, nil)
 	}
 	if sheet.Senses == nil {
 		sheet.Senses = map[string]int{}
@@ -305,7 +304,7 @@ func applyCharacterEffects(input character.Inputs, sheet *character.Calculation,
 	for key := range keys {
 		sheet.Senses[key] = effectNumber(sheet.Senses[key], character.TargetSense, key, sources, result)
 		if sheet.Senses[key] < 0 {
-			addCharacterIssue(result, "negative:sense:"+key, "senses", "A sense range cannot be negative.", character.SeverityBlocker, nil)
+			addCharacterIssue(result, "negative:sense:"+key, "senses", engineText("A sense range cannot be negative."), character.SeverityBlocker, nil)
 		}
 	}
 	resourceKeys := map[string]bool{}
@@ -316,7 +315,7 @@ func applyCharacterEffects(input character.Inputs, sheet *character.Calculation,
 		resource.Spent = input.Play.ResourceUses[resource.Key]
 		resource.Remaining = resource.Max - input.Play.ResourceUses[resource.Key]
 		if resource.Max < 0 {
-			addCharacterIssue(result, "negative:resource:"+resource.Key, "resources", "Resource capacity cannot be negative.", character.SeverityBlocker, nil)
+			addCharacterIssue(result, "negative:resource:"+resource.Key, "resources", engineText("Resource capacity cannot be negative."), character.SeverityBlocker, nil)
 		}
 	}
 	for _, source := range sources {
@@ -325,7 +324,7 @@ func applyCharacterEffects(input character.Inputs, sheet *character.Calculation,
 		}
 		for _, effect := range source.Effects {
 			if effect.Target == character.TargetResourceMax && !resourceKeys[effect.Key] {
-				addCharacterIssue(result, "resource-effect:"+source.ID+":"+effect.Key, "resources", "This capacity adjustment refers to a resource the character does not have.", character.SeverityBlocker, source.Reference)
+				addCharacterIssue(result, "resource-effect:"+source.ID+":"+effect.Key, "resources", engineText("This capacity adjustment refers to a resource the character does not have."), character.SeverityBlocker, source.Reference)
 			}
 		}
 	}
@@ -342,7 +341,7 @@ func applyCharacterHitDice(input character.Inputs, sheet *character.Calculation,
 		size := hitDieSize(text(record["hitDie"]))
 		gained, rolled, method := profile.LevelHitPoints(index+1, size, level.HitPoints, con, bonus)
 		if method == "recorded roll" && (rolled < 1 || rolled > size) {
-			addCharacterIssue(result, "hit-die:"+level.ID, level.ID, fmt.Sprintf("Recorded hit die must be between 1 and %d.", size), character.SeverityBlocker, &character.Reference{Kind: "class", ID: level.ClassID})
+			addCharacterIssue(result, "hit-die:"+level.ID, level.ID, engineText("Recorded hit die must be between 1 and {0}.", size), character.SeverityBlocker, &character.Reference{Kind: "class", ID: level.ClassID})
 		}
 		maximum += gained
 		rows = append(rows, character.HPLevel{LevelID: level.ID, ClassID: level.ClassID, Die: size, Result: rolled, Method: method, Constitution: con, Minimum: minimum, Bonus: bonus, Gained: gained})

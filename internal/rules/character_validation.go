@@ -15,15 +15,15 @@ func validateCharacter(input character.Inputs, decisions Object, records Records
 	validateCharacterStorage(input, result)
 	validateCharacterCarrying(input, result)
 	validateCharacterPlacement(input, records, result)
-	block := func(id, target, message string) {
+	block := func(id, target string, message character.Text) {
 		addCharacterIssue(result, id, target, message, character.SeverityBlocker, nil)
 	}
 	sheet := result.Sheet.Calculation
 	if len(input.Build.Levels) == 0 || len(input.Build.Levels) > profile.Constants.Character.MaximumLevel {
-		block("levels", "levels", fmt.Sprintf("Choose between 1 and %d ordered class levels.", profile.Constants.Character.MaximumLevel))
+		block("levels", "levels", engineText("Choose between 1 and {0} ordered class levels.", profile.Constants.Character.MaximumLevel))
 	}
 	if len(input.Build.BaseScores) != 6 {
-		block("base-scores", "abilities", "Assign all six base ability scores.")
+		block("base-scores", "abilities", engineText("Assign all six base ability scores."))
 	}
 	switch input.Build.Method {
 	case character.MethodPointBuy:
@@ -32,12 +32,12 @@ func validateCharacter(input character.Inputs, decisions Object, records Records
 			score, ok := input.Build.BaseScores[ability]
 			cost, exists := profile.Constants.PointBuy.Cost[jsonNumber(score)]
 			if !ok || !exists {
-				block("base-score:"+ability, "abilities", "Base scores must use the ruleset's point-buy range.")
+				block("base-score:"+ability, "abilities", engineText("Base scores must use the ruleset's point-buy range."))
 			}
 			spent += cost
 		}
 		if spent != profile.Constants.PointBuy.Budget {
-			block("point-buy", "abilities", fmt.Sprintf("Allocate %d ability points; currently %d.", profile.Constants.PointBuy.Budget, spent))
+			block("point-buy", "abilities", engineText("Allocate {0} ability points; currently {1}.", profile.Constants.PointBuy.Budget, spent))
 		}
 	case character.MethodArray:
 		scores := []int{}
@@ -48,23 +48,23 @@ func validateCharacter(input character.Inputs, decisions Object, records Records
 		expected := append([]int(nil), profile.Constants.Character.StandardArray...)
 		sort.Ints(expected)
 		if fmt.Sprint(scores) != fmt.Sprint(expected) {
-			block("standard-array", "abilities", fmt.Sprintf("Assign the ruleset standard array once each: %v.", profile.Constants.Character.StandardArray))
+			block("standard-array", "abilities", engineText("Assign the ruleset standard array once each: {0}.", profile.Constants.Character.StandardArray))
 		}
 	case character.MethodRolled:
 		validateCharacterRolls(input, result, *profile.Constants.Character)
 	default:
-		block("creation-method", "abilities", "Choose point buy, standard array or recorded rolls.")
+		block("creation-method", "abilities", engineText("Choose point buy, standard array or recorded rolls."))
 	}
 	seen := map[string]bool{}
 	for _, level := range input.Build.Levels {
 		if level.ID == "" || seen[level.ID] {
-			block("level-id:"+level.ID, "levels", "Level decisions need unique IDs.")
+			block("level-id:"+level.ID, "levels", engineText("Level decisions need unique IDs."))
 		}
 		seen[level.ID] = true
 		if class := recordView(records, "class", level.ClassID); class == nil {
-			block("class:"+level.ID, level.ID, "Choose an available class.")
+			block("class:"+level.ID, level.ID, engineText("Choose an available class."))
 		} else if hitDieSize(text(class["hitDie"])) < 1 {
-			block("class-hit-die:"+level.ClassID, level.ID, "This class record has no valid hit die.")
+			block("class-hit-die:"+level.ClassID, level.ID, engineText("This class record has no valid hit die."))
 		}
 	}
 	choiceIDs := map[string]bool{}
@@ -72,17 +72,17 @@ func validateCharacter(input character.Inputs, decisions Object, records Records
 	for _, choice := range input.Build.Choices {
 		key := characterChoiceKey(choice)
 		if choiceIDs[key] {
-			block("duplicate-choice:"+key, choice.ID, "This choice slot was selected more than once.")
+			block("duplicate-choice:"+key, choice.ID, engineText("This choice slot was selected more than once."))
 		}
 		choiceIDs[key] = true
 		descriptor := findCharacterChoice(result.Plan, choice.ID, decisions, records)
 		if descriptor == nil {
-			block("unavailable-choice:"+key, choice.ID, "This earlier selection is no longer granted. Remove it or choose a replacement.")
+			block("unavailable-choice:"+key, choice.ID, engineText("This earlier selection is no longer granted. Remove it or choose a replacement."))
 			continue
 		}
 		count := max(1, descriptor.Count)
 		if choice.Slot < 0 || choice.Slot >= count {
-			block("choice-count:"+key, choice.ID, "This selection exceeds its allowed choice count.")
+			block("choice-count:"+key, choice.ID, engineText("This selection exceeds its allowed choice count."))
 		}
 		var value any
 		_ = json.Unmarshal(choice.Value, &value)
@@ -98,17 +98,17 @@ func validateCharacter(input character.Inputs, decisions Object, records Records
 				total += int(amount)
 			}
 			if !valid || total != descriptor.Budget {
-				block("ability-assignment:"+key, choice.ID, "Assign exactly the available increase budget to eligible abilities, within each ability's limit.")
+				block("ability-assignment:"+key, choice.ID, engineText("Assign exactly the available increase budget to eligible abilities, within each ability's limit."))
 			}
 			continue
 		}
 		if _, ok := value.(string); !ok {
-			block("choice-type:"+key, choice.ID, "Choose one eligible option.")
+			block("choice-type:"+key, choice.ID, engineText("Choose one eligible option."))
 			continue
 		}
 		if selected, ok := value.(string); ok && selected != "" {
 			if valueKey := choice.ID + "/" + selected; choiceValues[valueKey] && !contains(descriptor.RepeatableOptions, selected) {
-				block("duplicate-option:"+key, choice.ID, "Choose distinct options for each slot.")
+				block("duplicate-option:"+key, choice.ID, engineText("Choose distinct options for each slot."))
 			} else {
 				choiceValues[valueKey] = true
 			}
@@ -123,47 +123,47 @@ func validateCharacter(input character.Inputs, decisions Object, records Records
 				}
 			}
 			if !valid {
-				block("invalid-option:"+key, choice.ID, "The selected option is not eligible for this choice.")
+				block("invalid-option:"+key, choice.ID, engineText("The selected option is not eligible for this choice."))
 			}
 		}
 	}
 	for _, item := range input.Play.Inventory {
 		if item.ID == "" || seen["item:"+item.ID] {
-			block("item-id:"+item.ID, "inventory", "Inventory instances need unique IDs.")
+			block("item-id:"+item.ID, "inventory", engineText("Inventory instances need unique IDs."))
 		}
 		seen["item:"+item.ID] = true
 		if item.Quantity < 0 {
-			block("quantity:"+item.ID, "inventory", "Item quantity cannot be negative.")
+			block("quantity:"+item.ID, "inventory", engineText("Item quantity cannot be negative."))
 		}
 		if item.Quantity < 1 {
 			if item.Location == "equipped" {
-				block("equipped-empty:"+item.ID, "inventory", "An absent item cannot remain equipped.")
+				block("equipped-empty:"+item.ID, "inventory", engineText("An absent item cannot remain equipped."))
 			}
 			if item.Attuned {
-				block("attunement-empty:"+item.ID, "inventory", "An absent item cannot remain attuned.")
+				block("attunement-empty:"+item.ID, "inventory", engineText("An absent item cannot remain attuned."))
 			}
 		}
 		if item.Reference == nil {
 			mechanics := characterItemHasGrant(item, input)
 			if (item.Attuned || item.Location == "equipped") && !mechanics {
-				block("custom-item:"+item.ID, "inventory", "A narrative item needs a catalog definition or explicit DM mechanics before it can be equipped or attuned.")
+				block("custom-item:"+item.ID, "inventory", engineText("A narrative item needs a catalog definition or explicit DM mechanics before it can be equipped or attuned."))
 			}
 			continue
 		}
 		record := recordByID(records, item.Reference.Kind, item.Reference.ID)
 		if record == nil {
-			block("item-source:"+item.ID, "inventory", "An item source is unavailable. Keep the saved sheet or review a replacement.")
+			block("item-source:"+item.ID, "inventory", engineText("An item source is unavailable. Keep the saved sheet or review a replacement."))
 			continue
 		}
 		validateCharacterItemMechanics(item, record, input, records, result)
 		if item.Attuned {
 			identity := "attuned:" + item.Reference.Kind + ":" + item.Reference.ID
 			if profile.Constants.Character.UniqueAttunement && seen[identity] {
-				block("attunement-duplicate:"+item.ID, "inventory", "Only one copy of this item can be attuned.")
+				block("attunement-duplicate:"+item.ID, "inventory", engineText("Only one copy of this item can be attuned."))
 			}
 			seen[identity] = true
 			if !truth(record["attunement"]) {
-				block("attunement-ineligible:"+item.ID, "inventory", "This item does not declare an attunement requirement.")
+				block("attunement-ineligible:"+item.ID, "inventory", engineText("This item does not declare an attunement requirement."))
 			}
 			validateCharacterAttunementPrerequisite(item, record, input, records, profile, sheet, result)
 		}
@@ -176,28 +176,28 @@ func validateCharacter(input character.Inputs, decisions Object, records Records
 		slot := characterItemSlot(item, records)
 		if slot != "worn" {
 			if equipped[slot] != "" {
-				block("equipped:"+slot, "inventory", "Only one item may occupy the "+slot+" slot.")
+				block("equipped:"+slot, "inventory", engineText("Only one item may occupy the "+slot+" slot."))
 			}
 			equipped[slot] = item.ID
 		}
 	}
 	if sheet.Attunement.Count > sheet.Attunement.Limit {
-		block("attunement-capacity", "inventory", "Choose which items remain attuned, or record a DM capacity grant.")
+		block("attunement-capacity", "inventory", engineText("Choose which items remain attuned, or record a DM capacity grant."))
 	}
 	maximum := sheet.Derived.MaxHP
 	if input.Play.HP < 0 || input.Play.HP > maximum {
-		block("hp-bounds", "hp", fmt.Sprintf("Current HP must be between 0 and %d; review the required correction.", maximum))
+		block("hp-bounds", "hp", engineText("Current HP must be between 0 and {0}; review the required correction.", maximum))
 	}
 	if input.Play.TemporaryHP < 0 {
-		block("temporary-hp", "temporaryHp", "Temporary HP cannot be negative.")
+		block("temporary-hp", "temporaryHp", engineText("Temporary HP cannot be negative."))
 	}
 	if saved := input.Play.Concentration; saved != nil && (saved.Ref == "" || saved.SaveDC < 0 || saved.SaveDC > 100) {
-		block("concentration", "concentration", "End the concentration; its saved spell or save DC is invalid.")
+		block("concentration", "concentration", engineText("End the concentration; its saved spell or save DC is invalid."))
 	}
 	for _, key := range sortedKeys(input.Play.Currency) {
 		value := input.Play.Currency[key]
 		if !contains([]string{"cp", "sp", "ep", "gp", "pp"}, key) || value < 0 {
-			block("currency:"+key, "currency", "Currency must use supported coins and non-negative amounts.")
+			block("currency:"+key, "currency", engineText("Currency must use supported coins and non-negative amounts."))
 		}
 	}
 	resources := map[string]int{}
@@ -208,43 +208,43 @@ func validateCharacter(input character.Inputs, decisions Object, records Records
 		used := input.Play.ResourceUses[key]
 		maximum, exists := resources[key]
 		if used < 0 || !exists && used != 0 || exists && used > maximum {
-			block("resource:"+key, "resources", "Resolve the spent resource against its current capacity: "+key)
+			block("resource:"+key, "resources", engineText("Resolve the spent resource against its current capacity: {0}", key))
 		}
 	}
 	for _, grant := range input.Grants {
 		if grant.ID == "" || seen["grant:"+grant.ID] {
-			block("grant-id:"+grant.ID, "grants", "DM grants need unique IDs.")
+			block("grant-id:"+grant.ID, "grants", engineText("DM grants need unique IDs."))
 		}
 		seen["grant:"+grant.ID] = true
 		if !grant.Condition.Valid() {
-			block("grant-condition:"+grant.ID, "grants", "Choose a supported grant condition.")
+			block("grant-condition:"+grant.ID, "grants", engineText("Choose a supported grant condition."))
 		}
 		if grant.ActorID == "" || strings.TrimSpace(grant.Reason) == "" || grant.EffectiveLevel < 1 {
-			block("grant-provenance:"+grant.ID, "grants", "DM grants require an actor, reason and effective level.")
+			block("grant-provenance:"+grant.ID, "grants", engineText("DM grants require an actor, reason and effective level."))
 		}
 		if grant.ExpiresAt != "" {
 			if _, err := time.Parse(time.RFC3339, grant.ExpiresAt); err != nil {
-				block("grant-expiry:"+grant.ID, "grants", "Enter a valid expiration date and time with timezone.")
+				block("grant-expiry:"+grant.ID, "grants", engineText("Enter a valid expiration date and time with timezone."))
 			}
 		}
 		for _, effect := range grant.Effects {
 			if !effect.Mode.Valid() {
-				block("effect-mode:"+grant.ID, "grants", "Choose a supported effect operation.")
+				block("effect-mode:"+grant.ID, "grants", engineText("Choose a supported effect operation."))
 			}
 			if effect.Value < -100000 || effect.Value > 100000 {
-				block("effect-value:"+grant.ID, "grants", "Effect amount exceeds the supported range.")
+				block("effect-value:"+grant.ID, "grants", engineText("Effect amount exceeds the supported range."))
 			}
 			if (effect.Target == character.TargetAbilityScore || effect.Target == character.TargetAbilityCap) && !contains(Abilities[:], effect.Key) {
-				block("effect-key:"+grant.ID, "grants", "Choose a supported ability.")
+				block("effect-key:"+grant.ID, "grants", engineText("Choose a supported ability."))
 			}
 			if !validCharacterEffect(effect) {
-				block("effect-target:"+grant.ID, "grants", "This DM effect target is not supported.")
+				block("effect-target:"+grant.ID, "grants", engineText("This DM effect target is not supported."))
 			}
 		}
 		if grant.Feat != nil && characterGrantActive(grant, input) {
 			record := recordByID(records, "feat", grant.Feat.ID)
 			if grant.Feat.Kind != "feat" || record == nil {
-				block("grant-feat:"+grant.ID, "grants", "The granted feat is unavailable.")
+				block("grant-feat:"+grant.ID, "grants", engineText("The granted feat is unavailable."))
 			}
 		}
 	}
@@ -281,11 +281,11 @@ func validateCharacterRolls(input character.Inputs, result *character.Result, po
 			valid = valid && total == highest
 		}
 		if !valid || input.Build.BaseScores[roll.Ability] != total {
-			addCharacterIssue(result, "roll:"+roll.ID, "abilities", fmt.Sprintf("Record %d d%d and retain the highest %d results without rerolling during recalculation.", policy.RollDice, policy.RollSides, policy.RollKeep), character.SeverityBlocker, nil)
+			addCharacterIssue(result, "roll:"+roll.ID, "abilities", engineText("Record {0} d{1} and retain the highest {2} results without rerolling during recalculation.", policy.RollDice, policy.RollSides, policy.RollKeep), character.SeverityBlocker, nil)
 		}
 	}
 	if len(selected) != 6 {
-		addCharacterIssue(result, "roll-count", "abilities", "Record a roll for each ability.", character.SeverityBlocker, nil)
+		addCharacterIssue(result, "roll-count", "abilities", engineText("Record a roll for each ability."), character.SeverityBlocker, nil)
 	}
 }
 
@@ -396,11 +396,11 @@ func validateSelectedProgression(input character.Inputs, records Records, profil
 			}
 			record := recordByID(records, "feat", id)
 			if !featRepetitionAllowed(record, featCounts[id]) {
-				message := "This feat cannot be acquired more than once."
+				message := engineText("This feat cannot be acquired more than once.")
 				if object(record["repeatable"]) != nil {
-					message = "No distinct options remain for another acquisition of this feat."
+					message = engineText("No distinct options remain for another acquisition of this feat.")
 					if conditionalFeatChoice(record) == nil {
-						message = "This feat's repeatability rule is unsupported."
+						message = engineText("This feat's repeatability rule is unsupported.")
 					}
 				}
 				addCharacterIssue(result, "feat:"+id, "choices", message, character.SeverityBlocker, &character.Reference{Kind: "feat", ID: id})
@@ -474,7 +474,7 @@ func validatePrerequisite(value any, id, target string, input character.Inputs, 
 	}
 	for _, grant := range activeCharacterGrants(input) {
 		if contains(grant.Waivers, id) {
-			addCharacterIssue(result, "waived:"+id, target, "DM given: "+grant.Name+" waives this requirement.", character.SeverityInfo, reference)
+			addCharacterIssue(result, "waived:"+id, target, engineText("DM given: {0} waives this requirement.", grant.Name), character.SeverityInfo, reference)
 			return
 		}
 	}
@@ -482,9 +482,11 @@ func validatePrerequisite(value any, id, target string, input character.Inputs, 
 	if matched && known {
 		return
 	}
-	message := "The prerequisite is not met."
-	if !known {
-		message = "This prerequisite needs recorded DM adjudication: " + firstText(object(value)["text"], "unsupported rule predicate")
+	message := engineText("The prerequisite is not met.")
+	if prose := text(object(value)["text"]); !known && prose != "" {
+		message = engineText("This prerequisite needs recorded DM adjudication: {0}", prose)
+	} else if !known {
+		message = engineText("This prerequisite needs recorded DM adjudication: unsupported rule predicate")
 	}
 	addCharacterIssue(result, id, target, message, character.SeverityBlocker, reference)
 }

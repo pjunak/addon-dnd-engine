@@ -1,7 +1,6 @@
 package rules
 
 import (
-	"fmt"
 	"math"
 
 	"github.com/pjunak/addon-dnd-engine/character"
@@ -118,18 +117,22 @@ func characterCarrying(input character.Inputs, records Records, profile Ruleset,
 		WeightLb: total, CapacityLb: capacity, ItemsLb: pounds(carried), CoinsLb: pounds(coinsLb), CoinWeight: countCoins,
 		StoredLb: pounds(storedLb), WeightlessLb: pounds(weightlessLb), Unknown: unknown, Items: items, Containers: containers,
 	}
-	terms := []character.Term{{Label: "Equipped and carried items", Value: pounds(carried)}}
+	terms := []character.Term{term(engineText("Equipped and carried items"), pounds(carried))}
 	if countCoins && coins > 0 {
-		terms = append(terms, character.Term{Label: fmt.Sprintf("Coins (%g ÷ %g)", coins, policy.CoinsPerLb), Value: pounds(coinsLb)})
+		terms = append(terms, term(engineText("Coins ({0} ÷ {1})", coins, policy.CoinsPerLb), pounds(coinsLb)))
 	}
 	if storedLb > 0 {
-		terms = append(terms, character.Term{Label: "Stored, not counted", Value: pounds(storedLb), Status: "excluded"})
+		stored := term(engineText("Stored, not counted"), pounds(storedLb))
+		stored.Status = "excluded"
+		terms = append(terms, stored)
 	}
 	if weightlessLb > 0 {
-		terms = append(terms, character.Term{Label: "Inside weightless containers, not counted", Value: pounds(weightlessLb), Status: "excluded"})
+		weightless := term(engineText("Inside weightless containers, not counted"), pounds(weightlessLb))
+		weightless.Status = "excluded"
+		terms = append(terms, weightless)
 	}
-	terms = append(terms, character.Term{Label: fmt.Sprintf("Capacity: Strength %d × %g", strength, policy.CapacityPerStrength), Value: capacity})
-	result.Explanations["carrying"] = character.Explanation{Label: "Carrying", Formula: "Weight × quantity of equipped and carried items, plus coins when counted, against the Strength score × the ruleset's capacity per point. Items without a known weight are left out.", Value: total, Terms: terms, Sources: []character.Reference{}}
+	terms = append(terms, term(engineText("Capacity: Strength {0} × {1}", strength, policy.CapacityPerStrength), capacity))
+	result.Explanations["carrying"] = explanation(engineText("Carrying"), engineText("Weight × quantity of equipped and carried items, plus coins when counted, against the Strength score × the ruleset's capacity per point. Items without a known weight are left out."), total, terms, []character.Reference{})
 }
 
 func validateCharacterCarrying(input character.Inputs, result *character.Result) {
@@ -137,7 +140,7 @@ func validateCharacterCarrying(input character.Inputs, result *character.Result)
 	for _, item := range input.Play.Inventory {
 		items[item.ID] = item
 		if weight := item.WeightLb; weight != nil && (*weight < 0 || *weight > maximumItemWeight || math.IsNaN(*weight)) {
-			addCharacterIssue(result, "item-weight:"+item.ID, "inventory", "Give the item a weight of 0 or more pounds.", "blocker", nil)
+			addCharacterIssue(result, "item-weight:"+item.ID, "inventory", engineText("Give the item a weight of 0 or more pounds."), "blocker", nil)
 		}
 	}
 	backed := map[string]bool{}
@@ -147,9 +150,9 @@ func validateCharacterCarrying(input character.Inputs, result *character.Result)
 		}
 		item, exists := items[container.ItemID]
 		if !exists || backed[container.ItemID] {
-			addCharacterIssue(result, "container-item:"+container.ID, "inventory", "Link the container to an inventory item that no other container uses, or clear the link.", "blocker", nil)
+			addCharacterIssue(result, "container-item:"+container.ID, "inventory", engineText("Link the container to an inventory item that no other container uses, or clear the link."), "blocker", nil)
 		} else if item.ContainerID == container.ID {
-			addCharacterIssue(result, "container-item:"+container.ID, "inventory", "A container's own item cannot be stored inside it.", "blocker", nil)
+			addCharacterIssue(result, "container-item:"+container.ID, "inventory", engineText("A container's own item cannot be stored inside it."), "blocker", nil)
 		}
 		backed[container.ItemID] = true
 	}

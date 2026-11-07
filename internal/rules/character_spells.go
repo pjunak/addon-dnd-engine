@@ -1,7 +1,6 @@
 package rules
 
 import (
-	"fmt"
 	"github.com/pjunak/addon-dnd-engine/character"
 	"slices"
 	"strings"
@@ -9,7 +8,7 @@ import (
 )
 
 func validateCharacterSpells(input character.Inputs, records Records, result *character.Result) {
-	block := func(id, message string) {
+	block := func(id string, message character.Text) {
 		addCharacterIssue(result, id, "spells", message, character.SeverityBlocker, nil)
 	}
 	sheet := result.Sheet.Calculation
@@ -22,7 +21,7 @@ func validateCharacterSpells(input character.Inputs, records Records, result *ch
 	acquisitionIDs := map[string]bool{}
 	for _, swap := range input.Build.Spells.Swaps {
 		if swap.Level < 1 || swap.ClassLevel < 2 || swap.ClassID == "" || swap.In == "" || swap.Out == "" || !contains([]string{"", "recorded", "import"}, swap.Origin) {
-			block("spell-replacement-ledger", "Spell replacements require a class, acquired level, original spell and replacement.")
+			block("spell-replacement-ledger", engineText("Spell replacements require a class, acquired level, original spell and replacement."))
 		}
 	}
 	for _, acquisition := range input.Build.Spells.Acquisitions {
@@ -31,7 +30,7 @@ func validateCharacterSpells(input character.Inputs, records Records, result *ch
 			copies[acquisition.ClassID] = map[string]bool{}
 		}
 		if acquisition.ID == "" || acquisitionIDs[acquisition.ID] || copies[acquisition.ClassID][acquisition.SpellID] || acquisition.Level < 1 || acquisition.CostGP < 0 || timeError != nil || !contains([]string{"", "recorded", "import"}, acquisition.Origin) {
-			block("spell-acquisition:"+acquisition.ID, "Spell acquisitions need a unique ID, source, level, time and recorded non-negative cost.")
+			block("spell-acquisition:"+acquisition.ID, engineText("Spell acquisitions need a unique ID, source, level, time and recorded non-negative cost."))
 		}
 		acquisitionIDs[acquisition.ID] = true
 		copies[acquisition.ClassID][acquisition.SpellID] = true
@@ -51,7 +50,7 @@ func validateCharacterSpells(input character.Inputs, records Records, result *ch
 				// The character no longer has this spellcasting class, for
 				// example after a level was removed.
 				if len(ids) > 0 {
-					block("spell-class:"+selection.name+":"+classID, "These spells belong to a spellcasting class the character no longer has.")
+					block("spell-class:"+selection.name+":"+classID, engineText("These spells belong to a spellcasting class the character no longer has."))
 				}
 				continue
 			}
@@ -63,7 +62,7 @@ func validateCharacterSpells(input character.Inputs, records Records, result *ch
 				limit = caster.SpellbookCapacity
 			}
 			if len(ids) > limit {
-				block("spell-count:"+selection.name+":"+classID, "The selected spells exceed the currently granted capacity.")
+				block("spell-count:"+selection.name+":"+classID, engineText("The selected spells exceed the currently granted capacity."))
 			}
 			for _, id := range ids {
 				spell := recordByID(records, "spell", id)
@@ -81,7 +80,7 @@ func validateCharacterSpells(input character.Inputs, records Records, result *ch
 					valid = valid && contains(input.Build.Spells.Spellbook[classID], id)
 				}
 				if !valid {
-					block("spell-eligibility:"+selection.name+":"+classID+":"+id, "A selected spell is unavailable or ineligible for this class, level or preparation list.")
+					block("spell-eligibility:"+selection.name+":"+classID+":"+id, engineText("A selected spell is unavailable or ineligible for this class, level or preparation list."))
 				}
 			}
 		}
@@ -89,13 +88,13 @@ func validateCharacterSpells(input character.Inputs, records Records, result *ch
 	for _, classID := range sortedKeys(casters) {
 		caster := casters[classID]
 		if len(input.Build.Spells.Cantrips[classID]) != caster.CantripsKnown {
-			block("cantrip-count:"+classID, "Choose the cantrips granted by this class level.")
+			block("cantrip-count:"+classID, engineText("Choose the cantrips granted by this class level."))
 		}
 		if caster.Prepares == "spellbook" && len(input.Build.Spells.Spellbook[classID]) < caster.SpellbookKnown {
-			block("spellbook-count:"+classID, "Choose the spellbook spells granted by the recorded class levels.")
+			block("spellbook-count:"+classID, engineText("Choose the spellbook spells granted by the recorded class levels."))
 		}
 		for _, short := range spellbookSchoolShortfalls(*caster, input.Build.Spells.Spellbook[classID], records) {
-			addCharacterIssue(result, "spellbook-school:"+classID+":"+strings.ToLower(short.school), "spells", "Choose the free spellbook spells from the school their feature names.", character.SeverityBlocker, &character.Reference{Kind: string(short.source.Type), ID: short.source.ID})
+			addCharacterIssue(result, "spellbook-school:"+classID+":"+strings.ToLower(short.school), "spells", engineText("Choose the free spellbook spells from the school their feature names."), character.SeverityBlocker, &character.Reference{Kind: string(short.source.Type), ID: short.source.ID})
 		}
 	}
 	// An owned item that is not in effect keeps its picks and toggles for when
@@ -114,16 +113,16 @@ func validateCharacterSpells(input character.Inputs, records Records, result *ch
 		if choice == nil {
 			choice = &character.SpellChoiceOptions{}
 			if len(ids) > 0 {
-				block("spell-grant:"+key, "This spell choice no longer fits its granting source.")
+				block("spell-grant:"+key, engineText("This spell choice no longer fits its granting source."))
 			}
 		}
 		seen := map[string]bool{}
 		if len(ids) > choice.Choose {
-			block("spell-grant:"+key, "This spell choice no longer fits its granting source.")
+			block("spell-grant:"+key, engineText("This spell choice no longer fits its granting source."))
 		}
 		for _, id := range ids {
 			if seen[id] || !contains(choice.EligibleSpellIDs, id) {
-				block("spell-grant:"+key+":"+id, "This spell is not eligible for its granting source.")
+				block("spell-grant:"+key+":"+id, engineText("This spell is not eligible for its granting source."))
 			}
 			seen[id] = true
 		}
@@ -138,7 +137,7 @@ func validateCharacterSpells(input character.Inputs, records Records, result *ch
 		}
 		ability := input.Build.Spells.CastingAbilities[key]
 		if !contains(abilityChoices[key].Options, ability) {
-			block("casting-ability:"+key, "The casting ability is no longer granted by this source.")
+			block("casting-ability:"+key, engineText("The casting ability is no longer granted by this source."))
 		}
 	}
 	activations := map[string]character.Activation{}
@@ -153,11 +152,11 @@ func validateCharacterSpells(input character.Inputs, records Records, result *ch
 		}
 		activation, exists := activations[key]
 		if !exists || !activation.Available {
-			block("activation:"+key, "An active feature is unavailable with the current build or equipment.")
+			block("activation:"+key, engineText("An active feature is unavailable with the current build or equipment."))
 		}
 		if group := activation.ExclusiveGroup; group != nil && *group != "" {
 			if groups[*group] != "" {
-				block("activation-group:"+*group, "Choose one active feature in this exclusive group.")
+				block("activation-group:"+*group, engineText("Choose one active feature in this exclusive group."))
 			}
 			groups[*group] = key
 		}
@@ -245,7 +244,7 @@ func validateCharacterSpellProgression(input character.Inputs, records Records, 
 				id := ordinary[slot]
 				decisions = append(decisions, character.AcquisitionLevel{ID: id, ClassID: level.ClassID, Level: index + 1, ClassLevel: levels[level.ClassID], Source: character.Reference{Kind: "class", ID: level.ClassID}})
 				if !classSpellEligible(recordByID(records, "spell", id), caster) {
-					addCharacterIssue(result, "spell-acquired-level:"+level.ClassID+":"+id, "spells", fmt.Sprintf("Spell %s is not eligible at its recorded gain at character level %d. Reorder level-granted spellbook choices or replace it.", id, index+1), character.SeverityBlocker, &character.Reference{Kind: "spell", ID: id})
+					addCharacterIssue(result, "spell-acquired-level:"+level.ClassID+":"+id, "spells", engineText("Spell {0} is not eligible at its recorded gain at character level {1}. Reorder level-granted spellbook choices or replace it.", id, index+1), character.SeverityBlocker, &character.Reference{Kind: "spell", ID: id})
 				}
 			}
 			used[level.ClassID] = limit

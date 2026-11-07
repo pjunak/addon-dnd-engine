@@ -1,7 +1,6 @@
 package rules
 
 import (
-	"fmt"
 	"sort"
 	"strings"
 	"unicode"
@@ -29,7 +28,7 @@ func builderGuidance(decisions Object, plan character.Plan, records Records, pro
 			section.Complete++
 			return nil
 		}
-		section.Issues = append(section.Issues, character.GuidanceIssue{ID: id, Text: guidanceText(label, args...), Tab: tab, Level: level})
+		section.Issues = append(section.Issues, character.GuidanceIssue{ID: id, Text: engineText(label, args...), Tab: tab, Level: level})
 		return &section.Issues[len(section.Issues)-1]
 	}
 	// An item's picks are ordinary steps, but they guide play rather than
@@ -186,7 +185,7 @@ func builderChoiceGuidance(decisions Object, choice character.PlanChoice, sheet 
 	if options == nil {
 		options = builderChoiceOptions(choice, sheet, records)
 	}
-	entry := character.ChoiceGuidance{ID: choice.ID, Text: guidanceText(label, args...), Options: options, Required: max(1, choice.Count)}
+	entry := character.ChoiceGuidance{ID: choice.ID, Text: engineText(label, args...), Options: options, Required: max(1, choice.Count)}
 	switch choice.Kind {
 	case character.ChoiceAbilityBudget:
 		entry.Picked, entry.Required, entry.Done = guidanceAbility(decisions, choice)
@@ -355,18 +354,6 @@ func sortGuidanceOptions(options []character.Option) {
 		}
 		return options[i].Label < options[j].Label
 	})
-}
-
-// guidanceText is Engine wording with an English label and a template key, so
-// consumers translate it without translating record names.
-func guidanceText(template string, args ...any) character.Text {
-	replacements, values := []string{}, make([]string, 0, len(args))
-	for index, arg := range args {
-		value := fmt.Sprint(arg)
-		replacements = append(replacements, fmt.Sprintf("{%d}", index), value)
-		values = append(values, value)
-	}
-	return character.Text{Label: strings.NewReplacer(replacements...).Replace(template), LabelKey: template, LabelArgs: values}
 }
 
 func guidanceLabel(value string) string {

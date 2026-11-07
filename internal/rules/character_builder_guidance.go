@@ -30,7 +30,7 @@ func characterBuilderRepairs(input character.Inputs, result *character.Result) {
 			continue
 		}
 		if issue.Target == "abilities" {
-			mark(0, "abilities", "character", guidanceText("Finish base ability scores"))
+			mark(0, "abilities", "character", engineText("Finish base ability scores"))
 		}
 		for groupIndex, group := range [][]character.PlanChoice{result.Plan.CreationChoices, result.Plan.CreationAbilityChoices, result.Plan.ClassChoices} {
 			for _, descriptor := range group {
@@ -55,7 +55,7 @@ func characterBuilderRepairs(input character.Inputs, result *character.Result) {
 				if groupIndex == 2 {
 					section, tab = 1, descriptor.ClassID
 				}
-				mark(section, id, tab, guidanceText(entry.LabelKey, labelArgs(entry.LabelArgs)...))
+				mark(section, id, tab, engineText(entry.LabelKey, labelArgs(entry.LabelArgs)...))
 			}
 		}
 	}

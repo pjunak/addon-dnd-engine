@@ -1,12 +1,11 @@
 package rules
 
 import (
-	"fmt"
 	"github.com/pjunak/addon-dnd-engine/character"
 )
 
-func attunementCapacityWarning(limit int) string {
-	return fmt.Sprintf("Attuned to more than %d magic items (limit %d)", limit, limit)
+func attunementCapacityWarning(limit int) character.Text {
+	return engineText("Attuned to more than {0} magic items (limit {1})", limit, limit)
 }
 
 // Slots are source-declared facts shared by validation, editor guidance and the

@@ -70,7 +70,7 @@ func TestCharacterGuidanceDoesNotCountInvalidArrayAsComplete(t *testing.T) {
 }
 
 func TestBuilderGuidancePreservesAuthoredNamesInLabels(t *testing.T) {
-	label := guidanceText("{0} level {1} advancement", "Class {1}", 4)
+	label := engineText("{0} level {1} advancement", "Class {1}", 4)
 	if label.Label != "Class {1} level 4 advancement" {
 		t.Fatal("formatting changed an authored record name", label)
 	}

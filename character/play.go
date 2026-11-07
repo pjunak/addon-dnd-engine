@@ -121,46 +121,46 @@ var enumMessages = map[string]string{
 func DecodePlayCommand(body []byte) (PlayCommand, error) {
 	var raw map[string]json.RawMessage
 	if json.Unmarshal(body, &raw) != nil || raw == nil {
-		return PlayCommand{}, fmt.Errorf("The play change has invalid fields.")
+		return PlayCommand{}, Refuse("The play change has invalid fields.")
 	}
 	var operation PlayOperation
 	_ = json.Unmarshal(raw["operation"], &operation)
 	fields, known := playCommandFields[operation]
 	if !known || len(raw) != len(fields)+1 {
-		return PlayCommand{}, fmt.Errorf("The play change has invalid fields.")
+		return PlayCommand{}, Refuse("The play change has invalid fields.")
 	}
 	command := PlayCommand{Operation: operation}
 	target := reflect.ValueOf(&command).Elem()
 	for _, name := range fields {
 		value, exists := raw[name]
 		if !exists {
-			return PlayCommand{}, fmt.Errorf("The play change is missing %s.", name)
+			return PlayCommand{}, Refuse("The play change is missing {0}.", name)
 		}
 		destination := commandField(target, name)
 		switch destination.Kind() {
 		case reflect.Bool:
 			var flag bool
 			if json.Unmarshal(value, &flag) != nil {
-				return PlayCommand{}, fmt.Errorf("%s must be a boolean.", name)
+				return PlayCommand{}, Refuse("{0} must be a boolean.", name)
 			}
 			destination.SetBool(flag)
 		case reflect.Int:
 			var number float64
 			if json.Unmarshal(value, &number) != nil || number != math.Trunc(number) || math.Abs(number) > 1_000_000_000 {
 				if name == "amount" {
-					return PlayCommand{}, fmt.Errorf("Enter a non-negative whole amount.")
+					return PlayCommand{}, Refuse("Enter a non-negative whole amount.")
 				}
-				return PlayCommand{}, fmt.Errorf("Record a valid result for an available hit die.")
+				return PlayCommand{}, Refuse("Record a valid result for an available hit die.")
 			}
 			destination.SetInt(int64(number))
 		case reflect.String:
 			var text string
 			if json.Unmarshal(value, &text) != nil || utf8.RuneCountInString(text) > 200 || text == "" && !slices.Contains(playStringsMayBeEmpty, name) {
-				return PlayCommand{}, fmt.Errorf("%s must be a valid string.", name)
+				return PlayCommand{}, Refuse("{0} must be a valid string.", name)
 			}
 			destination.SetString(text)
 			if closed, ok := destination.Interface().(interface{ Valid() bool }); ok && !closed.Valid() {
-				return PlayCommand{}, fmt.Errorf("%s", enumMessages[name])
+				return PlayCommand{}, Refuse(enumMessages[name])
 			}
 		}
 	}

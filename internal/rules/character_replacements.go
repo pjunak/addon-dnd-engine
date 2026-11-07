@@ -30,7 +30,7 @@ func validateClassReplacementLedger(input character.Inputs, profile Ruleset, res
 			!entry.Kind.Valid() || entry.ClassLevel < 2 || entry.ClassLevel > profile.Constants.Character.MaximumLevel ||
 			entry.Slot < 0 || entry.Slot > 499 || entry.Out == "" || entry.In == "" || entry.Out == entry.In ||
 			!contains([]string{"recorded", "import"}, entry.Origin) || seen[key] {
-			addCharacterIssue(result, "class-replacement-ledger", "build", "The recorded class replacement allowance is invalid.", character.SeverityBlocker, nil)
+			addCharacterIssue(result, "class-replacement-ledger", "build", engineText("The recorded class replacement allowance is invalid."), character.SeverityBlocker, nil)
 		}
 		seen[key] = true
 	}
@@ -179,7 +179,7 @@ func replacementValue(value string) json.RawMessage {
 func replaceClassChoice(input character.Inputs, command character.PlayCommand, records Records, profile Ruleset) (character.Result, error) {
 	current := EvaluateCharacter(input, records, profile)
 	if !current.Guidance.CanSave {
-		return current, fmt.Errorf("Resolve invalid build choices before replacing a class choice.")
+		return current, refuse("Resolve invalid build choices before replacing a class choice.")
 	}
 	for _, option := range current.Guidance.ClassReplacements {
 		if option.Kind != command.Kind || option.Key != command.Key || option.Remaining < 1 {
@@ -197,11 +197,11 @@ func replaceClassChoice(input character.Inputs, command character.PlayCommand, r
 				applyClassReplacement(&next, character.ClassReplacement{Origin: "recorded", Source: option.Source, ClassID: option.ClassID, ClassLevel: option.ClassLevel, Kind: option.Kind, Key: option.Key, Slot: selected.Slot, Out: command.Out, In: command.Ref})
 				result := EvaluateCharacter(next, records, profile)
 				if !result.Guidance.CanSave {
-					return current, fmt.Errorf("The replacement conflicts with another character choice.")
+					return current, refuse("The replacement conflicts with another character choice.")
 				}
 				return result, nil
 			}
 		}
 	}
-	return current, fmt.Errorf("No eligible class-level replacement remains for this choice.")
+	return current, refuse("No eligible class-level replacement remains for this choice.")
 }

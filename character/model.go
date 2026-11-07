@@ -198,29 +198,44 @@ type Inputs struct {
 	Play   Play    `json:"play"`
 	Grants []Grant `json:"grants"`
 }
+
+// Issue is a problem with the character's inputs. Issue, Term and Explanation
+// texts are English. A text the Engine words itself also carries its key in
+// the Engine's message catalog (the English wording with {0}-style
+// placeholders, as in Text) and the placeholder values, so a client can show
+// it in the reader's language. Record names and other data the Engine repeats
+// have no key.
 type Issue struct {
-	ID        string        `json:"id"`
-	Target    string        `json:"target"`
-	Message   string        `json:"message"`
-	Severity  IssueSeverity `json:"severity"`
-	Reference *Reference    `json:"reference,omitempty"`
+	ID          string        `json:"id"`
+	Target      string        `json:"target"`
+	Message     string        `json:"message"`
+	MessageKey  string        `json:"messageKey,omitempty"`
+	MessageArgs []string      `json:"messageArgs,omitempty"`
+	Severity    IssueSeverity `json:"severity"`
+	Reference   *Reference    `json:"reference,omitempty"`
 }
 type Term struct {
-	Label   string     `json:"label"`
-	Value   any        `json:"value"`
-	Source  *Reference `json:"source,omitempty"`
-	GrantID string     `json:"grantId,omitempty"`
-	Status  string     `json:"status,omitempty"`
+	Label     string     `json:"label"`
+	LabelKey  string     `json:"labelKey,omitempty"`
+	LabelArgs []string   `json:"labelArgs,omitempty"`
+	Value     any        `json:"value"`
+	Source    *Reference `json:"source,omitempty"`
+	GrantID   string     `json:"grantId,omitempty"`
+	Status    string     `json:"status,omitempty"`
 }
 type Explanation struct {
-	Label   string      `json:"label"`
-	Formula string      `json:"formula"`
-	Value   any         `json:"value"`
-	Unit    string      `json:"unit,omitempty"`
-	Minimum *int        `json:"minimum,omitempty"`
-	Maximum *int        `json:"maximum,omitempty"`
-	Terms   []Term      `json:"terms"`
-	Sources []Reference `json:"sources"`
+	Label       string      `json:"label"`
+	LabelKey    string      `json:"labelKey,omitempty"`
+	LabelArgs   []string    `json:"labelArgs,omitempty"`
+	Formula     string      `json:"formula"`
+	FormulaKey  string      `json:"formulaKey,omitempty"`
+	FormulaArgs []string    `json:"formulaArgs,omitempty"`
+	Value       any         `json:"value"`
+	Unit        string      `json:"unit,omitempty"`
+	Minimum     *int        `json:"minimum,omitempty"`
+	Maximum     *int        `json:"maximum,omitempty"`
+	Terms       []Term      `json:"terms"`
+	Sources     []Reference `json:"sources"`
 }
 type Evidence struct {
 	Reference         Reference   `json:"reference"`

@@ -41,14 +41,14 @@ func validateCharacterPlacement(input character.Inputs, records Records, result 
 			continue
 		}
 		if item.Location != "equipped" || item.Quantity < 1 {
-			addCharacterIssue(result, "placement-location:"+item.ID, "inventory", "Only equipped items with a positive quantity can have a body placement. Clear the placement when stowing the item.", "blocker", item.Reference)
+			addCharacterIssue(result, "placement-location:"+item.ID, "inventory", engineText("Only equipped items with a positive quantity can have a body placement. Clear the placement when stowing the item."), "blocker", item.Reference)
 		}
 		var record Object
 		if item.Reference != nil {
 			record = recordByID(records, item.Reference.Kind, item.Reference.ID)
 		}
 		if !contains(characterBodyPlacements(item, record, input, records), item.BodyPlacement) {
-			addCharacterIssue(result, "placement-source:"+item.ID, "inventory", "This body placement is not supported by the item's current source or active DM mechanics. Choose an available placement or clear it.", "blocker", item.Reference)
+			addCharacterIssue(result, "placement-source:"+item.ID, "inventory", engineText("This body placement is not supported by the item's current source or active DM mechanics. Choose an available placement or clear it."), "blocker", item.Reference)
 		}
 	}
 }
@@ -68,5 +68,5 @@ func characterPlacement(input character.Inputs, result *character.Result) {
 		}
 	}
 	result.Sheet.BodyPlacement = rows
-	result.Explanations["bodyPlacement"] = character.Explanation{Label: "Body placement", Formula: "Authored display organization of equipped inventory instances. Placement grants no bonuses or extra equipment slots and does not limit the number of worn accessories. Armor, shield and attunement rules are evaluated separately.", Value: rows, Terms: terms, Sources: sources}
+	result.Explanations["bodyPlacement"] = explanation(engineText("Body placement"), engineText("Authored display organization of equipped inventory instances. Placement grants no bonuses or extra equipment slots and does not limit the number of worn accessories. Armor, shield and attunement rules are evaluated separately."), rows, terms, sources)
 }

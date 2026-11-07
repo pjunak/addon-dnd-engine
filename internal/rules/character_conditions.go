@@ -86,7 +86,7 @@ func validateCharacterConditions(input character.Inputs, records Records, profil
 	for _, condition := range input.Play.Conditions {
 		definition, exists := byID[condition.ID]
 		if !exists || seen[condition.ID] || condition.Level < 1 || condition.Level > definition.MaximumLevel {
-			addCharacterIssue(result, "condition:"+condition.ID, "conditions", "Choose a distinct available condition and a supported level, or remove it.", character.SeverityBlocker, &ref)
+			addCharacterIssue(result, "condition:"+condition.ID, "conditions", engineText("Choose a distinct available condition and a supported level, or remove it."), character.SeverityBlocker, &ref)
 		}
 		seen[condition.ID] = true
 	}
@@ -156,8 +156,8 @@ func characterConditions(input character.Inputs, records Records, profile Rulese
 		sheet.Advantages = append(sheet.Advantages, rollEntries...)
 		applyRollMarks(sheet)
 	}
-	result.Explanations["conditions"] = character.Explanation{Label: "Conditions", Formula: "Authored conditions are preserved until explicitly changed. Movement restrictions apply to displayed speeds. Apply the separate D20 adjustment to rolls; ability modifiers, printed roll bonuses and spell save DCs remain unchanged. Situational effects and ending conditions require adjudication. Active items grant their own conditions, one level per item, with no automated effect.", Value: rows, Terms: append(append([]character.Term{}, terms...), grantedTerms...), Sources: append(append([]character.Reference{}, sources...), grantedSources...)}
-	result.Explanations["conditionEffects.d20Adjustment"] = character.Explanation{Label: "D20 roll adjustment", Formula: "Sum of source-declared penalties for active condition levels. Apply once to each D20 Test, including Initiative. This adjustment is not included in printed bonuses or spell save DCs.", Value: -penalty, Terms: terms, Sources: sources}
+	result.Explanations["conditions"] = explanation(engineText("Conditions"), engineText("Authored conditions are preserved until explicitly changed. Movement restrictions apply to displayed speeds. Apply the separate D20 adjustment to rolls; ability modifiers, printed roll bonuses and spell save DCs remain unchanged. Situational effects and ending conditions require adjudication. Active items grant their own conditions, one level per item, with no automated effect."), rows, append(append([]character.Term{}, terms...), grantedTerms...), append(append([]character.Reference{}, sources...), grantedSources...))
+	result.Explanations["conditionEffects.d20Adjustment"] = explanation(engineText("D20 roll adjustment"), engineText("Sum of source-declared penalties for active condition levels. Apply once to each D20 Test, including Initiative. This adjustment is not included in printed bonuses or spell save DCs."), -penalty, terms, sources)
 	if !speedZero && speedPenalty == 0 || sheet == nil {
 		return
 	}
@@ -184,7 +184,7 @@ func characterConditions(input character.Inputs, records Records, profile Rulese
 		explanation := result.Explanations[speed.path]
 		explanation.Value = after
 		explanation.Formula += " Apply source-declared condition restrictions after other speed effects; zero Speed takes precedence."
-		explanation.Terms = append(explanation.Terms, character.Term{Label: "Before conditions", Value: before})
+		explanation.Terms = append(explanation.Terms, term(engineText("Before conditions"), before))
 		explanation.Terms = append(explanation.Terms, terms...)
 		explanation.Sources = append(explanation.Sources, sources...)
 		result.Explanations[speed.path] = explanation

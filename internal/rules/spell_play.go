@@ -1,7 +1,6 @@
 package rules
 
 import (
-	"fmt"
 	"slices"
 	"sort"
 	"strconv"
@@ -137,18 +136,18 @@ func selectGrantSpell(decisions Object, sheet *character.Calculation, command ch
 		}
 	}
 	if choice == nil {
-		return fmt.Errorf("This spell choice is no longer available.")
+		return refuse("This spell choice is no longer available.")
 	}
 	current := unique(choice.Picked)
 	if command.Selected {
 		if !grantSpellEligible(recordByID(records, "spell", command.Ref), *choice) {
-			return fmt.Errorf("This spell does not meet the grant's requirements.")
+			return refuse("This spell does not meet the grant's requirements.")
 		}
 		if contains(current, command.Ref) {
 			return nil
 		}
 		if len(current) >= choice.Choose {
-			return fmt.Errorf("Remove a selected spell before choosing another.")
+			return refuse("Remove a selected spell before choosing another.")
 		}
 		current = append(current, command.Ref)
 	} else {
@@ -170,12 +169,12 @@ func selectCastingAbility(decisions Object, sheet *character.Calculation, comman
 			continue
 		}
 		if !contains(choice.Options, command.Ability) {
-			return fmt.Errorf("Choose an available spellcasting ability.")
+			return refuse("Choose an available spellcasting ability.")
 		}
 		playMap(decisions, "grantCastingAbilities")[command.Key] = command.Ability
 		return nil
 	}
-	return fmt.Errorf("This spellcasting ability choice is no longer available.")
+	return refuse("This spellcasting ability choice is no longer available.")
 }
 
 func spellGrantKey(grant character.SpellGrant) string {
@@ -189,14 +188,14 @@ func castGrantedSpell(decisions Object, sheet *character.Calculation, command ch
 		}
 		slot := command.Slot
 		if recordByID(records, "spell", grant.Ref) == nil {
-			return fmt.Errorf("This granted spell is unavailable in the selected rules data.")
+			return refuse("This granted spell is unavailable in the selected rules data.")
 		}
 		if itemSpell(grant) {
 			if itemCastingAbilityPending(grant, sheet.Spellcasting) {
-				return fmt.Errorf("Choose the item's spellcasting ability before casting its spells.")
+				return refuse("Choose the item's spellcasting ability before casting its spells.")
 			}
 			if !contains(itemSpellCasts(grant, sheet.Spellcasting), slot) {
-				return fmt.Errorf("Cast this item spell with the item's own uses; item spells never use spell slots.")
+				return refuse("Cast this item spell with the item's own uses; item spells never use spell slots.")
 			}
 			if slot == "" {
 				return nil
@@ -214,7 +213,7 @@ func castGrantedSpell(decisions Object, sheet *character.Calculation, command ch
 			return nil
 		}
 		if grant.RitualOnly {
-			return fmt.Errorf("This spell can only be cast as a ritual.")
+			return refuse("This spell can only be cast as a ritual.")
 		}
 		level := 0
 		if grant.Level != nil {
@@ -222,7 +221,7 @@ func castGrantedSpell(decisions Object, sheet *character.Calculation, command ch
 		}
 		return spendSpellSlot(decisions, sheet, records, grant.Ref, level, slot)
 	}
-	return fmt.Errorf("This spell is not granted by the current build.")
+	return refuse("This spell is not granted by the current build.")
 }
 
 func itemSpell(grant character.SpellGrant) bool {
@@ -297,7 +296,7 @@ func spellSlotKeys(decisions Object, sheet *character.Calculation, records Recor
 
 func spendSpellSlot(decisions Object, sheet *character.Calculation, records Records, ref string, level int, slot string) error {
 	if !contains(spellSlotKeys(decisions, sheet, records, ref, level), slot) {
-		return fmt.Errorf("Choose an eligible spell slot of this spell's level or higher.")
+		return refuse("Choose an eligible spell slot of this spell's level or higher.")
 	}
 	if level == 0 {
 		return nil
@@ -319,16 +318,16 @@ func canCastRitual(decisions Object, caster *character.Caster, spell Object) boo
 func copyPlaySpell(decisions Object, sheet *character.Calculation, command character.PlayCommand, records Records, profile Ruleset) error {
 	classID, ref, scrollID := command.ClassID, command.Ref, command.ScrollID
 	if contains(stringsOf(object(decisions["spellbook"])[classID]), ref) {
-		return fmt.Errorf("This spell is already in the spellbook.")
+		return refuse("This spell is already in the spellbook.")
 	}
 	spell := recordByID(records, "spell", ref)
 	if spell == nil {
-		return fmt.Errorf("Choose a spell to copy.")
+		return refuse("Choose a spell to copy.")
 	}
 	cost := ScrollCopyCost(number(spell["level"], 0), profile)
 	currency := playMap(decisions, "currency")
 	if number(currency["gp"], 0) < cost {
-		return fmt.Errorf("Copying this spell requires %g GP.", cost)
+		return refuse("Copying this spell requires {0} GP.", cost)
 	}
 	if scrollID != "" {
 		found := false
@@ -339,13 +338,13 @@ func copyPlaySpell(decisions Object, sheet *character.Calculation, command chara
 			// Only an explicit link counts: item names are free text, in any
 			// language, and one spell's name can be part of another's.
 			if text(item["spellRef"]) != ref || integer(item["qty"], 0) < 1 {
-				return fmt.Errorf("Choose a remaining scroll for this spell.")
+				return refuse("Choose a remaining scroll for this spell.")
 			}
 			found = true
 			break
 		}
 		if !found {
-			return fmt.Errorf("The selected scroll is no longer in the inventory.")
+			return refuse("The selected scroll is no longer in the inventory.")
 		}
 	}
 	if err := selectPlaySpell(decisions, sheet, classID, ref, character.ListSpellbook, true, records); err != nil {
@@ -373,7 +372,7 @@ func swapPlaySpell(decisions Object, sheet *character.Calculation, command chara
 	caster := playCaster(sheet, classID)
 	selected := stringsOf(object(decisions["preparedSpells"])[classID])
 	if caster == nil || caster.Prepares == "spellbook" || !contains(selected, previous) || contains(selected, next) {
-		return fmt.Errorf("Choose a known spell to replace and a different eligible spell.")
+		return refuse("Choose a known spell to replace and a different eligible spell.")
 	}
 	if err := selectPlaySpell(decisions, sheet, classID, previous, character.ListPrepared, false, records); err != nil {
 		return err

@@ -36,7 +36,7 @@ contracts/          public JSON Schemas of the service
 internal/engine/    service boundary
 internal/provider/  rules-data client
 internal/rules/     pure, deterministic rules computation
-locales/            message catalogs: Czech manifest strings only; workers write English
+locales/            message catalog of the Engine's wording (English keys, Czech); workers write English
 ```
 
 ## Rules
@@ -54,6 +54,10 @@ locales/            message catalogs: Czech manifest strings only; workers write
 - No combat or encounter automation; that belongs in a separate add-on.
 - Add a regression test for every bug. Test fixtures are synthetic; never copy
   compendium content here.
+- Word user-facing text with `engineText`/`refuse` (`character.NewText`/
+  `Refuse`), never by concatenation, and put record names in arguments. Add
+  each new template to `locales/en.json` with its Czech in `locales/cs.json`;
+  `TestEngineWordingIsCataloged` checks both.
 
 ## Read more
 

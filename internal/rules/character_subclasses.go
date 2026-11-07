@@ -27,7 +27,7 @@ func validateCharacterSubclasses(input character.Inputs, records Records, result
 		subclass := recordView(records, "subclass", subclassID)
 		level := classSubclassLevel(class)
 		if class == nil || subclass == nil || text(subclass["classId"]) != classID || level < 1 || levels[classID] < level {
-			addCharacterIssue(result, "subclass-level:"+classID, "levels", "This subclass is not available at the recorded class level.", character.SeverityBlocker, &character.Reference{Kind: "subclass", ID: subclassID})
+			addCharacterIssue(result, "subclass-level:"+classID, "levels", engineText("This subclass is not available at the recorded class level."), character.SeverityBlocker, &character.Reference{Kind: "subclass", ID: subclassID})
 		}
 	}
 }

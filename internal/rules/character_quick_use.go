@@ -1,8 +1,6 @@
 package rules
 
 import (
-	"fmt"
-
 	"github.com/pjunak/addon-dnd-engine/character"
 )
 
@@ -16,12 +14,12 @@ func validateCharacterQuickUse(input character.Inputs, result *character.Result)
 	seen := map[string]bool{}
 	for _, id := range input.Play.QuickUse {
 		if id == "" || !owned[id] || seen[id] {
-			addCharacterIssue(result, "quick-use:"+id, "inventory", "Quick-use pins must refer to distinct owned inventory instances.", character.SeverityBlocker, nil)
+			addCharacterIssue(result, "quick-use:"+id, "inventory", engineText("Quick-use pins must refer to distinct owned inventory instances."), character.SeverityBlocker, nil)
 		}
 		seen[id] = true
 	}
 	if len(input.Play.QuickUse) > 500 {
-		addCharacterIssue(result, "quick-use-limit", "inventory", "Quick-use pins exceed the character input limit.", character.SeverityBlocker, nil)
+		addCharacterIssue(result, "quick-use-limit", "inventory", engineText("Quick-use pins exceed the character input limit."), character.SeverityBlocker, nil)
 	}
 }
 
@@ -60,15 +58,12 @@ func characterQuickUse(input character.Inputs, result *character.Result) {
 	}
 	result.Sheet.QuickUse = pins
 	result.Guidance.QuickUse = options
-	result.Explanations["quickUse"] = character.Explanation{
-		Label: "Quick use", Formula: "Pins reference owned inventory instances. Using one reduces that instance's quantity once; item effects are resolved separately. Stored or depleted items remain pinned. Rest and recalculation never replenish them.",
-		Value: pins, Terms: []character.Term{}, Sources: []character.Reference{},
-	}
+	result.Explanations["quickUse"] = explanation(engineText("Quick use"), engineText("Pins reference owned inventory instances. Using one reduces that instance's quantity once; item effects are resolved separately. Stored or depleted items remain pinned. Rest and recalculation never replenish them."), pins, []character.Term{}, []character.Reference{})
 }
 
 func consumeCharacterItem(input *character.Inputs, id string) error {
 	if id == "" {
-		return fmt.Errorf("Choose one owned inventory instance to use.")
+		return refuse("Choose one owned inventory instance to use.")
 	}
 	for index := range input.Play.Inventory {
 		item := &input.Play.Inventory[index]
@@ -76,7 +71,7 @@ func consumeCharacterItem(input *character.Inputs, id string) error {
 			continue
 		}
 		if reason := characterItemUseReason(*item); reason != character.ItemUsable {
-			return fmt.Errorf("The item is empty or stored. Carry an available item before using it.")
+			return refuse("The item is empty or stored. Carry an available item before using it.")
 		}
 		item.Quantity--
 		if item.Quantity == 0 {
@@ -89,5 +84,5 @@ func consumeCharacterItem(input *character.Inputs, id string) error {
 		}
 		return nil
 	}
-	return fmt.Errorf("The selected inventory instance no longer exists.")
+	return refuse("The selected inventory instance no longer exists.")
 }

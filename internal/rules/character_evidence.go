@@ -144,10 +144,10 @@ func characterExplanations(input character.Inputs, calculation *character.Calcul
 	result := map[string]character.Explanation{}
 	if size := object(sheet["derived"])["size"]; size != nil {
 		source := character.Reference{Kind: "species", ID: input.Build.Species}
-		result["derived.size"] = character.Explanation{
-			Label: "Size", Formula: "Size from the selected species and its explicit choice, when required.", Value: size,
-			Terms: []character.Term{{Label: "Species size", Value: size, Source: &source}}, Sources: []character.Reference{source},
-		}
+		speciesSize := term(engineText("Species size"), size)
+		speciesSize.Source = &source
+		result["derived.size"] = explanation(engineText("Size"), engineText("Size from the selected species and its explicit choice, when required."), size,
+			[]character.Term{speciesSize}, []character.Reference{source})
 	}
 	sources := []character.Reference{}
 	for _, entry := range evidence {
@@ -180,21 +180,22 @@ func characterExplanations(input character.Inputs, calculation *character.Calcul
 					terms = append(terms, character.Term{Label: key, Value: val})
 				}
 			}
-			result[path] = character.Explanation{Label: path, Formula: "Result of the selected rule and its applicable progression row.", Value: intValue, Terms: terms, Sources: []character.Reference{}}
+			result[path] = explanation(plainText(path), engineText("Result of the selected rule and its applicable progression row."), intValue, terms, []character.Reference{})
 		}
 	}
 	visit(sheet, "", nil)
-	makeExplanation := func(path, label, formula string, value any, terms ...character.Term) {
-		result[path] = character.Explanation{Label: label, Formula: formula, Value: value, Terms: terms, Sources: sources}
+	makeExplanation := func(path string, label, formula character.Text, value any, terms ...character.Term) {
+		result[path] = explanation(label, formula, value, terms, sources)
 	}
+	keyed := func(label string, value any) character.Term { return term(engineText(label), value) }
 	derived := object(sheet["derived"])
 	pb := integer(derived["proficiencyBonus"], 0)
-	makeExplanation("derived.proficiencyBonus", "Proficiency bonus", "2 + floor((character level − 1) / 4)", pb, character.Term{Label: "Character level", Value: len(input.Build.Levels)})
+	makeExplanation("derived.proficiencyBonus", engineText("Proficiency bonus"), engineText("2 + floor((character level − 1) / 4)"), pb, keyed("Character level", len(input.Build.Levels)))
 	for _, ability := range Abilities {
 		value := object(object(sheet["abilities"])[ability])
 		score := value["score"]
-		makeExplanation("abilities."+ability+".score", ability+" score", "min(effective ability cap, base score + granted increases)", score, character.Term{Label: "Recorded base", Value: input.Build.BaseScores[ability]}, character.Term{Label: "Granted increases", Value: value["bonus"]}, character.Term{Label: "Effective cap", Value: value["cap"]})
-		makeExplanation("abilities."+ability+".mod", ability+" modifier", "floor((effective score − 10) / 2)", value["mod"], character.Term{Label: "Effective score", Value: score})
+		makeExplanation("abilities."+ability+".score", engineText(ability+" score"), engineText("min(effective ability cap, base score + granted increases)"), score, keyed("Recorded base", input.Build.BaseScores[ability]), keyed("Granted increases", value["bonus"]), keyed("Effective cap", value["cap"]))
+		makeExplanation("abilities."+ability+".mod", engineText(ability+" modifier"), engineText("floor((effective score − 10) / 2)"), value["mod"], keyed("Effective score", score))
 	}
 	for _, group := range []string{"saves", "skills"} {
 		for key, raw := range object(sheet[group]) {
@@ -206,20 +207,25 @@ func characterExplanations(input character.Inputs, calculation *character.Calcul
 			if truth(row["expertise"]) {
 				multiplier = 2
 			}
-			terms := []character.Term{{Label: "Ability modifier", Value: row["mod"]}, {Label: "Proficiency multiplier", Value: multiplier}, {Label: "Proficiency bonus", Value: pb}}
+			terms := []character.Term{keyed("Ability modifier", row["mod"]), keyed("Proficiency multiplier", multiplier), keyed("Proficiency bonus", pb)}
 			terms = append(terms, bonusTerms(objects(row["bonuses"]))...)
-			makeExplanation(group+"."+key+".total", guidanceLabel(key), "ability modifier + proficiency multiplier × proficiency bonus + feature bonuses", row["total"], terms...)
+			// Saves are keyed by ability and skills by a fixed name, so both labels are Engine wording.
+			label := engineText(guidanceLabel(key))
+			if group == "saves" {
+				label = engineText(key + " saving throw")
+			}
+			makeExplanation(group+"."+key+".total", label, engineText("ability modifier + proficiency multiplier × proficiency bonus + feature bonuses"), row["total"], terms...)
 		}
 	}
 	hp := object(sheet["hp"])
-	hpTerms := []character.Term{{Label: "Level gains", Value: hp["levels"]}}
+	hpTerms := []character.Term{keyed("Level gains", hp["levels"])}
 	for _, bonus := range objects(hp["fixedBonuses"]) {
 		ref := grantSourceReference(sourceFromObject(object(bonus["source"])))
 		hpTerms = append(hpTerms, character.Term{Label: text(bonus["name"]), Value: bonus["value"], Source: &ref})
 	}
-	makeExplanation("derived.maxHp", "Maximum HP", "sum of each level's max(minimum gain, hit die result + Constitution modifier) + per-level grants + fixed grants", derived["maxHp"], hpTerms...)
+	makeExplanation("derived.maxHp", engineText("Maximum HP"), engineText("sum of each level's max(minimum gain, hit die result + Constitution modifier) + per-level grants + fixed grants"), derived["maxHp"], hpTerms...)
 	ac := object(sheet["ac"])
-	terms := []character.Term{{Label: "Available formulas (highest applies)", Value: ac["candidates"]}, {Label: "Chosen formula", Value: ac["base"]}, {Label: "Shield", Value: ac["shield"]}}
+	terms := []character.Term{keyed("Available formulas (highest applies)", ac["candidates"]), keyed("Chosen formula", ac["base"]), keyed("Shield", ac["shield"])}
 	for _, key := range []string{"speciesBonus", "activeBonus", "restrictions"} {
 		if value, ok := ac[key]; ok {
 			terms = append(terms, character.Term{Label: key, Value: value})
@@ -230,9 +236,9 @@ func characterExplanations(input character.Inputs, calculation *character.Calcul
 		terms = append(terms, character.Term{Label: text(bonus["name"]), Value: Object{"bonus": bonus["value"], "requires": bonus["requires"]},
 			Source: &ref, Status: text(bonus["status"])})
 	}
-	makeExplanation("derived.armorClass", "Armor Class", "highest eligible AC formula + shield + applicable bonuses", derived["armorClass"], terms...)
+	makeExplanation("derived.armorClass", engineText("Armor Class"), engineText("highest eligible AC formula + shield + applicable bonuses"), derived["armorClass"], terms...)
 	dex := object(object(sheet["abilities"])["DEX"])["mod"]
-	makeExplanation("derived.initiative", "Initiative", "Dexterity modifier + applicable feature bonuses", derived["initiative"], append([]character.Term{{Label: "Dexterity modifier", Value: dex}, {Label: "Feature bonuses", Value: integer(derived["initiative"], 0) - integer(dex, 0)}}, bonusTerms(objects(sheet["initiativeBonuses"]))...)...)
+	makeExplanation("derived.initiative", engineText("Initiative"), engineText("Dexterity modifier + applicable feature bonuses"), derived["initiative"], append([]character.Term{keyed("Dexterity modifier", dex), keyed("Feature bonuses", integer(derived["initiative"], 0)-integer(dex, 0))}, bonusTerms(objects(sheet["initiativeBonuses"]))...)...)
 	speedTerms := []character.Term{}
 	for _, entry := range evidence {
 		for _, key := range []string{"speeds", "speed", "grants", "modifiers"} {
@@ -244,10 +250,10 @@ func characterExplanations(input character.Inputs, calculation *character.Calcul
 		}
 	}
 	speedTerms = append(speedTerms, bonusTerms(objects(sheet["speedBonuses"]))...)
-	makeExplanation("derived.speed", "Speed", "species movement + applicable grants and active effects", derived["speed"], speedTerms...)
+	makeExplanation("derived.speed", engineText("Speed"), engineText("species movement + applicable grants and active effects"), derived["speed"], speedTerms...)
 	attunement := object(sheet["attunement"])
-	makeExplanation("attunement.limit", "Attunement capacity", "maximum of the ruleset limit and unlocked class capacities", attunement["limit"], character.Term{Label: "Class progression", Value: sheet["classes"]})
-	makeExplanation("attunement.count", "Attuned items", "count of attuned inventory instances", attunement["count"], character.Term{Label: "Inventory", Value: input.Play.Inventory})
+	makeExplanation("attunement.limit", engineText("Attunement capacity"), engineText("maximum of the ruleset limit and unlocked class capacities"), attunement["limit"], keyed("Class progression", sheet["classes"]))
+	makeExplanation("attunement.count", engineText("Attuned items"), engineText("count of attuned inventory instances"), attunement["count"], keyed("Inventory", input.Play.Inventory))
 	for key, value := range object(sheet["senses"]) {
 		terms := []character.Term{}
 		for _, entry := range evidence {
@@ -289,20 +295,21 @@ func characterExplanations(input character.Inputs, calculation *character.Calcul
 				}
 			}
 		}
-		makeExplanation("senses."+key, guidanceLabel(key), "greatest applicable granted range, followed by explicit DM adjustments", value, terms...)
+		makeExplanation("senses."+key, engineText(guidanceLabel(key)), engineText("greatest applicable granted range, followed by explicit DM adjustments"), value, terms...)
 	}
 	for _, resource := range objects(sheet["resources"]) {
 		key := text(resource["key"])
-		makeExplanation("resources."+key+".max", firstText(resource["name"], key), "capacity from the granting rule's level/proficiency/ability progression", resource["max"], character.Term{Label: "Resource rule", Value: resource})
-		makeExplanation("resources."+key+".remaining", firstText(resource["name"], key)+" remaining", "effective capacity − recorded spent uses", resource["remaining"], character.Term{Label: "Capacity", Value: resource["max"]}, character.Term{Label: "Spent", Value: resource["spent"]})
+		name := firstText(resource["name"], key)
+		makeExplanation("resources."+key+".max", plainText(name), engineText("capacity from the granting rule's level/proficiency/ability progression"), resource["max"], keyed("Resource rule", resource))
+		makeExplanation("resources."+key+".remaining", engineText("{0} remaining", name), engineText("effective capacity − recorded spent uses"), resource["remaining"], keyed("Capacity", resource["max"]), keyed("Spent", resource["spent"]))
 	}
 	for index, caster := range objects(object(sheet["spellcasting"])["perClass"]) {
 		ability := text(caster["ability"])
 		modifier := object(object(sheet["abilities"])[ability])["mod"]
 		prefix := fmtIndex("spellcasting.perClass", index)
-		makeExplanation(prefix+".saveDC", "Spell save DC", "base + proficiency bonus + spellcasting ability modifier", caster["saveDC"], character.Term{Label: "Base", Value: profile.Constants.SpellSaveDCBase}, character.Term{Label: "Proficiency bonus", Value: pb}, character.Term{Label: ability + " modifier", Value: modifier})
-		makeExplanation(prefix+".spellAttack", "Spell attack", "proficiency bonus + spellcasting ability modifier", caster["spellAttack"], character.Term{Label: "Proficiency bonus", Value: pb}, character.Term{Label: ability + " modifier", Value: modifier})
-		makeExplanation(prefix+".preparedLimit", "Prepared spells", "the class table's prepared spells at this class level", caster["preparedLimit"], character.Term{Label: "Class level", Value: caster["level"]}, character.Term{Label: "Prepared", Value: caster["preparedCount"]})
+		makeExplanation(prefix+".saveDC", engineText("Spell save DC"), engineText("base + proficiency bonus + spellcasting ability modifier"), caster["saveDC"], keyed("Base", profile.Constants.SpellSaveDCBase), keyed("Proficiency bonus", pb), keyed(ability+" modifier", modifier))
+		makeExplanation(prefix+".spellAttack", engineText("Spell attack"), engineText("proficiency bonus + spellcasting ability modifier"), caster["spellAttack"], keyed("Proficiency bonus", pb), keyed(ability+" modifier", modifier))
+		makeExplanation(prefix+".preparedLimit", engineText("Prepared spells"), engineText("the class table's prepared spells at this class level"), caster["preparedLimit"], keyed("Class level", caster["level"]), keyed("Prepared", caster["preparedCount"]))
 	}
 	for index, weapon := range objects(sheet["weapons"]) {
 		proficiency := 0
@@ -320,30 +327,32 @@ func characterExplanations(input character.Inputs, calculation *character.Calcul
 			modifiers = append(modifiers, character.Term{Label: text(row["name"]), Value: value, Status: "applied", Source: &ref})
 		}
 		prefix := fmtIndex("weapons", index)
-		abilityTerm := character.Term{Label: abilityName + " modifier", Value: ability}
-		makeExplanation(prefix+".attackBonus", "Weapon attack", "attack ability modifier + proficiency bonus when proficient + attack bonuses", weapon["attackBonus"], append([]character.Term{abilityTerm, {Label: "Applicable proficiency", Value: proficiency}}, modifiers...)...)
-		makeExplanation(prefix+".damage", "Weapon damage", "largest eligible damage die + attack ability modifier + damage bonuses", weapon["damage"], append([]character.Term{abilityTerm, {Label: "Damage type", Value: weapon["damageType"]}}, modifiers...)...)
-		makeExplanation(prefix+".versatileDamage", "Versatile damage", "two-handed weapon dice + attack ability modifier + damage bonuses", weapon["versatileDamage"], append([]character.Term{abilityTerm}, modifiers...)...)
+		abilityTerm := keyed(abilityName+" modifier", ability)
+		makeExplanation(prefix+".attackBonus", engineText("Weapon attack"), engineText("attack ability modifier + proficiency bonus when proficient + attack bonuses"), weapon["attackBonus"], append([]character.Term{abilityTerm, keyed("Applicable proficiency", proficiency)}, modifiers...)...)
+		makeExplanation(prefix+".damage", engineText("Weapon damage"), engineText("largest eligible damage die + attack ability modifier + damage bonuses"), weapon["damage"], append([]character.Term{abilityTerm, keyed("Damage type", weapon["damageType"])}, modifiers...)...)
+		makeExplanation(prefix+".versatileDamage", engineText("Versatile damage"), engineText("two-handed weapon dice + attack ability modifier + damage bonuses"), weapon["versatileDamage"], append([]character.Term{abilityTerm}, modifiers...)...)
 		var record *character.Reference
 		if ref := text(weapon["ref"]); ref != "" {
 			record = &character.Reference{Kind: "weapon", ID: ref}
 		}
 		if reach, ok := weapon["reach"]; ok && profile.Constants.MeleeReach != nil {
-			terms := []character.Term{{Label: "Melee reach", Value: profile.Constants.MeleeReach.Base}}
+			terms := []character.Term{keyed("Melee reach", profile.Constants.MeleeReach.Base)}
 			if contains(stringsOf(weapon["properties"]), "reach") {
-				terms = append(terms, character.Term{Label: "Reach property", Value: profile.Constants.MeleeReach.ReachBonus, Source: record})
+				property := keyed("Reach property", profile.Constants.MeleeReach.ReachBonus)
+				property.Source = record
+				terms = append(terms, property)
 			}
-			makeExplanation(prefix+".reach", "Reach", "melee reach + the Reach property's bonus", reach, terms...)
+			makeExplanation(prefix+".reach", engineText("Reach"), engineText("melee reach + the Reach property's bonus"), reach, terms...)
 		}
 		if distance := object(weapon["range"]); distance != nil {
 			label := "Range"
 			if truth(distance["thrown"]) {
 				label = "Thrown range"
 			}
-			makeExplanation(prefix+".range", label, "normal range / long range from the weapon record",
-				fmt.Sprintf("%d/%d", integer(distance["normal"], 0), integer(distance["long"], 0)),
-				character.Term{Label: "Normal range", Value: distance["normal"], Source: record},
-				character.Term{Label: "Long range", Value: distance["long"], Source: record})
+			normal, long := keyed("Normal range", distance["normal"]), keyed("Long range", distance["long"])
+			normal.Source, long.Source = record, record
+			makeExplanation(prefix+".range", engineText(label), engineText("normal range / long range from the weapon record"),
+				fmt.Sprintf("%d/%d", integer(distance["normal"], 0), integer(distance["long"], 0)), normal, long)
 		}
 	}
 	if worth := object(sheet["currencyWorth"]); worth != nil && profile.Constants.Currency != nil {
@@ -368,12 +377,16 @@ func characterExplanations(input character.Inputs, calculation *character.Calcul
 				terms = append(terms, character.Term{Label: coin, Value: Object{"coins": amount}, Status: "inactive"})
 			}
 		}
-		makeExplanation("currencyWorth.value", "Worth", "each coin count × its value, divided by the value of one "+text(worth["coin"]), worth["value"], terms...)
+		makeExplanation("currencyWorth.value", engineText("Worth"), engineText("each coin count × its value, divided by the value of one {0}", text(worth["coin"])), worth["value"], terms...)
 	}
 	maximum := integer(derived["maxHp"], 0)
 	zero := 0
-	result["play.hp"] = character.Explanation{Label: "Current HP", Formula: "Recorded play value between zero and effective maximum HP.", Value: input.Play.HP, Minimum: &zero, Maximum: &maximum, Terms: []character.Term{{Label: "Effective maximum", Value: maximum}}, Sources: []character.Reference{}}
-	result["play.temporaryHp"] = character.Explanation{Label: "Temporary HP", Formula: "Separate non-negative play pool; it does not increase maximum HP.", Value: input.Play.TemporaryHP, Minimum: &zero, Terms: []character.Term{}, Sources: []character.Reference{}}
+	current := explanation(engineText("Current HP"), engineText("Recorded play value between zero and effective maximum HP."), input.Play.HP, []character.Term{keyed("Effective maximum", maximum)}, []character.Reference{})
+	current.Minimum, current.Maximum = &zero, &maximum
+	result["play.hp"] = current
+	temporary := explanation(engineText("Temporary HP"), engineText("Separate non-negative play pool; it does not increase maximum HP."), input.Play.TemporaryHP, []character.Term{}, []character.Reference{})
+	temporary.Minimum = &zero
+	result["play.temporaryHp"] = temporary
 	for path, explanation := range result {
 		if path == "derived.speed" || strings.HasPrefix(path, "senses.") ||
 			strings.HasPrefix(path, "weapons.") && (strings.HasSuffix(path, ".reach") || strings.HasSuffix(path, ".range")) {

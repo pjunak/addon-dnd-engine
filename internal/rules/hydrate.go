@@ -20,6 +20,8 @@ var SkillAbility = map[string]string{
 type HydrationResult struct {
 	Sheet    *character.Calculation `json:"sheet"`
 	Warnings []string               `json:"warnings"`
+	// warningTexts are Warnings with their catalog keys.
+	warningTexts []character.Text
 }
 
 type resolvedClass struct {
@@ -43,10 +45,11 @@ func Hydrate(decisions Object, records Records, ruleset Ruleset) HydrationResult
 	if decisions == nil {
 		decisions = Object{}
 	}
-	warnings := make([]string, 0)
-	warn := func(message string) {
-		if message != "" {
-			warnings = append(warnings, message)
+	warnings, warningTexts := make([]string, 0), []character.Text{}
+	warn := func(message character.Text) {
+		if message.Label != "" {
+			warnings = append(warnings, message.Label)
+			warningTexts = append(warningTexts, message)
 		}
 	}
 
@@ -87,7 +90,7 @@ func Hydrate(decisions Object, records Records, ruleset Ruleset) HydrationResult
 	species, lineage := hydrateSpecies(decisions, records, sheet, warn)
 	background := recordByID(records, "background", text(decisions["background"]))
 	if decisions["background"] != nil && background == nil && records != nil {
-		warn("Unknown background: " + text(decisions["background"]))
+		warn(engineText("Unknown background: {0}", text(decisions["background"])))
 	}
 	featRecords := selectedFeats(decisions, records)
 	// Feat prerequisites check earlier feats by identity and category.
@@ -124,7 +127,7 @@ func Hydrate(decisions Object, records Records, ruleset Ruleset) HydrationResult
 	hydrateResources(sheet, classes, grantSources, records, ruleset, pb)
 	hydrateCurrencyWorth(decisions, sheet, ruleset)
 	character.FillEmpty(sheet)
-	return HydrationResult{Sheet: sheet, Warnings: warnings}
+	return HydrationResult{Sheet: sheet, Warnings: warnings, warningTexts: warningTexts}
 }
 
 // recordIdentity names a record without copying its rules.
@@ -148,7 +151,7 @@ func hydrateAbilities(decisions Object, sheet *character.Calculation, mods map[s
 	}
 }
 
-func resolveClasses(decisions Object, records Records, warn func(string)) []resolvedClass {
+func resolveClasses(decisions Object, records Records, warn func(character.Text)) []resolvedClass {
 	result := make([]resolvedClass, 0)
 	for _, current := range objects(decisions["classes"]) {
 		id := text(current["classId"])
@@ -157,7 +160,7 @@ func resolveClasses(decisions Object, records Records, warn func(string)) []reso
 		}
 		record := recordByID(records, "class", id)
 		if record == nil && records != nil {
-			warn("Unknown class: " + id)
+			warn(engineText("Unknown class: {0}", id))
 		}
 		name := id
 		if record != nil {
@@ -171,11 +174,11 @@ func resolveClasses(decisions Object, records Records, warn func(string)) []reso
 	return result
 }
 
-func hydrateSpecies(decisions Object, records Records, sheet *character.Calculation, warn func(string)) (Object, Object) {
+func hydrateSpecies(decisions Object, records Records, sheet *character.Calculation, warn func(character.Text)) (Object, Object) {
 	selected := text(decisions["species"])
 	species := recordByID(records, "species", selected)
 	if selected != "" && species == nil && records != nil {
-		warn("Unknown species: " + selected)
+		warn(engineText("Unknown species: {0}", selected))
 	}
 	var lineage Object
 	if species != nil && text(decisions["lineage"]) != "" {
@@ -738,7 +741,7 @@ func hydrateWeaponsAndAttunement(
 	ruleset Ruleset,
 	sources []grantSource,
 	activeModifiers []activeModifier,
-	warn func(string),
+	warn func(character.Text),
 ) {
 	proficiency := weaponProficiency(classes, sheet.Proficiencies.Weapons)
 	mastery := make(map[string]struct{})

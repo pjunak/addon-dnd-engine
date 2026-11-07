@@ -2,7 +2,6 @@ package rules
 
 import (
 	"encoding/hex"
-	"fmt"
 	"slices"
 
 	"github.com/pjunak/addon-dnd-engine/character"
@@ -104,16 +103,16 @@ func validateCharacterHands(input character.Inputs, records Records, result *cha
 	if hands == nil {
 		return
 	}
-	block := func(message string) {
+	block := func(message character.Text) {
 		addCharacterIssue(result, "hands", "hands", message, character.SeverityBlocker, nil)
 	}
 	if !hands.Grip.Valid() || hands.Main != "" && hands.Main == hands.Off || hands.Grip == character.GripTwo && hands.Off != "" {
-		block("Choose distinct hand instances and a supported grip.")
+		block(engineText("Choose distinct hand instances and a supported grip."))
 	}
 	if suspended := hands.SuspendedOff; suspended != nil {
 		digest, err := hex.DecodeString(suspended.ExpectedItemSHA256)
 		if suspended.ItemID == "" || suspended.ItemID == hands.Main || suspended.ItemID == hands.Off || hands.Grip != character.GripTwo || err != nil || len(digest) != 32 {
-			block("The suspended off-hand identity is invalid.")
+			block(engineText("The suspended off-hand identity is invalid."))
 		}
 	}
 	used := 0
@@ -132,7 +131,7 @@ func validateCharacterHands(input character.Inputs, records Records, result *cha
 		}
 	}
 	if used > 2 {
-		block("The equipped hand items require more than two hands. Stow an item or suspend the selected off hand.")
+		block(engineText("The equipped hand items require more than two hands. Stow an item or suspend the selected off hand."))
 	}
 	for _, selection := range []struct {
 		id   string
@@ -146,9 +145,9 @@ func validateCharacterHands(input character.Inputs, records Records, result *cha
 		if reason := handEligibility(input, item, records, selection.off); reason != character.HandUsable || item.Location != "equipped" {
 			// Authored inventory edits may remove or stow a selected instance. Keep
 			// its identity for explicit repair without granting an active hand.
-			addCharacterIssue(result, "hand-inactive:"+selection.id, "hands", "The selected hand item is unavailable; choose another item or leave the hand free.", character.SeverityWarning, nil)
+			addCharacterIssue(result, "hand-inactive:"+selection.id, "hands", engineText("The selected hand item is unavailable; choose another item or leave the hand free."), character.SeverityWarning, nil)
 		} else if !slices.Contains(handGrips(item, records), selection.grip) {
-			block("The selected weapon does not support this grip.")
+			block(engineText("The selected weapon does not support this grip."))
 		}
 	}
 }
@@ -191,7 +190,7 @@ func characterHands(input character.Inputs, records Records, result *character.R
 	canRelease := main == nil || main.Quantity < 1 || main.Location != "equipped" || slices.Contains(grips, character.GripOne)
 	canTwo := handEligibility(input, main, records, false) == character.HandUsable && main.Location == "equipped" && slices.Contains(grips, character.GripTwo)
 	result.Guidance.Hands = character.HandsGuidance{Options: options, Grips: grips, CanRelease: canRelease, CanTwo: canTwo, RestoreReason: handRestoreReason(input, records)}
-	result.Explanations["hands"] = character.Explanation{Label: "Hands and grip", Formula: "Owned instance selection and source-declared grip. A suspended off-hand item is carried and contributes no active equipment effects; its attunement allocation is retained. Restoration checks the exact unchanged instance. Turn and action costs are not tracked.", Value: saved, Terms: []character.Term{}, Sources: []character.Reference{}}
+	result.Explanations["hands"] = explanation(engineText("Hands and grip"), engineText("Owned instance selection and source-declared grip. A suspended off-hand item is carried and contributes no active equipment effects; its attunement allocation is retained. Restoration checks the exact unchanged instance. Turn and action costs are not tracked."), saved, []character.Term{}, []character.Reference{})
 }
 
 // handChange edits the hand state of a detached copy of the inputs, and
@@ -242,16 +241,16 @@ func (change *handChange) stow(id string) {
 func (change *handChange) setHand(hand character.Hand, id string) error {
 	hands, input := change.hands(), *change.input
 	if hand == character.HandMain && id == hands.Off && id != "" || hand == character.HandOff && (id == hands.Main && id != "" || hands.Grip == character.GripTwo) {
-		return fmt.Errorf("Choose a distinct available hand; release the two-handed grip first.")
+		return refuse("Choose a distinct available hand; release the two-handed grip first.")
 	}
 	item := handItem(input, id)
 	if id != "" && handEligibility(input, item, change.records, hand == character.HandOff) != character.HandUsable {
-		return fmt.Errorf("The selected item cannot be used in that hand.")
+		return refuse("The selected item cannot be used in that hand.")
 	}
 	if hand == character.HandMain {
 		change.release()
 		if hands.Off == id && id != "" {
-			return fmt.Errorf("Choose a distinct item for each hand.")
+			return refuse("Choose a distinct item for each hand.")
 		}
 		if hands.Main != id {
 			change.stow(hands.Main)
@@ -276,7 +275,7 @@ func (change *handChange) setGrip(grip character.Grip) error {
 	hands, input := change.hands(), *change.input
 	item := handItem(input, hands.Main)
 	if grip == character.GripTwo && (handEligibility(input, item, change.records, false) != character.HandUsable || item.Location != "equipped" || !slices.Contains(handGrips(item, change.records), character.GripTwo)) || grip == character.GripOne && item != nil && item.Quantity > 0 && item.Location == "equipped" && !slices.Contains(handGrips(item, change.records), character.GripOne) {
-		return fmt.Errorf("The selected weapon does not support this grip.")
+		return refuse("The selected weapon does not support this grip.")
 	}
 	if grip == character.GripOne {
 		change.release()
@@ -300,7 +299,7 @@ func applyHandCommand(input character.Inputs, records Records, profile Ruleset, 
 	}
 	result := EvaluateCharacter(input, records, profile)
 	if !result.Guidance.CanSave {
-		return current, fmt.Errorf("Resolve the character's equipment conflicts before changing hands.")
+		return current, refuse("Resolve the character's equipment conflicts before changing hands.")
 	}
 	if change.restoreReason != character.HandUsable {
 		result.Sheet.Hands.RestoreReason = change.restoreReason

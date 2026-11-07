@@ -1,8 +1,6 @@
 package rules
 
 import (
-	"fmt"
-
 	"github.com/pjunak/addon-dnd-engine/character"
 )
 
@@ -39,7 +37,7 @@ func ApplyCharacterPlay(input character.Inputs, command character.PlayCommand, r
 		return playInputs(input, records, profile, func(next *character.Inputs, current character.Result) error {
 			maximum := current.Sheet.Derived.MaxHP
 			if command.Amount > maximum {
-				return fmt.Errorf("Current HP cannot exceed the effective maximum (%d).", maximum)
+				return refuse("Current HP cannot exceed the effective maximum ({0}).", maximum)
 			}
 			return withAmount(command, func(amount int) { next.Play.HP = amount })
 		})
@@ -87,7 +85,7 @@ func ApplyCharacterPlay(input character.Inputs, command character.PlayCommand, r
 	case character.PlayCastRitual:
 		return playCast(input, records, profile, castRef(command.Ref), func(decisions Object, sheet *character.Calculation) error {
 			if !canCastRitual(decisions, playCaster(sheet, command.ClassID), recordByID(records, "spell", command.Ref)) {
-				return fmt.Errorf("This class cannot cast this spell as a ritual.")
+				return refuse("This class cannot cast this spell as a ritual.")
 			}
 			return nil
 		})
@@ -96,14 +94,14 @@ func ApplyCharacterPlay(input character.Inputs, command character.PlayCommand, r
 	case character.PlaySwapSpell:
 		return playDecisions(input, records, profile, func(next *character.Inputs, _ character.Result) error {
 			if characterSpellReplacements(*next, records, command.ClassID) < 1 {
-				return fmt.Errorf("No recorded level-up spell replacements remain for this class.")
+				return refuse("No recorded level-up spell replacements remain for this class.")
 			}
 			return nil
 		}, func(decisions Object, sheet *character.Calculation) error {
 			return swapPlaySpell(decisions, sheet, command, records)
 		})
 	}
-	return EvaluateCharacter(input, records, profile), fmt.Errorf("The play change has invalid fields.")
+	return EvaluateCharacter(input, records, profile), refuse("The play change has invalid fields.")
 }
 
 // playReady evaluates the character and refuses play while choices block it.
@@ -111,7 +109,7 @@ func ApplyCharacterPlay(input character.Inputs, command character.PlayCommand, r
 func readyForPlay(input character.Inputs, records Records, profile Ruleset) (character.Result, character.Inputs, error) {
 	current := EvaluateCharacter(input, records, profile)
 	if !current.Ready {
-		return current, input, fmt.Errorf("Resolve the character's blocking choices before applying play changes.")
+		return current, input, refuse("Resolve the character's blocking choices before applying play changes.")
 	}
 	return current, cloneCharacter(current.Inputs), nil
 }
@@ -251,11 +249,11 @@ func copySpell(input character.Inputs, records Records, profile Ruleset, command
 		return current, err
 	}
 	if command.AcquisitionID == "" {
-		return current, fmt.Errorf("Spell copying requires a recorded acquisition ID.")
+		return current, refuse("Spell copying requires a recorded acquisition ID.")
 	}
 	for _, acquisition := range next.Build.Spells.Acquisitions {
 		if acquisition.ID == command.AcquisitionID {
-			return current, fmt.Errorf("This spell acquisition is already recorded.")
+			return current, refuse("This spell acquisition is already recorded.")
 		}
 	}
 	if command.ScrollID != "" {
@@ -264,7 +262,7 @@ func copySpell(input character.Inputs, records Records, profile Ruleset, command
 			found = found || item.ID == command.ScrollID && item.Quantity > 0 && item.SpellID == command.Ref
 		}
 		if !found {
-			return current, fmt.Errorf("Choose an owned scroll explicitly associated with this spell.")
+			return current, refuse("Choose an owned scroll explicitly associated with this spell.")
 		}
 	}
 	err = decisionsPlay(&next, current, records, profile, nil, func(decisions Object, sheet *character.Calculation) error {
@@ -281,19 +279,19 @@ func copySpell(input character.Inputs, records Records, profile Ruleset, command
 func spendHitDie(input *character.Inputs, sheet *character.Calculation, command character.PlayCommand, profile Ruleset) error {
 	resource := findPlayResource(sheet, command.Key)
 	if resource == nil || resource.Kind != character.ResourceHitDice {
-		return fmt.Errorf("Record a valid result for an available hit die.")
+		return refuse("Record a valid result for an available hit die.")
 	}
 	size := hitDieSize(resource.Die)
 	if command.Result < 1 || command.Result > size || command.RollID == "" {
-		return fmt.Errorf("Record a valid result for an available hit die.")
+		return refuse("Record a valid result for an available hit die.")
 	}
 	for _, old := range input.Play.Rolls {
 		if old.ID == command.RollID {
-			return fmt.Errorf("This roll has already been recorded.")
+			return refuse("This roll has already been recorded.")
 		}
 	}
 	if input.Play.ResourceUses[resource.Key] >= resource.Max {
-		return fmt.Errorf("No hit dice remain in this pool.")
+		return refuse("No hit dice remain in this pool.")
 	}
 	if input.Play.ResourceUses == nil {
 		input.Play.ResourceUses = map[string]int{}
@@ -308,7 +306,7 @@ func spendHitDie(input *character.Inputs, sheet *character.Calculation, command 
 // withAmount applies a hit-point command's amount once it is in range.
 func withAmount(command character.PlayCommand, apply func(int)) error {
 	if command.Amount < 0 || command.Amount > 1_000_000 {
-		return fmt.Errorf("Enter a non-negative whole amount.")
+		return refuse("Enter a non-negative whole amount.")
 	}
 	apply(command.Amount)
 	return nil
@@ -335,7 +333,7 @@ func spendActivationResource(input *character.Inputs, sheet *character.Calculati
 		cost := max(1, activation.Resource.Cost)
 		resource := findPlayResource(sheet, activation.Resource.Key)
 		if resource == nil || input.Play.ResourceUses[resource.Key]+cost > resource.Max {
-			return fmt.Errorf("No uses of this feature remain.")
+			return refuse("No uses of this feature remain.")
 		}
 		if input.Play.ResourceUses == nil {
 			input.Play.ResourceUses = map[string]int{}
@@ -354,7 +352,7 @@ func toggleFeature(decisions Object, sheet *character.Calculation, command chara
 		}
 	}
 	if selected == nil || command.Enabled && !selected.Available {
-		return fmt.Errorf("This feature is unavailable with the current equipment.")
+		return refuse("This feature is unavailable with the current equipment.")
 	}
 	active := playMap(decisions, "activeFeatures")
 	delete(active, command.Key)
@@ -400,7 +398,7 @@ func spendResource(decisions Object, resource *character.Resource) error {
 
 func spendResourceUses(decisions Object, resource *character.Resource, cost int) error {
 	if resource == nil || remainingResource(decisions, resource) < cost {
-		return fmt.Errorf("No uses remain for this resource.")
+		return refuse("No uses remain for this resource.")
 	}
 	playMap(decisions, "resourceUses")[resource.Key] = remainingResource(decisions, resource) - cost
 	return nil
@@ -479,14 +477,14 @@ func selectPlaySpell(decisions Object, sheet *character.Calculation, classID, re
 	}
 	spell, caster := recordByID(records, "spell", ref), playCaster(sheet, classID)
 	if spell == nil || caster == nil {
-		return fmt.Errorf("Choose a spell and a spellcasting class.")
+		return refuse("Choose a spell and a spellcasting class.")
 	}
 	level := integer(spell["level"], 0)
 	if !contains(stringsOf(spell["classes"]), caster.SpellListClassID) && !contains(caster.ExpandedSpellIDs, ref) {
-		return fmt.Errorf("This spell is not on the class spell list.")
+		return refuse("This spell is not on the class spell list.")
 	}
 	if level > caster.MaxSpellLevel || (selection == character.ListCantrips) != (level == 0) {
-		return fmt.Errorf("This spell is not eligible for this selection.")
+		return refuse("This spell is not eligible for this selection.")
 	}
 	limit := caster.PreparedLimit
 	if selection == character.ListCantrips {
@@ -494,19 +492,19 @@ func selectPlaySpell(decisions Object, sheet *character.Calculation, classID, re
 	}
 	if selection == character.ListSpellbook {
 		if caster.Prepares != "spellbook" {
-			return fmt.Errorf("This class does not use a spellbook.")
+			return refuse("This class does not use a spellbook.")
 		}
 		// Books can contain copied spells beyond level-up additions.
 		limit = 5000
 	}
 	if selection == character.ListPrepared && caster.Prepares == "spellbook" && !contains(stringsOf(object(decisions["spellbook"])[classID]), ref) {
-		return fmt.Errorf("Learn this spell in the spellbook before preparing it.")
+		return refuse("Learn this spell in the spellbook before preparing it.")
 	}
 	if contains(current, ref) {
 		return nil
 	}
 	if len(current) >= limit {
-		return fmt.Errorf("The class selection limit has been reached (%d).", limit)
+		return refuse("The class selection limit has been reached ({0}).", limit)
 	}
 	lists[classID] = anyStrings(append(current, ref))
 	return nil
@@ -515,7 +513,7 @@ func selectPlaySpell(decisions Object, sheet *character.Calculation, classID, re
 func castPlaySpell(decisions Object, sheet *character.Calculation, command character.PlayCommand, records Records) error {
 	spell, caster := recordByID(records, "spell", command.Ref), playCaster(sheet, command.ClassID)
 	if spell == nil || caster == nil {
-		return fmt.Errorf("Choose a spellcasting class and a known spell.")
+		return refuse("Choose a spellcasting class and a known spell.")
 	}
 	level := integer(spell["level"], 0)
 	selection := character.ListPrepared
@@ -523,11 +521,11 @@ func castPlaySpell(decisions Object, sheet *character.Calculation, command chara
 		selection = character.ListCantrips
 	}
 	if !contains(stringsOf(object(decisions[string(selection)])[command.ClassID]), command.Ref) {
-		return fmt.Errorf("This spell is not prepared or known by this class.")
+		return refuse("This spell is not prepared or known by this class.")
 	}
 	if level == 0 {
 		if command.Slot != "" {
-			return fmt.Errorf("Cantrips do not spend spell slots.")
+			return refuse("Cantrips do not spend spell slots.")
 		}
 		return nil
 	}

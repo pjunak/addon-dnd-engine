@@ -1437,7 +1437,25 @@
         "formula": {
           "type": "string"
         },
+        "formulaArgs": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "formulaKey": {
+          "type": "string"
+        },
         "label": {
+          "type": "string"
+        },
+        "labelArgs": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "labelKey": {
           "type": "string"
         },
         "maximum": {
@@ -2041,6 +2059,15 @@
           "type": "string"
         },
         "message": {
+          "type": "string"
+        },
+        "messageArgs": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "messageKey": {
           "type": "string"
         },
         "reference": {
@@ -4527,6 +4554,15 @@
           "type": "string"
         },
         "label": {
+          "type": "string"
+        },
+        "labelArgs": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "labelKey": {
           "type": "string"
         },
         "source": {

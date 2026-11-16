@@ -1,6 +1,6 @@
 module github.com/pjunak/addon-dnd-engine
 
-go 1.27.3
+go 1.27.4
 
 require (
 	github.com/pjunak/ttrpg-codex v0.0.0-20261107002505-3cce2048bf35

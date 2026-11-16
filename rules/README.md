@@ -9,11 +9,12 @@ and persistence consume its output without implementing edition formulas.
 The provider's complete rules profile (ruleset version 4 or later) owns point
 buy, arrays/roll methods, level bounds, HP minimum, ability caps, attunement
 policy, movement units, melee reach, coin values, the concentration save, carrying
-capacity and coin weight, spell slots and recovery, and the core formulas: the
+capacity, its size multipliers and coin weight, spell slots and recovery, and the core formulas: the
 proficiency bonus by level, the spell save DC base, the passive check base,
 the unarmored AC base and the fixed hit-point bonus (half the die plus it).
-Only the ability modifier, keeping current HP within the maximum and the first
-level's maximum hit die are engine arithmetic. Class/source facts supply specific progression,
+Only the ability modifier, keeping current HP within the maximum, the first
+level's maximum hit die and the carrying size multipliers of a profile that
+omits them (the ones both 5th-edition rulebooks print) are engine arithmetic. Class/source facts supply specific progression,
 prerequisites, choices, activations and effects. No book/add-on ID selects math.
 
 Every evaluation builds fresh output. A request-local decoded record cache reuses

@@ -2,6 +2,7 @@ package rules
 
 import (
 	"math"
+	"slices"
 
 	"github.com/pjunak/addon-dnd-engine/character"
 )
@@ -37,8 +38,9 @@ func pounds(value float64) float64 { return math.Round(value*100) / 100 }
 // characterCarrying adds up carried weight against carrying capacity.
 // Equipped and carried items count; stored items and the contents of a
 // weightless container are reported but not counted. Coins count unless the
-// character turns coin weight off. Nothing is enforced.
-func characterCarrying(input character.Inputs, records Records, profile Ruleset, result *character.Result) {
+// character turns coin weight off. Capacity scales with size, counted larger
+// by sizeGrants. Nothing is enforced.
+func characterCarrying(input character.Inputs, records Records, profile Ruleset, sizeGrants []grantSource, result *character.Result) {
 	containerItems := []character.ContainerItem{}
 	itemRecords := map[string]Object{}
 	for _, item := range input.Play.Inventory {
@@ -107,11 +109,16 @@ func characterCarrying(input character.Inputs, records Records, profile Ruleset,
 		capacity, weightless := containerFacts(container.ID)
 		containers[container.ID] = character.CarriedContainer{LoadLb: pounds(loads[container.ID]), Weightless: weightless, Stored: members[container.ID] > 0 && storedMembers[container.ID] == members[container.ID], CapacityLb: max(0, capacity)}
 	}
-	strength := 0
+	strength, size := 0, ""
 	if sheet := result.Sheet.Calculation; sheet != nil {
-		strength = sheet.Abilities["STR"].Score
+		strength, size = sheet.Abilities["STR"].Score, sheet.Derived.Size
 	}
-	capacity := pounds(float64(strength) * policy.CapacityPerStrength)
+	base, multiplier := float64(strength)*policy.CapacityPerStrength, 1.0
+	counted, sizeTerms, sources := carryingSize(size, sizeGrants)
+	if counted != "" {
+		multiplier = policy.SizeMultiplier(counted)
+	}
+	capacity := pounds(base * multiplier)
 	total := pounds(carried + coinsLb)
 	result.Sheet.Carrying = &character.Carrying{
 		WeightLb: total, CapacityLb: capacity, ItemsLb: pounds(carried), CoinsLb: pounds(coinsLb), CoinWeight: countCoins,
@@ -131,8 +138,53 @@ func characterCarrying(input character.Inputs, records Records, profile Ruleset,
 		weightless.Status = "excluded"
 		terms = append(terms, weightless)
 	}
-	terms = append(terms, term(engineText("Capacity: Strength {0} × {1}", strength, policy.CapacityPerStrength), capacity))
-	result.Explanations["carrying"] = explanation(engineText("Carrying"), engineText("Weight × quantity of equipped and carried items, plus coins when counted, against the Strength score × the ruleset's capacity per point. Items without a known weight are left out."), total, terms, []character.Reference{})
+	terms = append(terms, term(engineText("Capacity: Strength {0} × {1}", strength, policy.CapacityPerStrength), pounds(base)))
+	terms = append(terms, sizeTerms...)
+	if counted != "" {
+		terms = append(terms, term(carryingSizeLabel(counted, multiplier), capacity))
+	}
+	result.Explanations["carrying"] = explanation(engineText("Carrying"), engineText("Weight × quantity of equipped and carried items, plus coins when counted, against the Strength score × the ruleset's capacity per point × the size's multiplier, a size larger per feature that counts the character as larger. Items without a known weight are left out."), total, terms, sources)
+}
+
+// carryingSize is the size counted for carrying capacity, with a term and
+// source per grant that counts the character carryingSizeSteps sizes larger.
+// The largest grant applies, up to the largest size. An unknown size counts
+// as none.
+func carryingSize(size string, grants []grantSource) (string, []character.Term, []character.Reference) {
+	terms, sources := []character.Term{}, []character.Reference{}
+	index := slices.Index(creatureSizes, size)
+	if index < 0 {
+		return "", terms, sources
+	}
+	steps := 0
+	for _, grant := range grants {
+		granted := integer(grant.Grants["carryingSizeSteps"], 0)
+		steps = max(steps, granted)
+		reference := grantSourceReference(grant.Source)
+		row := term(engineText("{0}: carrying size +{1}", firstText(grant.Source.Name, grant.Record["name"], reference.ID), granted), granted)
+		row.Source = &reference
+		terms, sources = append(terms, row), append(sources, reference)
+	}
+	return creatureSizes[min(len(creatureSizes)-1, index+steps)], terms, sources
+}
+
+// carryingSizeLabel words a size's capacity multiplier with the size named in
+// the template, so clients translate it.
+func carryingSizeLabel(size string, multiplier float64) character.Text {
+	switch size {
+	case "Tiny":
+		return engineText("Tiny size: capacity × {0}", multiplier)
+	case "Small":
+		return engineText("Small size: capacity × {0}", multiplier)
+	case "Large":
+		return engineText("Large size: capacity × {0}", multiplier)
+	case "Huge":
+		return engineText("Huge size: capacity × {0}", multiplier)
+	case "Gargantuan":
+		return engineText("Gargantuan size: capacity × {0}", multiplier)
+	default: // Medium
+		return engineText("Medium size: capacity × {0}", multiplier)
+	}
 }
 
 func validateCharacterCarrying(input character.Inputs, result *character.Result) {

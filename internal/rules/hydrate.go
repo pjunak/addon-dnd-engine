@@ -22,6 +22,9 @@ type HydrationResult struct {
 	Warnings []string               `json:"warnings"`
 	// warningTexts are Warnings with their catalog keys.
 	warningTexts []character.Text
+	// carryingSize lists the active grants that count the character as
+	// larger for carrying capacity.
+	carryingSize []grantSource
 }
 
 type resolvedClass struct {
@@ -127,7 +130,13 @@ func Hydrate(decisions Object, records Records, ruleset Ruleset) HydrationResult
 	hydrateResources(sheet, classes, grantSources, records, ruleset, pb)
 	hydrateCurrencyWorth(decisions, sheet, ruleset)
 	character.FillEmpty(sheet)
-	return HydrationResult{Sheet: sheet, Warnings: warnings, warningTexts: warningTexts}
+	carryingSize := []grantSource{}
+	for _, source := range grantSources {
+		if !source.Inactive && integer(source.Grants["carryingSizeSteps"], 0) > 0 {
+			carryingSize = append(carryingSize, source)
+		}
+	}
+	return HydrationResult{Sheet: sheet, Warnings: warnings, warningTexts: warningTexts, carryingSize: carryingSize}
 }
 
 // recordIdentity names a record without copying its rules.

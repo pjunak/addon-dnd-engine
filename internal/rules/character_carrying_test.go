@@ -3,6 +3,7 @@ package rules
 import (
 	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/pjunak/addon-dnd-engine/character"
@@ -88,5 +89,116 @@ func TestCarryingRejectsInvalidWeightsAndLinks(t *testing.T) {
 	ruleset.Constants.Carrying = &CarryingPolicy{CapacityPerStrength: 0, CoinsPerLb: 50}
 	if ruleset.Validate() == nil {
 		t.Error("zero capacity accepted")
+	}
+}
+
+// setCarryingRecord replaces a fixture record with changed fields.
+func setCarryingRecord(records memoryRecords, kind, id string, fields Object) {
+	record := recordByID(records, kind, id)
+	for key, value := range fields {
+		record[key] = value
+	}
+	records.byKind[kind][id] = mustJSON(record)
+}
+
+func carryingSizeTerm(t *testing.T, result character.Result) character.Term {
+	t.Helper()
+	terms := result.Explanations["carrying"].Terms
+	last := terms[len(terms)-1]
+	if !strings.HasSuffix(last.LabelKey, " size: capacity × {0}") {
+		t.Fatalf("the last carrying term is not the size multiplier: %+v", terms)
+	}
+	return last
+}
+
+func TestCarryingCapacityScalesWithSize(t *testing.T) {
+	for size, capacity := range map[string]float64{"Tiny": 112.5, "Small": 225, "Medium": 225, "Large": 450, "Huge": 900, "Gargantuan": 1800} {
+		input, records, profile := carryingFixture(t)
+		setCarryingRecord(records, "species", "dwarf", Object{"size": size})
+		result := EvaluateCharacter(input, records, profile)
+		if got := result.Sheet.Carrying.CapacityLb; got != capacity {
+			t.Errorf("%s capacity = %v, want %v", size, got, capacity)
+		}
+		sizeTerm := carryingSizeTerm(t, result)
+		if sizeTerm.LabelKey != size+" size: capacity × {0}" || sizeTerm.Value != capacity {
+			t.Errorf("%s size term = %+v", size, sizeTerm)
+		}
+	}
+	input, records, profile := carryingFixture(t)
+	setCarryingRecord(records, "species", "dwarf", Object{"size": "Large"})
+	profile.Constants.Carrying.SizeMultipliers = map[string]float64{"Tiny": 1, "Small": 1, "Medium": 1, "Large": 3, "Huge": 3, "Gargantuan": 3}
+	result := EvaluateCharacter(input, records, profile)
+	if result.Sheet.Carrying.CapacityLb != 675 || !reflect.DeepEqual(carryingSizeTerm(t, result).LabelArgs, []string{"3"}) {
+		t.Error("the ruleset's size multipliers were not used", result.Sheet.Carrying.CapacityLb)
+	}
+	terms := result.Explanations["carrying"].Terms
+	if base := terms[len(terms)-2]; base.LabelKey != "Capacity: Strength {0} × {1}" || base.Value != 225.0 {
+		t.Error("the Strength term no longer shows the capacity before size", base)
+	}
+}
+
+func TestCarryingSizeGrantCountsTheCharacterLarger(t *testing.T) {
+	input, records, profile := carryingFixture(t)
+	setCarryingRecord(records, "species", "dwarf", Object{"size": "Medium", "grants": Object{"carryingSizeSteps": 1}})
+	result := EvaluateCharacter(input, records, profile)
+	if !result.Ready || result.Sheet.Carrying.CapacityLb != 450 {
+		t.Fatal("a Medium character counted one size larger must carry as Large", result.Sheet.Carrying, result.Issues)
+	}
+	explanation := result.Explanations["carrying"]
+	species := character.Reference{Kind: "species", ID: "dwarf"}
+	grant := explanation.Terms[len(explanation.Terms)-2]
+	if grant.LabelKey != "{0}: carrying size +{1}" || !reflect.DeepEqual(grant.LabelArgs, []string{"Dwarf", "1"}) || grant.Source == nil || *grant.Source != species {
+		t.Error("the grant term does not name its source", grant)
+	}
+	if sizeTerm := carryingSizeTerm(t, result); sizeTerm.LabelKey != "Large size: capacity × {0}" || sizeTerm.Value != 450.0 {
+		t.Error("the counted size is not shown", sizeTerm)
+	}
+	if !reflect.DeepEqual(explanation.Sources, []character.Reference{species}) {
+		t.Error("explanation sources", explanation.Sources)
+	}
+	if size := object(view(result.Sheet)["derived"])["size"]; size != "Medium" {
+		t.Error("counting larger for carrying changed the character's size", size)
+	}
+
+	// Two such features do not stack, and nothing counts beyond the largest size.
+	setCarryingRecord(records, "background", "artisan", Object{"grants": Object{"carryingSizeSteps": 1}})
+	result = EvaluateCharacter(input, records, profile)
+	if result.Sheet.Carrying.CapacityLb != 450 || len(result.Explanations["carrying"].Sources) != 2 {
+		t.Error("two grants of one size larger stacked", result.Sheet.Carrying.CapacityLb, result.Explanations["carrying"].Sources)
+	}
+	setCarryingRecord(records, "species", "dwarf", Object{"size": "Gargantuan"})
+	if capacity := EvaluateCharacter(input, records, profile).Sheet.Carrying.CapacityLb; capacity != 1800 {
+		t.Error("a Gargantuan character counted larger than the largest size", capacity)
+	}
+
+	// An unknown size multiplies by nothing and shows no size terms.
+	setCarryingRecord(records, "species", "dwarf", Object{"size": "Medium or Small", "sizeOptions": []any{"Small", "Medium"}})
+	result = EvaluateCharacter(input, records, profile)
+	terms := result.Explanations["carrying"].Terms
+	if result.Sheet.Carrying.CapacityLb != 225 || terms[len(terms)-1].LabelKey != "Capacity: Strength {0} × {1}" {
+		t.Error("an unchosen size was guessed for carrying", result.Sheet.Carrying.CapacityLb, terms)
+	}
+	if err := validateGrants(Object{"carryingSizeSteps": 1}); err != nil {
+		t.Error("the grant is not in the vocabulary", err)
+	}
+}
+
+func TestCarryingSizeMultipliersMustNameEverySize(t *testing.T) {
+	for name, multipliers := range map[string]map[string]float64{
+		"missing size": {"Tiny": 0.5, "Small": 1, "Medium": 1, "Large": 2, "Huge": 4},
+		"unknown size": {"Tiny": 0.5, "Small": 1, "Medium": 1, "Large": 2, "Huge": 4, "Gargantuan": 8, "Colossal": 16},
+		"zero":         {"Tiny": 0, "Small": 1, "Medium": 1, "Large": 2, "Huge": 4, "Gargantuan": 8},
+		"empty":        {},
+	} {
+		ruleset := syntheticRuleset(t)
+		ruleset.Constants.Carrying = &CarryingPolicy{CapacityPerStrength: 15, CoinsPerLb: 50, SizeMultipliers: multipliers}
+		if ruleset.Validate() == nil {
+			t.Errorf("%s accepted", name)
+		}
+	}
+	ruleset := syntheticRuleset(t)
+	ruleset.Constants.Carrying = &CarryingPolicy{CapacityPerStrength: 15, CoinsPerLb: 50, SizeMultipliers: standardSizeMultipliers}
+	if err := ruleset.Validate(); err != nil {
+		t.Error(err)
 	}
 }

@@ -81,10 +81,25 @@ type RulesetConstants struct {
 }
 
 // CarryingPolicy sets carrying capacity (the Strength score times
-// CapacityPerStrength, in pounds) and how many coins weigh a pound.
+// CapacityPerStrength, in pounds, times the size's multiplier) and how many
+// coins weigh a pound. SizeMultipliers is optional; when present it names
+// every size category.
 type CarryingPolicy struct {
-	CapacityPerStrength float64 `json:"capacityPerStrength"`
-	CoinsPerLb          float64 `json:"coinsPerLb"`
+	CapacityPerStrength float64            `json:"capacityPerStrength"`
+	CoinsPerLb          float64            `json:"coinsPerLb"`
+	SizeMultipliers     map[string]float64 `json:"sizeMultipliers,omitempty"`
+}
+
+// standardSizeMultipliers is the carrying-capacity multiplier both 5th-edition
+// rulebooks print per size, used when a ruleset declares none.
+var standardSizeMultipliers = map[string]float64{"Tiny": 0.5, "Small": 1, "Medium": 1, "Large": 2, "Huge": 4, "Gargantuan": 8}
+
+// SizeMultiplier is the capacity multiplier of a size category.
+func (policy CarryingPolicy) SizeMultiplier(size string) float64 {
+	if policy.SizeMultipliers != nil {
+		return policy.SizeMultipliers[size]
+	}
+	return standardSizeMultipliers[size]
 }
 
 // ConcentrationPolicy sets the save against damage: the higher of MinimumDC
@@ -274,8 +289,20 @@ func (ruleset Ruleset) Validate() error {
 			}
 		}
 	}
-	if policy := constants.Carrying; policy != nil && (policy.CapacityPerStrength <= 0 || policy.CapacityPerStrength > 1000 || policy.CoinsPerLb <= 0 || policy.CoinsPerLb > 100000) {
-		return errors.New("ruleset carrying is invalid")
+	if policy := constants.Carrying; policy != nil {
+		if policy.CapacityPerStrength <= 0 || policy.CapacityPerStrength > 1000 || policy.CoinsPerLb <= 0 || policy.CoinsPerLb > 100000 {
+			return errors.New("ruleset carrying is invalid")
+		}
+		if multipliers := policy.SizeMultipliers; multipliers != nil {
+			for _, size := range creatureSizes {
+				if value := multipliers[size]; value <= 0 || value > 100 {
+					return errors.New("ruleset carrying size multipliers are invalid")
+				}
+			}
+			if len(multipliers) != len(creatureSizes) {
+				return errors.New("ruleset carrying size multipliers are invalid")
+			}
+		}
 	}
 	if policy := constants.Concentration; policy != nil &&
 		(!contains(Abilities[:], policy.SaveAbility) || policy.MinimumDC < 1 || policy.DamageDivisor < 1 || policy.MaximumDC < policy.MinimumDC) {

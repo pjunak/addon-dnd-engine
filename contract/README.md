@@ -479,17 +479,33 @@ Invalid inputs remain intact for correction, including unfinished builds.
 ## Carrying
 
 When the ruleset declares `constants.carrying` (`capacityPerStrength`,
-`coinsPerLb`), `sheet.carrying` reports `weightLb` (equipped and carried
-items plus coins) against `capacityLb` (the final Strength score ×
-`capacityPerStrength`), with `itemsLb`, `coinsLb`, `coinWeight`, `storedLb`,
-`weightlessLb`, `unknown` (item IDs without a weight), `items` (`{eachLb,
-totalLb, custom}` per item) and `containers` (`{loadLb, capacityLb?, weightless,
-stored}` per container, `stored` when every member is stored). An item weighs
+`coinsPerLb`, optional `sizeMultipliers`), `sheet.carrying` reports `weightLb`
+(equipped and carried items plus coins) against `capacityLb` (the final
+Strength score × `capacityPerStrength` × the size's multiplier), with
+`itemsLb`, `coinsLb`, `coinWeight`, `storedLb`, `weightlessLb`, `unknown`
+(item IDs without a weight), `items` (`{eachLb, totalLb, custom}` per item)
+and `containers` (`{loadLb, capacityLb?, weightless, stored}` per container,
+`stored` when every member is stored). An item weighs
 its authored `weightLb` or its record's `weightLb`, times its quantity. Stored
 items and items in a container whose linked item's record declares
 `container.weightless` are listed but not counted. Coins count unless
 `play.coinWeight` is `false`. Nothing is enforced; going over capacity is
-shown, not blocked. Size and features that change capacity are not applied.
+shown, not blocked.
+
+The size is `sheet.derived.size`. `sizeMultipliers` maps every size category
+(`Tiny`, `Small`, `Medium`, `Large`, `Huge`, `Gargantuan`) to a positive
+multiplier; a ruleset that omits it gets the multipliers both 5th-edition
+rulebooks print: ×½, ×1, ×1, ×2, ×4 and ×8. A selected grant source's
+`grants.carryingSizeSteps` (a positive integer) counts the character that many
+sizes larger for carrying capacity only (Powerful Build); the largest grant
+applies, grants do not add up, and nothing counts beyond Gargantuan. While the
+size is unknown (an unmade size choice) capacity has no size multiplier. The
+`carrying` explanation lists the Strength term (the capacity before size), a
+`{0}: carrying size +{1}` term per grant with its `source`, and a
+`<Size> size: capacity × {0}` term whose value is `capacityLb`; its `sources`
+are the grant sources. Engines before 6.5.0 do not know the grant and report
+it as rules data outside the vocabulary (a warning), and ignore
+`sizeMultipliers`.
 
 A container's optional `itemId` links it to the inventory item that is the
 container; that item's record `container.capacityLb` is its capacity.
@@ -831,7 +847,9 @@ proficiency bonus and the best named ability modifier (a Monk's Focus,
 maneuvers, Cunning Strike). A class resource's parts add up: `perLevel`
 (rounded down), the proficiency bonus, `abilityMod` (times `multiplier`),
 `fixed` and `add`; an ability-based pool has at least `min`, 1 by default.
-`grants.attunementLimit` raises the attunement limit like a class's own, and
+`grants.carryingSizeSteps` counts the character larger for carrying capacity
+([Carrying](#carrying)). `grants.attunementLimit` raises the attunement limit
+like a class's own, and
 an active `spellSaveDC` modifier adds `add` to its own class's spell save DC. `weaponMastery.progression` raises the mastery
 count at the listed class levels. `sheet.weaponMastery.slots` sums every
 class's count, because each class's feature grants its own kinds, plus feat

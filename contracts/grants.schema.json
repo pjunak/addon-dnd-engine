@@ -740,6 +740,9 @@
           },
           "type": "object"
         },
+        "carryingSizeSteps": {
+          "type": "integer"
+        },
         "castingAbility": {
           "$ref": "#/$defs/CastingAbilityGrant"
         },
@@ -1456,6 +1459,9 @@
         "type": "integer"
       },
       "type": "object"
+    },
+    "carryingSizeSteps": {
+      "type": "integer"
     },
     "castingAbility": {
       "$ref": "#/$defs/CastingAbilityGrant"

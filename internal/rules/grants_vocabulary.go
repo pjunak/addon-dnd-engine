@@ -58,6 +58,7 @@ type Grants struct {
 	ACFormulas              []ACFormulaGrant      `json:"acFormulas,omitempty"`
 	CriticalRange           int                   `json:"criticalRange,omitempty"`
 	AttunementLimit         int                   `json:"attunementLimit,omitempty"`
+	CarryingSizeSteps       int                   `json:"carryingSizeSteps,omitempty"`
 	WeaponMasterySlots      int                   `json:"weaponMasterySlots,omitempty"`
 	Conditions              []GrantedCondition    `json:"conditions,omitempty"`
 	Bonuses                 map[string]int        `json:"bonuses,omitempty"`

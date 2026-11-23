@@ -19,7 +19,7 @@ import (
 
 const (
 	Contract        = "dnd5e.rules-engine"
-	ContractVersion = "6.0.0"
+	ContractVersion = "6.1.0"
 	methodPrefix    = "service/" + Contract + "/"
 )
 
@@ -98,6 +98,9 @@ func (handler *Handler) HandleRPC(ctx context.Context, request workerrpc.Request
 			ContractVersion string           `json:"contractVersion"`
 			Inputs          character.Inputs `json:"inputs"`
 			Change          json.RawMessage  `json:"change,omitempty"`
+			// TemporaryEffects asks for sheet.temporaryEffects; a caller that
+			// decodes results strictly against an older model leaves it out.
+			TemporaryEffects bool `json:"temporaryEffects,omitempty"`
 		}
 		if jsonexact.Decode(request.Params, &input) != nil || input.ContractVersion != character.ContractVersion {
 			return nil, invalidRequest("character request is invalid")
@@ -126,6 +129,9 @@ func (handler *Handler) HandleRPC(ctx context.Context, request workerrpc.Request
 			}
 		} else {
 			result = rules.EvaluateCharacter(input.Inputs, records, profile)
+		}
+		if input.TemporaryEffects {
+			result.Sheet.TemporaryEffects = rules.TemporaryEffects(result, records, profile)
 		}
 		character.FillEmpty(&result)
 		return characterResponse{ContractVersion: character.ResponseVersion, Identity: identity, Evaluation: result, Policy: profile.Constants.Character}, nil

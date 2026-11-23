@@ -1327,6 +1327,78 @@
       ],
       "type": "object"
     },
+    "EffectCause": {
+      "additionalProperties": false,
+      "properties": {
+        "changes": {
+          "items": {
+            "$ref": "#/$defs/EffectChange"
+          },
+          "type": "array"
+        },
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "active-feature",
+            "condition",
+            "timed-grant"
+          ],
+          "type": "string"
+        },
+        "labelKey": {
+          "type": "string"
+        },
+        "level": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "tone": {
+          "enum": [
+            "bonus",
+            "mixed",
+            "penalty"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "name",
+        "tone",
+        "changes"
+      ],
+      "type": "object"
+    },
+    "EffectChange": {
+      "additionalProperties": false,
+      "properties": {
+        "included": {
+          "type": "boolean"
+        },
+        "kind": {
+          "enum": [
+            "add",
+            "advantage",
+            "disadvantage",
+            "other",
+            "set"
+          ],
+          "type": "string"
+        },
+        "value": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "type": "object"
+    },
     "EquipmentFacts": {
       "additionalProperties": false,
       "properties": {
@@ -3507,6 +3579,12 @@
         "swimSpeed": {
           "type": "integer"
         },
+        "temporaryEffects": {
+          "items": {
+            "$ref": "#/$defs/TemporaryEffect"
+          },
+          "type": "array"
+        },
         "totalLevel": {
           "type": "integer"
         },
@@ -4544,6 +4622,37 @@
       "required": [
         "itemId",
         "expectedItemSha256"
+      ],
+      "type": "object"
+    },
+    "TemporaryEffect": {
+      "additionalProperties": false,
+      "properties": {
+        "causes": {
+          "items": {
+            "$ref": "#/$defs/EffectCause"
+          },
+          "type": "array"
+        },
+        "path": {
+          "type": "string"
+        },
+        "row": {
+          "type": "string"
+        },
+        "tone": {
+          "enum": [
+            "bonus",
+            "mixed",
+            "penalty"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "tone",
+        "causes"
       ],
       "type": "object"
     },

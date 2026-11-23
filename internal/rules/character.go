@@ -10,7 +10,15 @@ import (
 
 // EvaluateCharacter evaluates detached decisions. Completion, eligibility and
 // numerical constraints all belong here, never in the persistence or UI layer.
-func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset) (result character.Result) {
+func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset) character.Result {
+	return evaluateCharacter(input, records, profile, false)
+}
+
+// evaluateCharacter with valuesOnly stops once the statistics, conditions and
+// concentration are calculated: the Builder plan, guidance, spell options,
+// validation, evidence and explanations that follow change none of them.
+// TemporaryEffects compares these values; a test keeps both paths equal.
+func evaluateCharacter(input character.Inputs, records Records, profile Ruleset, valuesOnly bool) (result character.Result) {
 	snapshot := newCharacterRecordSnapshot(records)
 	if verifyRecords != nil {
 		defer verifyRecords(snapshot)
@@ -18,7 +26,16 @@ func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset)
 	records = snapshot
 	input = cloneCharacter(input)
 	result = character.Result{ContractVersion: character.ContractVersion, Inputs: input, Sheet: character.Sheet{Status: character.SheetNeedsChoices}, Explanations: map[string]character.Explanation{}, Evidence: []character.Evidence{}, Issues: []character.Issue{}}
-	defer finishResult(&result)
+	// A values-only result is compared and dropped, never published.
+	original, source := input, records
+	defer func() {
+		if !valuesOnly {
+			finishResult(&result)
+			if checkValues != nil {
+				checkValues(original, source, profile, result)
+			}
+		}
+	}()
 	if profile.Constants.Character == nil {
 		addCharacterIssue(&result, "character-policy", "rules", engineText("The rules profile does not define character creation policy."), character.SeverityBlocker, nil)
 		return result
@@ -47,6 +64,14 @@ func EvaluateCharacter(input character.Inputs, records Records, profile Ruleset)
 	if !needsChoices && sheet.Derived.MaxHP >= 0 && input.Play.HP > sheet.Derived.MaxHP {
 		input.Play.HP = sheet.Derived.MaxHP
 		result.Inputs.Play.HP = input.Play.HP
+	}
+	if valuesOnly {
+		if needsChoices {
+			result.Sheet = character.Sheet{Status: character.SheetNeedsChoices}
+		}
+		characterConditions(input, records, profile, &result)
+		characterConcentration(input, tracked, profile, &result)
+		return result
 	}
 	normalized["resourceUses"] = characterRemainingResources(input, sheet)
 	// Catalog discovery and legality checks must not retain every unselected
@@ -158,6 +183,10 @@ func finishResult(result *character.Result) {
 
 // checkResult lets tests check every evaluation result.
 var checkResult func(character.Result)
+
+// checkValues lets tests compare every full evaluation with the values-only
+// path TemporaryEffects uses.
+var checkValues func(character.Inputs, Records, Ruleset, character.Result)
 
 func characterDecisions(input character.Inputs, records Records, profile Ruleset, result *character.Result) Object {
 	build, play := input.Build, input.Play

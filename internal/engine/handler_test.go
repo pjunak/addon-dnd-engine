@@ -248,3 +248,47 @@ func assertRPCError(t *testing.T, err error, kind string) {
 		t.Fatalf("error = %T %v", err, err)
 	}
 }
+
+// A caller asks for temporary effects; one that decodes results strictly
+// against an older model (Character Sheets 6.4.0) sends no flag and receives
+// no new field, even while a temporary cause is active.
+func TestHandlerMarksTemporaryEffectsOnlyWhenAsked(t *testing.T) {
+	t.Parallel()
+	profile := engineRuleset(t)
+	profile.Constants.Character = &rules.CharacterPolicy{MaximumLevel: 20, MinimumHPGain: 1, StandardArray: []int{15, 14, 13, 12, 10, 8}, RollDice: 4, RollSides: 6, RollKeep: 3, DistanceUnit: "ft"}
+	profile.Builder.BackgroundAbilityGrant = json.RawMessage("false")
+	data := engineProvider{ruleset: profile, records: engineRecords{
+		{"kind": "class", "id": "fighter", "name": "Fighter", "hitDie": "d10", "subclassLevel": 3},
+		{"kind": "species", "id": "dwarf", "name": "Dwarf", "speeds": rules.Object{"walk": 30}},
+		{"kind": "background", "id": "artisan", "name": "Artisan"},
+	}}
+	handler, _ := New(&data)
+	input := character.Blank()
+	input.Build.Method = "array"
+	input.Build.BaseScores = map[string]int{"STR": 15, "DEX": 14, "CON": 13, "INT": 12, "WIS": 10, "CHA": 8}
+	input.Build.Species, input.Build.Background = "dwarf", "artisan"
+	input.Build.Levels = []character.Level{{ID: "level-one", ClassID: "fighter"}}
+	input.Play.AsOf = "2026-09-11T00:00:00Z"
+	input.Grants = []character.Grant{{ID: "shrine", Name: "Shrine blessing", ActorID: "dm", GrantedAt: input.Play.AsOf, Active: true, EffectiveLevel: 1,
+		Condition: character.ConditionAlways, ExpiresAt: "2026-09-12T00:00:00Z", Effects: []character.Effect{{Target: character.TargetArmorClass, Mode: "add", Value: 1}}}}
+	inputs, _ := json.Marshal(input)
+	for _, asked := range []bool{false, true} {
+		params := `{"contractVersion":"rules-character.v3","inputs":` + string(inputs) + `}`
+		if asked {
+			params = `{"contractVersion":"rules-character.v3","inputs":` + string(inputs) + `,"temporaryEffects":true}`
+		}
+		value, err := handler.HandleRPC(context.Background(), rpcRequest("evaluate-character", params))
+		if err != nil {
+			t.Fatal(err)
+		}
+		response := value.(characterResponse)
+		body, _ := json.Marshal(response)
+		marks := response.Evaluation.Sheet.TemporaryEffects
+		if asked != bytes.Contains(body, []byte(`"temporaryEffects"`)) || asked != (len(marks) == 1 && marks[0].Path == "derived.armorClass") {
+			t.Fatalf("asked %v: %+v", asked, marks)
+		}
+		matchesSchema(t, "character.response.schema.json", response)
+	}
+	_, err := handler.HandleRPC(context.Background(), rpcRequest("evaluate-character", `{"contractVersion":"rules-character.v3","inputs":`+string(inputs)+`,"temporaryEffects":"yes"}`))
+	assertRPCError(t, err, workerrpc.KindInvalidRequest)
+}

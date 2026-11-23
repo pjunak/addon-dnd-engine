@@ -30,7 +30,7 @@ func main() {
 	grants["title"] = "Rules record grants (dnd5e.rules-engine 6)"
 	write("grants.schema.json", grants)
 	write("character-result.schema.json", character.Schema(character.Result{}))
-	request := map[string]any{"type": "object", "additionalProperties": false, "required": []string{"contractVersion", "inputs"}, "properties": map[string]any{"contractVersion": map[string]any{"const": character.ContractVersion}, "inputs": map[string]any{"$ref": "character-inputs.schema.json"}, "change": character.Schema(character.PlayCommand{})}}
+	request := map[string]any{"type": "object", "additionalProperties": false, "required": []string{"contractVersion", "inputs"}, "properties": map[string]any{"contractVersion": map[string]any{"const": character.ContractVersion}, "inputs": map[string]any{"$ref": "character-inputs.schema.json"}, "change": character.Schema(character.PlayCommand{}), "temporaryEffects": map[string]any{"type": "boolean"}}}
 	write("character.request.schema.json", request)
 	write("character.response.schema.json", map[string]any{"type": "object", "additionalProperties": false, "required": []string{"contractVersion", "identity", "evaluation", "policy"}, "properties": map[string]any{"contractVersion": map[string]any{"const": character.ResponseVersion}, "identity": map[string]any{"$ref": "provider-identity.schema.json#/$defs/identity"}, "evaluation": map[string]any{"$ref": "character-result.schema.json"}, "policy": map[string]any{"type": []string{"object", "null"}}}})
 }

@@ -447,6 +447,9 @@
     },
     "inputs": {
       "$ref": "character-inputs.schema.json"
+    },
+    "temporaryEffects": {
+      "type": "boolean"
     }
   },
   "required": [

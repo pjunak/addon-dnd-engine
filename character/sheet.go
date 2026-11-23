@@ -22,6 +22,9 @@ type Sheet struct {
 	Equipment        map[string]EquipmentFacts `json:"equipment"`
 	Carrying         *Carrying                 `json:"carrying,omitempty"`
 	Concentration    *SheetConcentration       `json:"concentration,omitempty"`
+	// TemporaryEffects are the values temporary play state changes, present
+	// only when the request asks for them (see the contract README).
+	TemporaryEffects []TemporaryEffect `json:"temporaryEffects,omitempty"`
 }
 
 // Calculation holds the statistics the rules calculate from the build.

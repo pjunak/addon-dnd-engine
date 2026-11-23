@@ -1,6 +1,6 @@
 # D&D service contracts
 
-The engine provides `dnd5e.rules-engine` 6.0.0 and consumes nonexclusive
+The engine provides `dnd5e.rules-engine` 6.1.0 and consumes nonexclusive
 `dnd5e.rules-data` 3.0.0. Provider selection, compatible books and generation
 lifetime belong to the host. Runtime policy addresses contracts and record IDs.
 
@@ -371,6 +371,69 @@ blocking issues. Rests, healing and conditions never change it.
 of an active condition that ends Concentration. Advantage on the save is the
 `concentrationAdvantage` roll mark. An unavailable spell is a warning; an
 invalid save DC is a blocker.
+
+## Temporary effects
+
+A character request may add `temporaryEffects: true` (service 6.1.0; a 6.0.0
+Engine refuses the field). The calculated sheet then carries
+`sheet.temporaryEffects`, one entry for each value that temporary play state
+changes now: `{path, row?, tone, causes}`. Without the flag, or without a
+temporary cause, the field is absent, so a caller that decodes results
+strictly against an older model keeps working as long as it sends no flag.
+
+Temporary means it comes from play state and can end during play: active
+authored conditions (an immune or unavailable row is not active), features the
+player switched on (`play.activeFeatures`, item toggles included) and active
+DM grants whose `expiresAt` has not passed at `play.asOf`. The build, levels,
+feats, worn armor and shields with their restrictions (armor's Stealth
+Disadvantage stays unmarked), equipped or attuned items and grants without an
+expiry are not temporary. Conditions an active item grants have no automated
+effect, concentration spells have no computed effects and temporary hit
+points are not marked, so none of them marks anything.
+
+Each cause is measured by calculating the same inputs again without it (the
+statistics only, without plan, guidance or explanations) and comparing the
+values below, so a mark follows every rule that applies the cause. Every value
+is better higher. A cause whose effect another one hides marks nothing on
+that value (a speed penalty on a Speed another condition holds at 0), and one
+whose removal leaves the character uncalculated marks nothing.
+
+| Path | Row | Value | D20 Test |
+| --- | --- | --- | --- |
+| `derived.armorClass` | | Armor Class | |
+| `derived.speed`, `flySpeed`, `swimSpeed`, `climbSpeed`, `burrowSpeed` | | the speeds | |
+| `derived.initiative` | | Initiative and its roll marks | yes |
+| `derived.maxHp` | | maximum hit points | |
+| `derived.passivePerception` | | passive Perception | |
+| `abilities.<A>.score` | | ability score | |
+| `abilities.<A>.mod` | | modifier, the ability's check and its `checkAdvantage`/`checkDisadvantage` | yes |
+| `saves.<A>.total` | | saving throw and its roll marks | yes |
+| `skills.<skill>.total` | | skill and its roll marks | yes |
+| `senses.<sense>` | | sense range | |
+| `weapons.attackBonus` | attack key | attack roll and the attack roll marks | yes |
+| `weapons.damage` | attack key | damage text, compared by its average | |
+| `spellcasting.perClass.spellAttack` | class ID | spell attack and the attack roll marks | yes |
+| `spellcasting.perClass.saveDC` | class ID | spell save DC | |
+| `concentration.saveBonus` | | Concentration save while concentrating | yes |
+
+An attack key (`character.AttackKey`) is `item:<inventory ID>`,
+`feature:<feature attack ID>` or `unarmed`; a row is never named by its
+position. Entries keep the table's order, with skills and senses by ID and
+rows in sheet order.
+
+Each cause gives `kind` (`condition`, `active-feature`, `timed-grant`), `id`
+(the condition's ID, the activation's key or the grant's ID), `name` (the
+record or grant name as it is; a condition also gives its rules-data
+`labelKey` and, when it has levels, its `level`), its own `tone` and
+`changes`. Causes are listed as authored conditions in order, switched-on
+features by key, then timed grants in order. A change is `add` (`value`,
+negative for a penalty), `set` (a speed held at `value` 0), `advantage` or
+`disadvantage` (the net roll mark the cause adds or cancels), or `other` (a
+different damage die). `add` and `set` say in `included` whether the
+displayed value already holds them: a condition's D20 adjustment is an `add`
+with `included: false` on every D20 Test, beside the unchanged printed bonus.
+A tone is `bonus` or `penalty`; changes or causes that disagree, and a change
+that is neither better nor worse, give `mixed`.
 
 ## Hands and grip
 

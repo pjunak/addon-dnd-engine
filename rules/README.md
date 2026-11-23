@@ -129,9 +129,9 @@ This is bounded sheet guidance, not expiry, targeting or encounter resolution.
 See the [condition contract](../contract/README.md#authored-conditions).
 
 [Temporary effects](../contract/README.md#temporary-effects) are measured, not
-recorded: each active condition, switched-on feature and timed grant is taken
-away in turn and the statistics calculated again, on a values-only path that
-skips the Builder plan, guidance and explanations. Every full evaluation in the
+recorded: the statistics are calculated without any active condition,
+switched-on feature or timed grant, then with each of them alone, on a
+values-only path that skips the Builder plan, guidance and explanations. Every full evaluation in the
 rules tests also runs that path and fails on any difference in the marked
 values, so the two cannot drift apart.
 

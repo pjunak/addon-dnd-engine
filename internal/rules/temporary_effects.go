@@ -5,18 +5,25 @@ import (
 	"slices"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/pjunak/addon-dnd-engine/character"
 )
 
 // TemporaryEffects lists the values that temporary play state changes in a
 // calculated result: active authored conditions, features the player switched
-// on and active DM grants that expire. Each cause is measured by calculating the
-// same inputs again without it and comparing the marked values, so the marks
-// follow every rule without bookkeeping where the rule applies. A character
-// without such a cause costs nothing more. A cause whose removal leaves the
-// character uncalculated, or whose effect another cause hides (Speed already
-// 0), marks nothing for that value.
+// on and active DM grants that expire. It calculates the character once
+// without any of them (the baseline) and once with each cause alone on top of
+// it, so a mark follows every rule that applies a cause, with no bookkeeping.
+// A value is marked when it differs from the baseline, in number or in net
+// Advantage and Disadvantage, or when a cause alone changes it (an Advantage
+// and a Disadvantage that cancel). Its causes are those that change it alone;
+// an effect that only appears in combination is attributed by taking each
+// cause away from the current state instead. A cause's number is included in
+// the shown value unless another cause overrides it (a Speed penalty under
+// Speed 0). One cause costs one more calculation, n causes n+1, plus one per
+// cause when overlapping numbers need the removal check. A permanent effect
+// such as armor's Stealth Disadvantage is in the baseline and marks nothing.
 func TemporaryEffects(result character.Result, records Records, profile Ruleset) []character.TemporaryEffect {
 	if result.Sheet.Calculation == nil {
 		return nil
@@ -25,43 +32,163 @@ func TemporaryEffects(result character.Result, records Records, profile Ruleset)
 	if len(causes) == 0 {
 		return nil
 	}
-	current := markedValues(result.Sheet)
-	effects := map[valueKey]*character.TemporaryEffect{}
-	for _, cause := range causes {
-		without := evaluateCharacter(cause.without(result.Inputs), records, profile, true)
-		if without.Sheet.Calculation == nil {
-			continue
+	calculate := func(input character.Inputs) measuredState {
+		evaluated := evaluateCharacter(input, records, profile, true)
+		if evaluated.Sheet.Calculation == nil {
+			return measuredState{}
 		}
-		previous := markedValues(without.Sheet)
-		d20 := result.Sheet.ConditionEffects.D20Adjustment - without.Sheet.ConditionEffects.D20Adjustment
-		for _, key := range current.order {
-			changes, tones := valueChanges(current.values[key], previous.values[key], d20)
-			if len(changes) == 0 {
-				continue
+		return measuredState{markedValues(evaluated.Sheet), evaluated.Sheet.ConditionEffects.D20Adjustment, true}
+	}
+	without := func(skip int) character.Inputs {
+		input := result.Inputs
+		for index, cause := range causes {
+			if index != skip {
+				input = cause.without(input)
 			}
-			effect := effects[key]
-			if effect == nil {
-				effect = &character.TemporaryEffect{Path: key.path, Row: key.row, Causes: []character.EffectCause{}}
-				effects[key] = effect
-			}
-			marked := cause.cause
-			marked.Changes, marked.Tone = changes, combinedTone(tones)
-			effect.Causes = append(effect.Causes, marked)
+		}
+		return input
+	}
+	current := measuredState{markedValues(result.Sheet), result.Sheet.ConditionEffects.D20Adjustment, true}
+	baseline := calculate(without(-1))
+	if !baseline.ok {
+		return nil
+	}
+	solos := make([]measuredState, len(causes))
+	removals := map[int]measuredState{}
+	removal := func(index int) measuredState {
+		if len(causes) == 1 {
+			return baseline
+		}
+		if _, done := removals[index]; !done {
+			removals[index] = calculate(causes[index].without(result.Inputs))
+		}
+		return removals[index]
+	}
+	for index := range causes {
+		if len(causes) == 1 {
+			solos[index] = current
+		} else {
+			solos[index] = calculate(without(index))
 		}
 	}
 	list := []character.TemporaryEffect{}
-	for _, key := range current.order {
-		if effect := effects[key]; effect != nil {
-			tones := []character.EffectTone{}
-			for _, cause := range effect.Causes {
-				tones = append(tones, cause.Tone)
-			}
-			effect.Tone = combinedTone(tones)
-			list = append(list, *effect)
+	for _, key := range current.values.order {
+		now := current.values.values[key]
+		base, exists := baseline.value(key)
+		if !exists {
+			continue
 		}
+		type attributed struct {
+			index   int
+			changes []measuredChange
+			shared  bool
+		}
+		found := []attributed{}
+		for index, solo := range solos {
+			if value, exists := solo.value(key); solo.ok && exists {
+				if changes := valueChanges(value, base, solo.d20-baseline.d20); len(changes) > 0 {
+					found = append(found, attributed{index, changes, false})
+				}
+			}
+		}
+		total := valueChanges(now, base, current.d20-baseline.d20)
+		if len(found) == 0 && len(total) == 0 {
+			continue
+		}
+		if len(found) == 0 {
+			// The effect appears only in combination: each cause it depends on.
+			for index := range causes {
+				if taken := removal(index); taken.ok {
+					if value, exists := taken.value(key); exists {
+						if changes := valueChanges(now, value, current.d20-taken.d20); len(changes) > 0 {
+							found = append(found, attributed{index, changes, false})
+						}
+					}
+				}
+			}
+		}
+		if len(found) == 0 {
+			// Nothing singles a cause out: they share the change.
+			for index := range causes {
+				found = append(found, attributed{index, total, true})
+			}
+		}
+		// A number is in the shown value when the value holds this cause's
+		// result, when the causes' numbers add up to the change, or when taking
+		// the cause away changes the value by its number.
+		sum, sets := 0, false
+		for _, entry := range found {
+			for _, change := range entry.changes {
+				if change.channel == channelNumber && change.Kind == character.ChangeAdd {
+					sum += *change.Value
+				}
+				sets = sets || change.Kind == character.ChangeSet
+			}
+		}
+		adds := !sets && now.number != nil && *now.number-*base.number == sum
+		effect := character.TemporaryEffect{Path: key.path, Row: key.row, Causes: []character.EffectCause{}}
+		tones := []character.EffectTone{}
+		for _, entry := range found {
+			solo, _ := solos[entry.index].value(key)
+			changes, causeTones := []character.EffectChange{}, []character.EffectTone{}
+			for _, change := range entry.changes {
+				switch {
+				case entry.shared:
+				case change.Kind == character.ChangeSet:
+					change.Included = boolPointer(now.number != nil && *now.number == *change.Value)
+				case change.channel == channelNumber:
+					included := solo.number != nil && *now.number == *solo.number || adds
+					if !included {
+						taken, exists := removal(entry.index).value(key)
+						included = exists && taken.number != nil && *now.number-*taken.number == *change.Value
+					}
+					change.Included = boolPointer(included)
+				case change.channel == channelDamage && change.Kind == character.ChangeAdd:
+					included := solo.damage != nil && *now.damage == *solo.damage
+					if !included {
+						taken, exists := removal(entry.index).value(key)
+						included = exists && taken.damage != nil && *now.damage != *taken.damage
+					}
+					change.Included = boolPointer(included)
+				}
+				changes = append(changes, change.EffectChange)
+				causeTones = append(causeTones, change.tone)
+			}
+			cause := causes[entry.index].cause
+			cause.Changes, cause.Tone = changes, combinedTone(causeTones)
+			effect.Causes = append(effect.Causes, cause)
+			tones = append(tones, cause.Tone)
+		}
+		effect.Tone = combinedTone(tones)
+		list = append(list, effect)
 	}
 	return list
 }
+
+// measuredState is a calculation's marked values and its condition D20
+// adjustment; ok is false when the character could not be calculated.
+type measuredState struct {
+	values markedSet
+	d20    int
+	ok     bool
+}
+
+// value reads a marked value; a sense the state lacks has range 0.
+func (state measuredState) value(key valueKey) (markedValue, bool) {
+	if !state.ok {
+		return markedValue{}, false
+	}
+	if value, exists := state.values.values[key]; exists {
+		return value, true
+	}
+	if strings.HasPrefix(key.path, "senses.") {
+		zero := 0
+		return markedValue{number: &zero}, true
+	}
+	return markedValue{}, false
+}
+
+func boolPointer(value bool) *bool { return &value }
 
 type temporaryCause struct {
 	cause   character.EffectCause
@@ -212,40 +339,53 @@ func markedValues(sheet character.Sheet) markedSet {
 	return set
 }
 
-// valueChanges compares a value with and without one cause. d20 is the
+// measuredChange is a change with its tone and the part of the value it
+// comes from: the number, the roll marks, the D20 adjustment or the damage.
+type measuredChange struct {
+	character.EffectChange
+	tone    character.EffectTone
+	channel changeChannel
+}
+
+type changeChannel int
+
+const (
+	channelNumber changeChannel = iota
+	channelRoll
+	channelD20
+	channelDamage
+)
+
+// valueChanges compares a value with a cause and without it. d20 is the
 // cause's share of the condition D20 adjustment, which no value includes.
-func valueChanges(current, previous markedValue, d20 int) ([]character.EffectChange, []character.EffectTone) {
-	changes, tones := []character.EffectChange{}, []character.EffectTone{}
-	change := func(kind character.ChangeKind, tone character.EffectTone, value *int, included *bool) {
-		changes = append(changes, character.EffectChange{Kind: kind, Value: value, Included: included})
-		tones = append(tones, tone)
+// Numbers start as included; TemporaryEffects corrects that when causes
+// overlap.
+func valueChanges(current, previous markedValue, d20 int) []measuredChange {
+	changes := []measuredChange{}
+	change := func(channel changeChannel, kind character.ChangeKind, tone character.EffectTone, value *int, included *bool) {
+		changes = append(changes, measuredChange{character.EffectChange{Kind: kind, Value: value, Included: included}, tone, channel})
 	}
-	included, separate := true, false
+	toneOf := func(delta int) character.EffectTone {
+		if delta < 0 {
+			return character.TonePenalty
+		}
+		return character.ToneBonus
+	}
 	if current.number != nil && previous.number != nil && *current.number != *previous.number {
 		delta := *current.number - *previous.number
-		tone := character.ToneBonus
-		if delta < 0 {
-			tone = character.TonePenalty
-		}
 		if current.speed && *current.number == 0 {
-			zero := 0
-			change(character.ChangeSet, tone, &zero, &included)
+			change(channelNumber, character.ChangeSet, toneOf(delta), intPointer(0), boolPointer(true))
 		} else {
-			change(character.ChangeAdd, tone, &delta, &included)
+			change(channelNumber, character.ChangeAdd, toneOf(delta), &delta, boolPointer(true))
 		}
 	}
 	if current.roll > previous.roll {
-		change(character.ChangeAdvantage, character.ToneBonus, nil, nil)
+		change(channelRoll, character.ChangeAdvantage, character.ToneBonus, nil, nil)
 	} else if current.roll < previous.roll {
-		change(character.ChangeDisadvantage, character.TonePenalty, nil, nil)
+		change(channelRoll, character.ChangeDisadvantage, character.TonePenalty, nil, nil)
 	}
 	if current.d20 && d20 != 0 {
-		tone := character.ToneBonus
-		if d20 < 0 {
-			tone = character.TonePenalty
-		}
-		value := d20
-		change(character.ChangeAdd, tone, &value, &separate)
+		change(channelD20, character.ChangeAdd, toneOf(d20), intPointer(d20), boolPointer(false))
 	}
 	if current.damage != nil && previous.damage != nil && *current.damage != *previous.damage {
 		now, nowOK := parseDamage(*current.damage)
@@ -253,21 +393,19 @@ func valueChanges(current, previous markedValue, d20 int) ([]character.EffectCha
 		switch {
 		case nowOK && beforeOK && now.dice == before.dice:
 			delta := now.flat - before.flat
-			tone := character.ToneBonus
-			if delta < 0 {
-				tone = character.TonePenalty
-			}
-			change(character.ChangeAdd, tone, &delta, &included)
+			change(channelDamage, character.ChangeAdd, toneOf(delta), &delta, boolPointer(true))
 		case nowOK && beforeOK && now.average() > before.average():
-			change(character.ChangeOther, character.ToneBonus, nil, nil)
+			change(channelDamage, character.ChangeOther, character.ToneBonus, nil, nil)
 		case nowOK && beforeOK && now.average() < before.average():
-			change(character.ChangeOther, character.TonePenalty, nil, nil)
+			change(channelDamage, character.ChangeOther, character.TonePenalty, nil, nil)
 		default:
-			change(character.ChangeOther, character.ToneMixed, nil, nil)
+			change(channelDamage, character.ChangeOther, character.ToneMixed, nil, nil)
 		}
 	}
-	return changes, tones
+	return changes
 }
+
+func intPointer(value int) *int { return &value }
 
 // combinedTone is the tone of several changes or causes: their shared tone,
 // or mixed when they differ.

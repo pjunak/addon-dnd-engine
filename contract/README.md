@@ -391,12 +391,21 @@ expiry are not temporary. Conditions an active item grants have no automated
 effect, concentration spells have no computed effects and temporary hit
 points are not marked, so none of them marks anything.
 
-Each cause is measured by calculating the same inputs again without it (the
-statistics only, without plan, guidance or explanations) and comparing the
-values below, so a mark follows every rule that applies the cause. Every value
-is better higher. A cause whose effect another one hides marks nothing on
-that value (a speed penalty on a Speed another condition holds at 0), and one
-whose removal leaves the character uncalculated marks nothing.
+The Engine calculates the character once without any temporary cause (the
+baseline) and once with each cause alone on top of it (the statistics only,
+without plan, guidance or explanations), and compares the values below, so a
+mark follows every rule that applies a cause. Every value is better higher. A
+value is marked when it differs from the baseline, in number or in net
+Advantage and Disadvantage, or when a cause alone changes it: two conditions
+that each give Disadvantage both mark the roll, and a temporary Advantage that
+cancels a temporary Disadvantage marks it `mixed` with both causes. A
+permanent effect is part of the baseline, so a temporary Disadvantage on
+Stealth under armor's Stealth Disadvantage marks nothing. The causes of a
+value are those that change it alone; an effect that appears only in
+combination is attributed by taking each cause away from the current state
+instead, and a marked value always lists a cause. One cause costs one more
+calculation and n causes n + 1, plus one per cause whose number overlaps with
+another's.
 
 | Path | Row | Value | D20 Test |
 | --- | --- | --- | --- |
@@ -431,7 +440,8 @@ negative for a penalty), `set` (a speed held at `value` 0), `advantage` or
 `disadvantage` (the net roll mark the cause adds or cancels), or `other` (a
 different damage die). `add` and `set` say in `included` whether the
 displayed value already holds them: a condition's D20 adjustment is an `add`
-with `included: false` on every D20 Test, beside the unchanged printed bonus.
+with `included: false` on every D20 Test, beside the unchanged printed bonus,
+and so is a number another cause overrides (a Speed penalty under Speed 0).
 A tone is `bonus` or `penalty`; changes or causes that disagree, and a change
 that is neither better nor worse, give `mixed`.
 

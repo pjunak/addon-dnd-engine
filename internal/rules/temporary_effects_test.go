@@ -8,8 +8,9 @@ import (
 	"github.com/pjunak/addon-dnd-engine/character"
 )
 
-// temporaryFixture is a level 2 fighter with synthetic conditions, a feature
-// the player can switch on and armor with Stealth Disadvantage to wear.
+// temporaryFixture is a level 2 fighter with synthetic conditions (some doing
+// the same thing), a feature the player can switch on and armor with Stealth
+// Disadvantage to wear.
 func temporaryFixture(t *testing.T) (character.Inputs, memoryRecords, Ruleset) {
 	t.Helper()
 	input, records, profile := conditionFixture(t)
@@ -17,6 +18,9 @@ func temporaryFixture(t *testing.T) (character.Inputs, memoryRecords, Ruleset) {
 		{ID: "fatigue", Name: "Fatigue", LabelKey: "condition.fatigue", MaximumLevel: 6, D20PenaltyPerLevel: 2, SpeedPenaltyPerLevel: 5},
 		{ID: "held", Name: "Held", MaximumLevel: 1, SpeedZero: true},
 		{ID: "queasy", Name: "Queasy", MaximumLevel: 1, Rolls: []conditionRoll{{On: character.RollAttack, Mode: character.RollDisadvantage}, {On: character.RollCheck, Mode: character.RollDisadvantage}}},
+		{ID: "sickly", Name: "Sickly", MaximumLevel: 1, Rolls: []conditionRoll{{On: character.RollAttack, Mode: character.RollDisadvantage}, {On: character.RollCheck, Mode: character.RollDisadvantage}}},
+		{ID: "bound", Name: "Bound", MaximumLevel: 1, SpeedZero: true},
+		{ID: "strained", Name: "Strained", MaximumLevel: 1, Rolls: []conditionRoll{{On: character.RollSave, Mode: character.RollDisadvantage, Abilities: []string{"STR"}}}},
 	}})
 	input.Build.Levels = append(input.Build.Levels, character.Level{ID: "level-two", ClassID: "fighter"})
 	records.byKind["feature"] = map[string]json.RawMessage{
@@ -226,9 +230,9 @@ func TestDamageTextsCompareByAverage(t *testing.T) {
 		{"3", "5", character.ChangeAdd, character.TonePenalty},
 	} {
 		now, before := test.now, test.before
-		changes, tones := valueChanges(markedValue{damage: &now}, markedValue{damage: &before}, 0)
-		if len(changes) != 1 || changes[0].Kind != test.kind || tones[0] != test.tone {
-			t.Fatal(test, changes, tones)
+		changes := valueChanges(markedValue{damage: &now}, markedValue{damage: &before}, 0)
+		if len(changes) != 1 || changes[0].Kind != test.kind || changes[0].tone != test.tone {
+			t.Fatal(test, changes)
 		}
 	}
 }
@@ -247,7 +251,8 @@ func TestTemporaryEffectsMarkAttackRowsByStableKey(t *testing.T) {
 }
 
 // BenchmarkTemporaryEffects measures marking three causes (two conditions and
-// a timed grant) on the large multiclass catalog: one more evaluation each.
+// a timed grant) on the large multiclass catalog: the baseline and each cause
+// alone, four values-only calculations.
 func BenchmarkTemporaryEffects(b *testing.B) {
 	input, records, profile := multiclassCatalogFixture(b)
 	profile.Constants.Character.ConditionRules = "table-states"
@@ -263,5 +268,86 @@ func BenchmarkTemporaryEffects(b *testing.B) {
 		if len(TemporaryEffects(result, records, profile)) == 0 {
 			b.Fatal("no marks")
 		}
+	}
+}
+
+func causeIDs(effect *character.TemporaryEffect) []string {
+	ids := []string{}
+	if effect != nil {
+		for _, cause := range effect.Causes {
+			ids = append(ids, cause.ID)
+		}
+	}
+	return ids
+}
+
+func TestTemporaryEffectsListEveryCauseOfAnOverlappingDisadvantage(t *testing.T) {
+	input, records, profile := temporaryFixture(t)
+	input.Play.Conditions = []character.Condition{{ID: "queasy", Level: 1}, {ID: "sickly", Level: 1}}
+	_, effects := temporaryEffectsOf(t, input, records, profile)
+	athletics := markOf(effects, "skills.athletics.total", "")
+	if athletics == nil || athletics.Tone != character.TonePenalty || !reflect.DeepEqual(causeIDs(athletics), []string{"queasy", "sickly"}) {
+		t.Fatalf("two conditions with the same Disadvantage: %+v", athletics)
+	}
+	for _, cause := range athletics.Causes {
+		if !reflect.DeepEqual(cause.Changes, []character.EffectChange{{Kind: character.ChangeDisadvantage}}) || cause.Tone != character.TonePenalty {
+			t.Fatalf("cause: %+v", cause)
+		}
+	}
+}
+
+func TestTemporaryEffectsListBothConditionsThatHoldSpeedAtZero(t *testing.T) {
+	input, records, profile := temporaryFixture(t)
+	input.Play.Conditions = []character.Condition{{ID: "held", Level: 1}, {ID: "bound", Level: 1}}
+	_, effects := temporaryEffectsOf(t, input, records, profile)
+	speed := markOf(effects, "derived.speed", "")
+	if speed == nil || speed.Tone != character.TonePenalty || !reflect.DeepEqual(causeIDs(speed), []string{"held", "bound"}) {
+		t.Fatalf("two Speed 0 conditions: %+v", speed)
+	}
+	for _, cause := range speed.Causes {
+		if !reflect.DeepEqual(cause.Changes, []character.EffectChange{{Kind: character.ChangeSet, Value: intOf(0), Included: boolOf(true)}}) {
+			t.Fatalf("cause: %+v", cause)
+		}
+	}
+}
+
+func TestTemporaryEffectsKeepAnOverriddenSpeedPenaltyOutOfTheShownValue(t *testing.T) {
+	input, records, profile := temporaryFixture(t)
+	input.Play.Conditions = []character.Condition{{ID: "held", Level: 1}, {ID: "fatigue", Level: 1}}
+	_, effects := temporaryEffectsOf(t, input, records, profile)
+	speed := markOf(effects, "derived.speed", "")
+	if speed == nil || !reflect.DeepEqual(causeIDs(speed), []string{"held", "fatigue"}) ||
+		!reflect.DeepEqual(speed.Causes[0].Changes, []character.EffectChange{{Kind: character.ChangeSet, Value: intOf(0), Included: boolOf(true)}}) ||
+		!reflect.DeepEqual(speed.Causes[1].Changes, []character.EffectChange{{Kind: character.ChangeAdd, Value: intOf(-5), Included: boolOf(false)}}) {
+		t.Fatalf("Speed 0 with a Speed penalty: %+v", speed)
+	}
+}
+
+func TestTemporaryEffectsMarkAnAdvantageAndADisadvantageThatCancel(t *testing.T) {
+	input, records, profile := temporaryFixture(t)
+	key := activationKey(EvaluateCharacter(input, records, profile), "stride")
+	input.Play.ActiveFeatures = map[string]bool{key: true}
+	input.Play.Conditions = []character.Condition{{ID: "strained", Level: 1}}
+	result, effects := temporaryEffectsOf(t, input, records, profile)
+	if save := result.Sheet.Saves["STR"]; save.Advantage || save.Disadvantage {
+		t.Fatal("fixture marks do not cancel", save)
+	}
+	save := markOf(effects, "saves.STR.total", "")
+	if save == nil || save.Tone != character.ToneMixed || !reflect.DeepEqual(causeIDs(save), []string{"strained", key}) ||
+		save.Causes[0].Changes[0].Kind != character.ChangeDisadvantage || save.Causes[1].Changes[0].Kind != character.ChangeAdvantage {
+		t.Fatalf("cancelling marks: %+v", save)
+	}
+}
+
+func TestTemporaryEffectsLeaveAPermanentDisadvantageUnmarkedUnderATemporaryOne(t *testing.T) {
+	input, records, profile := temporaryFixture(t)
+	input.Play.Inventory = []character.Item{{ID: "plate", Name: "Plate", Quantity: 1, Location: "equipped", Reference: &character.Reference{Kind: "armor", ID: "plate"}}}
+	input.Play.Conditions = []character.Condition{{ID: "queasy", Level: 1}}
+	_, effects := temporaryEffectsOf(t, input, records, profile)
+	if stealth := markOf(effects, "skills.stealth.total", ""); stealth != nil {
+		t.Fatal("Stealth stays at the armor's Disadvantage, yet was marked", stealth)
+	}
+	if markOf(effects, "skills.athletics.total", "") == nil {
+		t.Fatal("the condition's Disadvantage elsewhere was not marked")
 	}
 }

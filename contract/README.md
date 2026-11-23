@@ -948,8 +948,9 @@ their declared `rolls` (source `{type: "condition"}`). An entry with a `when`
 text (for example "against spells") is situational: it is listed but marks no
 row. Every other entry marks the net result, because Advantage and Disadvantage
 on the same roll cancel: save and skill rows get `advantage` or `disadvantage:
-true`, an ability-scoped check marks `abilities.<A>.checkAdvantage` or
-`checkDisadvantage`, and the rest set `<roll>Advantage` or `<roll>Disadvantage`
+true`, a check marks `abilities.<A>.checkAdvantage` or `checkDisadvantage`
+for the abilities it names (every ability when it names no ability or
+skill, as Poisoned's Disadvantage on ability checks does), and the rest set `<roll>Advantage` or `<roll>Disadvantage`
 (`attack`, `initiative`, `concentration`, `deathSave`); a cancelled roll is
 unmarked. `sheet.advantages` lists every entry with its source and mode
 (omitted for Advantage). Rolls themselves are not resolved.

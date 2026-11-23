@@ -101,7 +101,13 @@ func applyRollMarks(sheet *character.Calculation) {
 					mark("skill:"+id, entry.Mode)
 				}
 			}
-			for _, ability := range entry.Abilities {
+			// An entry naming no ability or skill covers every ability check,
+			// a plain one as much as a skill.
+			abilities := entry.Abilities
+			if len(entry.Skills)+len(entry.Abilities) == 0 {
+				abilities = Abilities[:]
+			}
+			for _, ability := range abilities {
 				mark("ability:"+ability, entry.Mode)
 			}
 		case character.RollAttack, character.RollInitiative, character.RollConcentration, character.RollDeathSave:

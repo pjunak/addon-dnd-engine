@@ -94,3 +94,28 @@ func TestMalformedConditionRollsFailClosed(t *testing.T) {
 		t.Fatal("an unknown roll kind was accepted")
 	}
 }
+
+// A roll on every ability check (a check entry naming no ability or skill)
+// covers a plain ability check too, not only the skills.
+func TestAnUnscopedCheckEntryMarksEveryAbilityCheck(t *testing.T) {
+	input, records, profile := conditionFixture(t)
+	records.byKind["rule"]["table-states"] = mustJSON(Object{"id": "table-states", "kind": "rule", "name": "Synthetic condition rules", "book": "test", "conditionDefinitions": []conditionDefinition{
+		{ID: "queasy", Name: "Queasy", MaximumLevel: 1, Rolls: []conditionRoll{{On: character.RollCheck, Mode: character.RollDisadvantage}}},
+		{ID: "weak-arm", Name: "Weak arm", MaximumLevel: 1, Rolls: []conditionRoll{{On: character.RollCheck, Mode: character.RollDisadvantage, Abilities: []string{"STR"}}}},
+	}})
+	input.Play.Conditions = []character.Condition{{ID: "queasy", Level: 1}}
+	sheet := EvaluateCharacter(input, records, profile).Sheet
+	for _, ability := range Abilities {
+		if row := sheet.Abilities[ability]; !row.CheckDisadvantage || row.CheckAdvantage {
+			t.Fatalf("%s check: %+v", ability, row)
+		}
+	}
+	if !sheet.Skills["athletics"].Disadvantage {
+		t.Fatal("the skills lost their mark")
+	}
+	input.Play.Conditions = []character.Condition{{ID: "weak-arm", Level: 1}}
+	sheet = EvaluateCharacter(input, records, profile).Sheet
+	if !sheet.Abilities["STR"].CheckDisadvantage || sheet.Abilities["DEX"].CheckDisadvantage {
+		t.Fatal("an ability-scoped entry marked another ability", sheet.Abilities)
+	}
+}
